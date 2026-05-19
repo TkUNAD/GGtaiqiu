@@ -1,0 +1,50 @@
+{
+  "lazyCodeLoading": "requiredComponents",
+  "pages": [
+    "pages/index/index",
+    "pages/table/table",
+    "pages/match-result/match-result",
+    "pages/rank/rank",
+    "pages/profile/profile",
+    "pages/shop/shop"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#6B21A8",
+    "navigationBarTitleText": "台球天梯",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#2563EB"
+  },
+  "tabBar": {
+    "color": "#C4B5FD",
+    "selectedColor": "#FFFFFF",
+    "backgroundColor": "#4C1D95",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "assets/home.png",
+        "selectedIconPath": "assets/home-active.png"
+      },
+      {
+        "pagePath": "pages/rank/rank",
+        "text": "天梯榜",
+        "iconPath": "assets/rank.png",
+        "selectedIconPath": "assets/rank-active.png"
+      },
+      {
+        "pagePath": "pages/shop/shop",
+        "text": "积分商城",
+        "iconPath": "assets/shop.png",
+        "selectedIconPath": "assets/shop-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/user.png",
+        "selectedIconPath": "assets/user-active.png"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}

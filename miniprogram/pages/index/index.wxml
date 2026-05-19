@@ -1,0 +1,63 @@
+<view class="container">
+  <view class="net-tip" wx:if="{{netError}}">
+    <text class="net-title">网络未连接</text>
+    <text class="net-msg">{{netError}}</text>
+    <text class="net-url">当前接口：{{apiUrl}}</text>
+    <view class="btn-primary" bindtap="retryNetwork">重新检测</view>
+  </view>
+
+  <view class="hero card">
+    <view class="title">台球天梯系统</view>
+    <view wx:if="{{user}}">
+      <text>{{user.nickname}}</text>
+      <text wx:if="{{user.tier}}"> | {{user.tier.tier_name}} {{user.tier.star}}星</text>
+      <text> | {{user.score}}分</text>
+      <text wx:if="{{user.rank}}"> | 第{{user.rank}}名</text>
+    </view>
+    <view wx:else>
+      <view class="btn-primary {{logging ? 'disabled' : ''}}" bindtap="onLogin">
+        {{logging ? '登录中...' : '微信授权登录'}}
+      </view>
+      <view class="dev-login" wx:if="{{showTestLogin}}">
+        <text class="dev-label">测试专用（固定2个账号）</text>
+        <view class="dev-btns">
+          <view class="btn-test" bindtap="loginTest" data-role="a">选手A 登录</view>
+          <view class="btn-test" bindtap="loginTest" data-role="b">选手B 登录</view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{user}}" class="btn-logout" bindtap="onLogout">退出当前账号</view>
+  </view>
+
+  <view class="card">
+    <view class="title">扫码开台对战</view>
+    <view class="btn-primary" bindtap="scanTable">扫描桌台二维码</view>
+    <text class="tip">支持抢5、抢7，需后台开台才能打排位</text>
+  </view>
+
+  <view class="card" wx:if="{{challengeTargets.length}}">
+    <view class="title">可挑战玩家 (高1~5名)</view>
+    <view class="challenge-item" wx:for="{{challengeTargets}}" wx:key="id" bindtap="challenge" data-target="{{item}}">
+      <text>第{{item.rank}}名 {{item.nickname}} - {{item.score}}分</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">天梯 TOP5</view>
+    <view class="rank-row" wx:for="{{topRank}}" wx:key="id">
+      <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
+      <text class="num" wx:else>{{item.rank}}</text>
+      <text class="name">{{item.nickname}}</text>
+      <text class="score">{{item.score}}</text>
+    </view>
+    <view class="btn-secondary" bindtap="goRank">查看完整榜单</view>
+  </view>
+
+  <view class="card">
+    <view class="title">桌台状态</view>
+    <view class="table-row" wx:for="{{tables}}" wx:key="id">
+      <text>{{item.name}}</text>
+      <text class="{{item.opened ? 'open' : 'closed'}}">{{item.opened ? '已开台' : '未开台'}}</text>
+    </view>
+  </view>
+</view>

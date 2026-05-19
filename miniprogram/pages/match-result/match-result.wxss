@@ -1,0 +1,16 @@
+.container { padding: 24rpx; padding-bottom: 60rpx; }
+.header { text-align: center; }
+.title { font-size: 40rpx; color: #E9D5FF; font-weight: bold; }
+.sub { display: block; color: #A5B4FC; margin-top: 12rpx; }
+.invalid, .warn { display: block; color: #F472B6; margin-top: 8rpx; font-size: 24rpx; }
+.score-card { margin-top: 24rpx; }
+.player { text-align: center; padding: 24rpx; border-radius: 12rpx; background: rgba(0,0,0,0.2); margin: 12rpx 0; }
+.player.winner { border: 2rpx solid #E9D5FF; background: rgba(147,51,234,0.25); }
+.name { display: block; font-size: 32rpx; font-weight: bold; }
+.frames { display: block; font-size: 48rpx; color: #BFDBFE; margin: 12rpx 0; }
+.delta { display: block; font-size: 28rpx; margin: 8rpx 0; }
+.plus { color: #86EFAC; }
+.minus { color: #F87171; }
+.now { display: block; font-size: 24rpx; color: #C4B5FD; }
+.stats { display: flex; justify-content: center; gap: 32rpx; margin-top: 16rpx; font-size: 26rpx; color: #93C5FD; }
+.vs { text-align: center; color: #A78BFA; font-size: 28rpx; margin: 8rpx 0; }

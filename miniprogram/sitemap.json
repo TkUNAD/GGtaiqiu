@@ -1,0 +1,4 @@
+{
+  "desc": "台球天梯",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

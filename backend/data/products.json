@@ -1,0 +1,20 @@
+[
+  {
+    "id": "P001",
+    "name": "台费1小时",
+    "type": "台费",
+    "points": 200,
+    "stock": 100,
+    "desc": "抵扣台费1小时",
+    "enabled": true
+  },
+  {
+    "id": "P002",
+    "name": "可乐",
+    "type": "饮品",
+    "points": 80,
+    "stock": 50,
+    "desc": "冰镇可乐一瓶",
+    "enabled": true
+  }
+]

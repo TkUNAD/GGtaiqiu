@@ -1,0 +1,29 @@
+# Python
+backend/venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.*
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# WeChat devtools private config (may contain appid)
+miniprogram/project.private.config.json
+
+# Logs
+*.log

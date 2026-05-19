@@ -1,0 +1,13 @@
+[
+  {
+    "id": "V001",
+    "name": "默认球房",
+    "username": "GG台球俱乐部",
+    "password_hash": "scrypt:32768:8:1$LOEiWKpq8EwO4js5$a7e2fe940621e82fef09f19032544fa7092eb0bbb302711b2277718a22314b3225c2c50955446de075d9be7b13869578845f8eecc6ddcdc18c9b53cd89ad7c8b",
+    "member_expires_at": "2099-12-31T23:59:59",
+    "contact_phone": "",
+    "note": "演示球房（已开通会员）",
+    "created_at": "2026-05-18T22:01:30.489259",
+    "updated_at": "2026-05-18T22:08:10.846748"
+  }
+]

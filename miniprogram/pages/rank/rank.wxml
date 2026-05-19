@@ -1,0 +1,13 @@
+<view class="container">
+  <view class="header">天梯排行榜</view>
+  <view class="rank-item {{item.rank <= 5 ? 'top' : ''}}" wx:for="{{list}}" wx:key="id" wx:for-index="index">
+    <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
+    <text class="rank-num" wx:else>{{item.rank}}</text>
+    <view class="info">
+      <text class="name">{{item.nickname}}</text>
+      <text class="tier">{{item.tier_name}} {{item.star}}星</text>
+    </view>
+    <text class="score">{{item.score}}</text>
+  </view>
+  <view wx:if="{{!loading && !list.length}}" class="empty">暂无数据</view>
+</view>

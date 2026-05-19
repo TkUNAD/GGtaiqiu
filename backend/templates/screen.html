@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台球天梯榜 - 投屏大屏</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(180deg, #6B21A8 0%, #4F46E5 30%, #2563EB 65%, #1E3A8A 100%);
+      color: #E8EAF6;
+      font-family: "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    .header {
+      text-align: center;
+      padding: 24px;
+      background: rgba(0,0,0,0.35);
+      border-bottom: 3px solid #A78BFA;
+    }
+    .header h1 {
+      font-size: 48px;
+      color: #E9D5FF;
+      text-shadow: 0 0 24px rgba(167,139,250,0.6);
+      letter-spacing: 8px;
+    }
+    .header .season { font-size: 20px; color: #BFDBFE; margin-top: 8px; }
+    .main { display: flex; height: calc(100vh - 120px); padding: 20px; gap: 20px; }
+    .panel {
+      background: rgba(0,0,0,0.25);
+      border: 2px solid rgba(167,139,250,0.5);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 0 30px rgba(99,102,241,0.25);
+      backdrop-filter: blur(8px);
+    }
+    .rank-panel { flex: 1.2; }
+    .table-panel { flex: 0.8; }
+    .violation-panel { flex: 0.5; }
+    .panel-title {
+      font-size: 28px;
+      color: #C4B5FD;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #6366F1;
+    }
+    .rank-list { list-style: none; }
+    .rank-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      font-size: 22px;
+    }
+    .rank-item.top3 { background: linear-gradient(90deg, rgba(233,213,255,0.25), transparent); border-left: 4px solid #E9D5FF; }
+    .rank-num { width: 50px; font-weight: bold; color: #E9D5FF; }
+    .rank-icon { width: 50px; font-size: 28px; text-align: center; }
+    .rank-name { flex: 1; }
+    .rank-tier { color: #93C5FD; font-size: 18px; margin-right: 12px; }
+    .rank-score { color: #BFDBFE; font-weight: bold; min-width: 80px; text-align: right; }
+    .table-card {
+      background: rgba(0,0,0,0.35);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(147,197,253,0.4);
+    }
+    .table-name { font-size: 24px; color: #C4B5FD; margin-bottom: 8px; }
+    .score-display {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 32px;
+    }
+    .vs { color: #93C5FD; font-size: 24px; }
+    .violation-item {
+      padding: 8px;
+      margin-bottom: 6px;
+      background: rgba(198,40,40,0.3);
+      border-radius: 6px;
+      font-size: 16px;
+      color: #ffcdd2;
+    }
+    .empty { color: #A5B4FC; text-align: center; padding: 40px; font-size: 20px; }
+    .clock { position: fixed; top: 20px; right: 30px; font-size: 24px; color: #C4B5FD; z-index: 100; }
+    .cheat-ticker {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+      background: linear-gradient(90deg, #B91C1C, #DC2626);
+      padding: 18px 0; overflow: hidden; display: none;
+      border-bottom: 3px solid #FCA5A5;
+    }
+    .cheat-ticker.show { display: block; }
+    .cheat-ticker-inner {
+      display: inline-block; white-space: nowrap;
+      font-size: 32px; color: #FFF; font-weight: bold;
+      padding-left: 100%;
+      animation: cheat-scroll 12s linear forwards;
+    }
+    @keyframes cheat-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-200%); }
+    }
+  </style>
+</head>
+<body>
+  <div id="cheatTicker" class="cheat-ticker">
+    <div id="cheatTickerInner" class="cheat-ticker-inner"></div>
+  </div>
+  <div class="clock" id="clock"></div>
+  <div class="header">
+    <h1>台球天梯排行榜</h1>
+    <div class="season" id="seasonInfo">赛季加载中...</div>
+  </div>
+  <div class="main">
+    <div class="panel rank-panel">
+      <div class="panel-title">天梯 TOP 20</div>
+      <ul class="rank-list" id="rankList"></ul>
+    </div>
+    <div class="panel table-panel">
+      <div class="panel-title">实时桌台对战</div>
+      <div id="tableList"></div>
+    </div>
+    <div class="panel violation-panel">
+      <div class="panel-title">违规公示</div>
+      <div id="violationList"></div>
+    </div>
+  </div>
+  <script>
+    const API = location.origin;
+    const socket = io(API);
+
+    function updateClock() {
+      document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    var cheatPlayedKeys = {};
+    var RANK_ICONS = { 1: '🥇', 2: '🥈', 3: '🥉', 4: '4️⃣', 5: '5️⃣' };
+    function rankBadge(rank) {
+      var icon = RANK_ICONS[rank];
+      if (icon) return '<span class="rank-icon">' + icon + '</span>';
+      return '<span class="rank-num">' + rank + '</span>';
+    }
+
+    function playCheatAnnouncements(list) {
+      if (!list || !list.length) return;
+      var item = list[0];
+      var key = (item.at || '') + (item.message || item.nickname || '');
+      if (cheatPlayedKeys[key]) return;
+      cheatPlayedKeys[key] = true;
+      var times = Math.max(1, parseInt(item.scroll_times, 10) || 3);
+      var text = item.message || (item.nickname + ' 违规处罚公示');
+      var ticker = document.getElementById('cheatTicker');
+      var inner = document.getElementById('cheatTickerInner');
+      var run = 0;
+      function once() {
+        ticker.classList.add('show');
+        inner.textContent = text;
+        inner.style.animation = 'none';
+        void inner.offsetWidth;
+        inner.style.animation = 'cheat-scroll 12s linear';
+        run += 1;
+        if (run < times) {
+          setTimeout(once, 12500);
+        } else {
+          setTimeout(function() { ticker.classList.remove('show'); }, 12500);
+        }
+      }
+      once();
+    }
+
+    function render(data) {
+      playCheatAnnouncements(data.cheat_announcements);
+      const season = data.season || {};
+      document.getElementById('seasonInfo').textContent = '当前赛季: ' + (season.current || '-');
+
+      const list = document.getElementById('rankList');
+      const board = data.leaderboard || [];
+      if (!board.length) {
+        list.innerHTML = '<li class="empty">暂无排名数据</li>';
+      } else {
+        list.innerHTML = board.map(function(item, i) {
+          return '<li class="rank-item ' + (item.rank <= 5 ? 'top3' : '') + '">' +
+            rankBadge(item.rank) +
+            '<span class="rank-name">' + item.nickname + '</span>' +
+            '<span class="rank-tier">' + item.tier_name + ' ' + '★'.repeat(item.star) + '</span>' +
+            '<span class="rank-score">' + item.score + '分</span></li>';
+        }).join('');
+      }
+
+      const tables = document.getElementById('tableList');
+      const active = data.tables || [];
+      if (!active.length) {
+        tables.innerHTML = '<div class="empty">暂无进行中桌台</div>';
+      } else {
+        tables.innerHTML = active.map(function(t) {
+          return '<div class="table-card"><div class="table-name">' + t.table_name + '</div>' +
+            '<div class="score-display"><span>' + t.p1_name + '</span>' +
+            '<span class="vs">' + t.score1 + ' : ' + t.score2 + '</span>' +
+            '<span>' + t.p2_name + '</span></div>' +
+            '<div style="text-align:center;color:#93C5FD;margin-top:8px">抢' + t.race_to + '</div></div>';
+        }).join('');
+      }
+
+      const viol = document.getElementById('violationList');
+      const vlist = data.violations || [];
+      viol.innerHTML = vlist.length ? vlist.map(function(v) {
+        return '<div class="violation-item">' + v.nickname + ': ' + v.reason + ' [' + v.action + ']</div>';
+      }).join('') : '<div class="empty">无违规公示</div>';
+    }
+
+    socket.on('update', render);
+    fetch(API + '/api/screen/data').then(function(r) { return r.json(); }).then(function(d) {
+      if (d.code === 0) render(d.data);
+    });
+    setInterval(function() {
+      fetch(API + '/api/screen/data').then(function(r) { return r.json(); }).then(function(d) {
+        if (d.code === 0) render(d.data);
+      });
+    }, 15000);
+  </script>
+</body>
+</html>

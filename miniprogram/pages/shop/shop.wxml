@@ -1,0 +1,35 @@
+<view class="tabs">
+  <view class="tab {{tab === 'shop' ? 'active' : ''}}" data-tab="shop" bindtap="switchTab">积分商城</view>
+  <view class="tab {{tab === 'records' ? 'active' : ''}}" data-tab="records" bindtap="switchTab">兑换记录</view>
+</view>
+
+<view wx:if="{{!loggedIn}}" class="card login-hint">
+  <text>登录后可查看积分与兑换记录</text>
+  <view class="btn-primary" bindtap="goLogin">去登录</view>
+</view>
+
+<view wx:if="{{tab === 'shop'}}">
+  <view class="rules-hint card" wx:if="{{exchangeRules}}">
+    <text>{{exchangeRules.rule_text}}</text>
+    <text class="rules-sub">当前积分 {{exchangeRules.user_score}}，今日已兑 {{exchangeRules.exchanges_today}}/{{exchangeRules.daily_limit}} 次</text>
+  </view>
+  <view class="product card" wx:for="{{products}}" wx:key="id">
+    <view class="pname">{{item.name}}</view>
+    <view class="ptype">{{item.type}} | {{item.desc}}</view>
+    <view class="prow">
+      <text class="points">{{item.points}} 积分</text>
+      <text class="stock">库存 {{item.stock}}</text>
+      <view class="btn-small" bindtap="exchange" data-id="{{item.id}}" data-name="{{item.name}}">兑换</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{tab === 'records'}}">
+  <view class="record card" wx:for="{{exchanges}}" wx:key="id">
+    <text>{{item.product_name}}</text>
+    <text>-{{item.points}} 积分</text>
+    <text class="status">{{item.statusLabel || item.status}}</text>
+    <text class="time">{{item.created_at}}</text>
+  </view>
+  <view wx:if="{{!exchanges.length}}" class="empty">暂无兑换记录</view>
+</view>

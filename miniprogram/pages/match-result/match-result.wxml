@@ -1,0 +1,46 @@
+<view class="container" wx:if="{{summary}}">
+  <view class="header card">
+    <view class="title">对局结束</view>
+    <text class="sub">{{summary.match_type === 'ranked' ? '排位赛' : '休闲局'}} · 抢{{summary.race_to}}</text>
+    <text wx:if="{{summary.invalid_reason}}" class="invalid">{{summary.invalid_reason}}</text>
+    <text wx:if="{{summary.half_points}}" class="warn">未打满局数，积分减半</text>
+  </view>
+
+  <view class="score-card card">
+    <view class="player {{summary.player1.is_winner ? 'winner' : ''}}">
+      <text class="name">{{summary.player1.nickname}}</text>
+      <text class="frames">{{summary.score1}} 局</text>
+      <text class="delta {{summary.player1.point_delta >= 0 ? 'plus' : 'minus'}}">
+        积分 {{summary.player1.point_delta >= 0 ? '+' : ''}}{{summary.player1.point_delta}}
+      </text>
+      <text class="now">当前 {{summary.player1.score}} 分</text>
+      <view class="stats">
+        <text>炸清 {{summary.player1.break_run}}</text>
+        <text>接清 {{summary.player1.clearance}}</text>
+      </view>
+    </view>
+    <view class="vs">VS</view>
+    <view class="player {{summary.player2.is_winner ? 'winner' : ''}}">
+      <text class="name">{{summary.player2.nickname}}</text>
+      <text class="frames">{{summary.score2}} 局</text>
+      <text class="delta {{summary.player2.point_delta >= 0 ? 'plus' : 'minus'}}">
+        积分 {{summary.player2.point_delta >= 0 ? '+' : ''}}{{summary.player2.point_delta}}
+      </text>
+      <text class="now">当前 {{summary.player2.score}} 分</text>
+      <view class="stats">
+        <text>炸清 {{summary.player2.break_run}}</text>
+        <text>接清 {{summary.player2.clearance}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="btn-primary" bindtap="onClose">关闭</view>
+</view>
+<view class="container" wx:else>
+  <view class="card">
+    <view class="title">无法加载结算</view>
+    <text class="sub">{{loadError || '对局未结束或网络异常'}}</text>
+    <view class="btn-primary" bindtap="onClose">返回我的</view>
+    <view class="btn-secondary" bindtap="load" style="margin-top:16rpx">重试</view>
+  </view>
+</view>

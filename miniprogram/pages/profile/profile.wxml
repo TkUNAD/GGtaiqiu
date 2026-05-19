@@ -1,0 +1,39 @@
+<view class="container" wx:if="{{profile}}">
+  <view class="card profile-card">
+    <image class="avatar" src="{{profile.user.avatar || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+    <view class="name">{{profile.user.nickname}}</view>
+    <view class="tier" wx:if="{{profile.tier}}">{{profile.tier.tier_name}} {{profile.tier.star}}星</view>
+    <view class="score">{{profile.user.score}} 积分 | {{profile.rank >= 9999 ? '未上榜' : '排名第 ' + profile.rank}}</view>
+    <view class="stats">
+      胜 {{profile.user.wins}} / 负 {{profile.user.losses}} | 胜率 {{profile.win_rate}}%
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">绑定手机 (1手机1账号)</view>
+    <input placeholder="请输入手机号" type="number" maxlength="11" bindinput="onPhoneInput" value="{{phone}}" />
+    <view class="btn-primary" bindtap="bindPhone">绑定</view>
+  </view>
+
+  <view class="card">
+    <view class="title">最近对局</view>
+    <view class="match-row" wx:for="{{profile.recent_matches}}" wx:key="id">
+      <text>{{item.match_type === 'ranked' ? '排位' : '休闲'}} {{item.score1}}:{{item.score2}}</text>
+      <text class="status">{{item.status}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">积分记录</view>
+    <view class="log-row" wx:for="{{profile.score_logs}}" wx:key="id">
+      <text>{{item.reason}}</text>
+      <text class="{{item.delta > 0 ? 'plus' : 'minus'}}">{{item.delta > 0 ? '+' : ''}}{{item.delta}}</text>
+    </view>
+  </view>
+
+  <view class="btn-secondary" bindtap="goShop">我的兑换记录</view>
+</view>
+<view wx:else class="empty card">
+  <text class="hint">请先在首页完成微信授权登录</text>
+  <view class="btn-primary" bindtap="goLogin">去首页登录</view>
+</view>

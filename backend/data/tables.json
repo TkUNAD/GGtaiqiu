@@ -1,0 +1,59 @@
+[
+  {
+    "id": "T01",
+    "name": "1号桌",
+    "venue_id": "V001",
+    "qr_token": "table_T01",
+    "opened": false,
+    "current_match_id": null,
+    "opened_at": null,
+    "waiting_players": []
+  },
+  {
+    "id": "T02",
+    "name": "2号桌",
+    "venue_id": "V001",
+    "qr_token": "table_T02",
+    "opened": false,
+    "current_match_id": null,
+    "waiting_players": []
+  },
+  {
+    "id": "T03",
+    "name": "3号桌",
+    "venue_id": "V001",
+    "qr_token": "table_T03",
+    "opened": false,
+    "current_match_id": null,
+    "waiting_players": []
+  },
+  {
+    "id": "T04",
+    "name": "4号桌",
+    "venue_id": "V001",
+    "qr_token": "table_T04",
+    "opened": false,
+    "current_match_id": null,
+    "waiting_players": []
+  },
+  {
+    "id": "T05",
+    "name": "乔氏金腿",
+    "venue_id": "V001",
+    "qr_token": "table_T05",
+    "opened": false,
+    "current_match_id": null,
+    "opened_at": null,
+    "waiting_players": []
+  },
+  {
+    "id": "T153554ab9f74",
+    "name": "关台测试桌",
+    "venue_id": "default",
+    "opened": false,
+    "opened_at": null,
+    "waiting_players": [],
+    "current_match_id": null,
+    "qr_token": "qt"
+  }
+]

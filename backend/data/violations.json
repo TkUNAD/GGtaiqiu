@@ -1,0 +1,74 @@
+[
+  {
+    "id": "V15682b3d6c55",
+    "user_id": "U0f5970764413",
+    "reason": null,
+    "action": "reset_score",
+    "public": true,
+    "created_at": "2026-05-19T00:38:48.112150"
+  },
+  {
+    "id": "V0d71b09ab044",
+    "user_id": "U6921f5ac77ac",
+    "reason": null,
+    "action": "reset_score",
+    "public": true,
+    "created_at": "2026-05-19T00:50:54.916915"
+  },
+  {
+    "id": "V392c80b9faed",
+    "user_id": "U7da49df39f6f",
+    "reason": "违规处理",
+    "action": "reset_score",
+    "public": true,
+    "created_at": "2026-05-19T00:51:55.691118"
+  },
+  {
+    "id": "V06949ee82ac4",
+    "user_id": "U7da49df39f6f",
+    "reason": "违规处理",
+    "action": "reset_score",
+    "public": true,
+    "created_at": "2026-05-19T00:51:57.939365"
+  },
+  {
+    "id": "V84e2d2f628c6",
+    "user_id": "U6a9c01f525b2",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-19T11:23:27.878719"
+  },
+  {
+    "id": "Vce5061b0819d",
+    "user_id": "U9eb7cf34f213",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-19T12:01:19.854507"
+  },
+  {
+    "id": "V5175f34e4c5b",
+    "user_id": "U2fa8c41cb508",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-19T14:14:49.437494"
+  },
+  {
+    "id": "V465b58db1ac4",
+    "user_id": "U96143924c42d",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-19T14:31:58.224724"
+  },
+  {
+    "id": "Vcb411967ae04",
+    "user_id": "U301bf3043e63",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-19T14:33:45.056350"
+  }
+]

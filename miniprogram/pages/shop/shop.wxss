@@ -1,0 +1,35 @@
+.login-hint {
+  margin: 20rpx;
+  padding: 32rpx;
+  text-align: center;
+  color: #E9D5FF;
+}
+.login-hint .btn-primary {
+  margin-top: 24rpx;
+}
+.rules-hint {
+  margin: 20rpx 20rpx 0;
+  padding: 24rpx;
+  font-size: 26rpx;
+  color: #E9D5FF;
+  line-height: 1.5;
+}
+.rules-sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #A5B4FC;
+}
+.tabs { display: flex; margin: 20rpx; }
+.tab { flex: 1; text-align: center; padding: 20rpx; background: rgba(0, 0, 0, 0.25); color: #C4B5FD; }
+.tab.active { background: linear-gradient(180deg, #7C3AED, #3B82F6); color: #fff; }
+.pname { font-size: 32rpx; font-weight: bold; }
+.ptype { font-size: 24rpx; color: #A5B4FC; margin: 8rpx 0; }
+.prow { display: flex; align-items: center; justify-content: space-between; }
+.points { color: #E9D5FF; }
+.stock { font-size: 24rpx; color: #93C5FD; }
+.btn-small { background: linear-gradient(180deg, #9333EA, #2563EB); padding: 12rpx 24rpx; border-radius: 8rpx; font-size: 26rpx; }
+.record { display: flex; flex-direction: column; gap: 8rpx; }
+.status { color: #93C5FD; }
+.time { font-size: 22rpx; color: #818CF8; }
+.empty { text-align: center; padding: 60rpx; color: #A5B4FC; }

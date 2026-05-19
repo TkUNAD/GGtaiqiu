@@ -1,0 +1,44 @@
+{
+  "public_violations": [
+    {
+      "user_id": "U7da49df39f6f",
+      "nickname": "球友KzFR",
+      "reason": "违规处理",
+      "action": "reset_score",
+      "at": "2026-05-19T00:51:57.941534"
+    },
+    {
+      "user_id": "U7da49df39f6f",
+      "nickname": "球友KzFR",
+      "reason": "违规处理",
+      "action": "reset_score",
+      "at": "2026-05-19T00:51:55.692690"
+    },
+    {
+      "user_id": "U6921f5ac77ac",
+      "nickname": "球友zAl3",
+      "reason": null,
+      "action": "reset_score",
+      "at": "2026-05-19T00:50:54.918357"
+    },
+    {
+      "user_id": "U0f5970764413",
+      "nickname": "球友t001",
+      "reason": null,
+      "action": "reset_score",
+      "at": "2026-05-19T00:38:48.113655"
+    }
+  ],
+  "ladder_rules": {
+    "challenge_rank_min": 1,
+    "challenge_rank_max": 5,
+    "beyond_rank_daily_bonus_only": true,
+    "daily_ranked_limit": 2,
+    "weekly_ranked_limit": 9,
+    "ranked_over_limit_to_casual": true,
+    "daily_bonus_valid_match": 5,
+    "daily_bonus_break_run": 20,
+    "daily_bonus_clearance": 15,
+    "daily_bonus_hour_open": 8
+  }
+}
