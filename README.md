@@ -76,6 +76,7 @@ https://你的域名/pages/table/table?table_id=T01&qr_token=table_T01
 
 | 文档 | 说明 |
 |------|------|
+| [docs/deploy-wxcloud.md](docs/deploy-wxcloud.md) | **微信云托管**部署、端口与环境变量 |
 | [docs/wechat-login.md](docs/wechat-login.md) | 微信授权登录流程、接口、配置与排错 |
 | [docs/scoring-rules.md](docs/scoring-rules.md) | 排位/休闲/炸清接清等加分规则 |
 

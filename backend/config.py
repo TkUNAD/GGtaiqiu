@@ -95,6 +95,9 @@ if WECHAT_SECRET:
 # 开发模式：无微信 AppID 时可用 code 模拟 openid（正式环境请保持 false 并配置 AppID）
 DEV_MODE = os.environ.get("DEV_MODE", "false").lower() in ("1", "true", "yes")
 
+# 微信云托管容器（Dockerfile 中 WX_CLOUD_RUN=1）；未配齐密钥时先 WARN 避免启动即退出
+WX_CLOUD_RUN = os.environ.get("WX_CLOUD_RUN", "").lower() in ("1", "true", "yes")
+
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 5000))
 
@@ -131,9 +134,12 @@ def validate_production_secrets() -> None:
     if JWT_SECRET in (DEFAULT_JWT_SECRET, DEFAULT_SECRET_KEY):
         problems.append("JWT_SECRET 仍为默认值")
     if problems:
-        raise RuntimeError(
-            "生产环境安全配置未就绪: " + "; ".join(problems) + "。请配置 .env 或环境变量。"
-        )
+        msg = "生产环境安全配置未就绪: " + "; ".join(problems) + "。请在云托管「服务设置」配置环境变量。"
+        if WX_CLOUD_RUN:
+            print(f"WARN [WX_CLOUD_RUN]: {msg}")
+            print("WARN: 请尽快设置 SECRET_KEY、JWT_SECRET、WECHAT_SECRET 后重新发布。")
+            return
+        raise RuntimeError(msg + " 请配置 .env 或环境变量。")
     if ADMIN_PASS == "admin123":
         print("WARN: ADMIN_PASS 仍为默认 admin123，生产环境建议在后台修改为强密码。")
 

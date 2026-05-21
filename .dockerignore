@@ -1,0 +1,28 @@
+# Git / IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Python
+backend/venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+
+# 密钥与本地配置（勿打进镜像）
+.env
+.env.local
+wechat.secret.txt
+backend/config_local.py
+*.pem
+
+# 微信开发者工具私有配置
+project.private.config.json
+miniprogram/project.private.config.json
+
+# 日志与系统
+*.log
+Thumbs.db
+.DS_Store
