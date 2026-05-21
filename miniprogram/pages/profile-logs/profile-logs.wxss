@@ -1,0 +1,13 @@
+.item { margin-bottom: 20rpx; }
+.row-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 28rpx;
+  margin-bottom: 8rpx;
+}
+.row-bot { margin-bottom: 6rpx; }
+.sub { font-size: 24rpx; color: #A5B4FC; }
+.plus { color: #93C5FD; font-weight: bold; }
+.minus { color: #F472B6; font-weight: bold; }
+.time { font-size: 22rpx; color: #A5B4FC; display: block; text-align: right; }
+.hint, .empty, .err { text-align: center; color: #C4B5FD; }

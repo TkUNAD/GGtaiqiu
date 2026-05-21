@@ -2,28 +2,21 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
-from config import DEV_MODE, DAILY_SCORE_ALERT, INITIAL_SCORE, MIN_MATCH_SECONDS, SAME_IP_MAX_ACCOUNTS
-
-# 开发/测试环境放宽，便于模拟多账号
-DEV_SAME_IP_MAX_ACCOUNTS = 50
+from config import DAILY_SCORE_ALERT, INITIAL_SCORE, MIN_MATCH_SECONDS, PERMANENT_BAN_VIOLATION_COUNT
 from db import load, mutate, now_iso, new_id
+
+SERIOUS_VIOLATION_ACTIONS = frozenset({
+    "cheat_penalty",
+    "cheat",
+    "ban",
+    "malicious_score",
+    "record_cheat",
+    "permanent_ban",
+})
 
 
 def check_ip_limit(ip: str, openid: str) -> Tuple[bool, str]:
-    if not ip:
-        return True, "ok"
-    # 开发模式：放宽 IP 限制，方便测试选手 A/B 及多账号
-    if DEV_MODE:
-        limit = DEV_SAME_IP_MAX_ACCOUNTS
-    else:
-        limit = SAME_IP_MAX_ACCOUNTS
-    # 固定测试账号始终允许
-    if openid in ("dev_test_player_a", "dev_test_player_b"):
-        return True, "ok"
-    users = load("users")
-    same_ip = [u for u in users if u.get("last_ip") == ip and u.get("openid") != openid]
-    if len(same_ip) >= limit:
-        return False, f"同一IP最多注册{limit}个账号"
+    """同一 IP 注册数量限制已关闭（保留接口供后续如需恢复）"""
     return True, "ok"
 
 
@@ -59,6 +52,36 @@ def check_daily_score_alert(user_id: str, add_score: int) -> Optional[str]:
     return None
 
 
+def is_serious_violation(record: Dict) -> bool:
+    action = record.get("action", "")
+    reason = record.get("reason", "") or ""
+    if action in SERIOUS_VIOLATION_ACTIONS:
+        return True
+    keywords = ("作弊", "恶意", "刷分", "虚假")
+    return any(k in reason for k in keywords)
+
+
+def count_serious_violations(user_id: str) -> int:
+    return sum(
+        1 for v in load("violations") if v.get("user_id") == user_id and is_serious_violation(v)
+    )
+
+
+def apply_permanent_ban(user_id: str, reason: str) -> None:
+    def _fn(users):
+        u = next((x for x in users if x["id"] == user_id), None)
+        if not u:
+            return users
+        u["status"] = "banned"
+        u["ban_permanent"] = True
+        u["banned_at"] = now_iso()
+        u["ban_reason"] = reason
+        u["updated_at"] = now_iso()
+        return users
+
+    mutate("users", _fn)
+
+
 def add_violation(user_id: str, reason: str, action: str = "warn", public: bool = False):
     def _fn(violations):
         violations.append({
@@ -90,6 +113,23 @@ def add_violation(user_id: str, reason: str, action: str = "warn", public: bool 
         mutate("settings", _settings)
 
 
+def add_violation_and_check_permanent(
+    user_id: str,
+    reason: str,
+    action: str = "record_cheat",
+    public: bool = True,
+) -> Dict:
+    """记录严重违规，累计达阈值自动永久封禁"""
+    add_violation(user_id, reason, action, public)
+    total = count_serious_violations(user_id)
+    auto_banned = False
+    if total >= PERMANENT_BAN_VIOLATION_COUNT:
+        ban_reason = f"累计{total}次恶意刷分/作弊，永久禁止使用本系统"
+        apply_permanent_ban(user_id, ban_reason)
+        auto_banned = True
+    return {"serious_count": total, "auto_permanent_ban": auto_banned}
+
+
 def publish_cheat_announcement(nickname: str, message: str, scroll_times: int = 3):
     """作弊公示：写入大屏滚动队列"""
     times = max(1, int(scroll_times or 3))
@@ -113,6 +153,21 @@ def punish_user(user_id: str, action: str, reason: str, public: bool = True):
     u_before = next((x for x in users_before if x["id"] == user_id), None)
     old_score = u_before.get("score", INITIAL_SCORE) if u_before else INITIAL_SCORE
 
+    if action == "record_cheat":
+        result = add_violation_and_check_permanent(user_id, reason, "record_cheat", public)
+        if result.get("auto_permanent_ban") and u_before:
+            publish_cheat_announcement(
+                u_before.get("nickname", "球友"),
+                reason,
+                3,
+            )
+        return
+
+    if action == "permanent_ban":
+        apply_permanent_ban(user_id, reason or "管理员永久封禁")
+        add_violation(user_id, reason or "永久封禁", "permanent_ban", public)
+        return
+
     def _fn(users):
         u = next((x for x in users if x["id"] == user_id), None)
         if not u:
@@ -123,8 +178,14 @@ def punish_user(user_id: str, action: str, reason: str, public: bool = True):
             u["losses"] = 0
         elif action == "ban":
             u["status"] = "banned"
+            u["ban_permanent"] = True
+            u["banned_at"] = now_iso()
+            u["ban_reason"] = reason
         elif action == "unban":
             u["status"] = "active"
+            u.pop("ban_permanent", None)
+            u.pop("banned_at", None)
+            u.pop("ban_reason", None)
         u["updated_at"] = now_iso()
         return users
 
@@ -134,3 +195,11 @@ def punish_user(user_id: str, action: str, reason: str, public: bool = True):
 
         log_score(user_id, INITIAL_SCORE - old_score, reason, None)
     add_violation(user_id, reason, action, public)
+
+
+def check_user_allowed(user: Dict) -> Tuple[bool, str]:
+    if user.get("status") == "banned":
+        if user.get("ban_permanent"):
+            return False, "账号已被永久封禁，无法使用本系统"
+        return False, "账号已被封禁"
+    return True, "ok"

@@ -10,19 +10,70 @@
 .net-msg { display: block; font-size: 24rpx; color: #fbcfe8; line-height: 1.6; margin-bottom: 8rpx; }
 .net-url { display: block; font-size: 22rpx; color: #e9d5ff; word-break: break-all; margin-bottom: 16rpx; }
 .hero { text-align: center; }
-.btn-primary.disabled { opacity: 0.6; }
-.dev-login { margin-top: 24rpx; padding-top: 20rpx; border-top: 1rpx dashed rgba(255,255,255,0.25); }
-.dev-label { display: block; font-size: 22rpx; color: #A5B4FC; margin-bottom: 12rpx; text-align: center; }
-.dev-btns { display: flex; gap: 16rpx; }
-.btn-test {
-  flex: 1;
-  text-align: center;
-  padding: 20rpx;
-  background: rgba(124, 58, 237, 0.5);
-  border: 1rpx solid #C4B5FD;
-  border-radius: 12rpx;
-  font-size: 26rpx;
+.user-info { display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
+.user-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(255, 255, 255, 0.5);
 }
+.user-meta { display: flex; flex-direction: column; align-items: center; gap: 8rpx; }
+.user-name { font-size: 32rpx; font-weight: bold; color: #fff; }
+.user-detail { font-size: 24rpx; color: #e9d5ff; }
+.btn-wx-login {
+  width: 100% !important;
+  margin: 16rpx 0;
+  padding: 24rpx;
+  line-height: 1.4;
+  font-size: 28rpx;
+  font-weight: normal;
+  background: linear-gradient(180deg, #9333EA, #3B82F6);
+  color: #fff;
+  border: none;
+  border-radius: 12rpx;
+  box-shadow: 0 8rpx 24rpx rgba(99, 102, 241, 0.35);
+}
+.btn-wx-login::after { border: none; }
+.btn-wx-login[disabled] { opacity: 0.6; color: #fff; }
+.btn-wx-login-hover { opacity: 0.88; }
+.login-hint { font-size: 22rpx; color: #c4b5fd; margin-top: 8rpx; }
+.auth-fallback { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx dashed rgba(255,255,255,0.25); }
+.avatar-picker {
+  background: transparent;
+  padding: 0;
+  margin: 0 auto 16rpx;
+  line-height: normal;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.avatar-picker::after { border: none; }
+.avatar-placeholder {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  border: 4rpx dashed rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  color: #c4b5fd;
+}
+.avatar-tip { font-size: 22rpx; color: #a5b4fc; margin-top: 8rpx; }
+.nickname-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 16rpx 0;
+  padding: 30rpx 20rpx;
+  min-height: 90rpx;
+  line-height: 1.5;
+  font-size: 30rpx;
+  background: rgba(255,255,255,0.12);
+  border-radius: 12rpx;
+  color: #fff;
+  text-align: center;
+}
+.btn-primary.disabled { opacity: 0.6; }
 .btn-logout {
   margin-top: 16rpx;
   text-align: center;

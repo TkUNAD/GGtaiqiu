@@ -79,18 +79,20 @@ Page({
     wx.showModal({
       title: '确认兑换',
       content: `兑换 ${name}？`,
-      success: async (r) => {
+      success: (r) => {
         if (!r.confirm) return;
         this.setData({ exchanging: true });
-        try {
-          await api.request('/api/shop/exchange', 'POST', { product_id: id });
-          wx.showToast({ title: '兑换成功，待审核发放' });
-          this.load();
-        } catch (err) {
-          wx.showToast({ title: err, icon: 'none' });
-        } finally {
-          this.setData({ exchanging: false });
-        }
+        api.request('/api/shop/exchange', 'POST', { product_id: id })
+          .then(() => {
+            wx.showToast({ title: '兑换成功，待审核发放' });
+            return this.load();
+          })
+          .catch((err) => {
+            wx.showToast({ title: err, icon: 'none' });
+          })
+          .finally(() => {
+            this.setData({ exchanging: false });
+          });
       },
     });
   },

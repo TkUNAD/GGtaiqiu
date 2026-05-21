@@ -294,6 +294,46 @@ def test_exchange_daily_limit():
     print("ok exchange daily limit")
 
 
+def test_jwt_issue_verify():
+    from auth_tokens import issue_tokens, verify_access_token
+
+    users = load("users")
+    if not users:
+        print("skip jwt (no users)")
+        return
+    u = users[0]
+    bundle = issue_tokens(u)
+    uid = verify_access_token(bundle["access_token"])
+    assert uid == u["id"], "JWT sub 应为用户 id"
+    print("ok jwt issue/verify")
+
+
+def test_delete_playing_match_rejected():
+    from services import delete_matches
+
+    mid = new_id("M")
+    p1, p2 = new_id("u"), new_id("u")
+    matches = load("matches")
+    matches.append({
+        "id": mid,
+        "table_id": "T01",
+        "player1_id": p1,
+        "player2_id": p2,
+        "status": "playing",
+        "score1": 0,
+        "score2": 0,
+    })
+    save("matches", matches)
+    try:
+        delete_matches([mid], venue_id=None, is_super=True)
+        assert False, "应拒绝删除进行中"
+    except ValueError as e:
+        assert "进行中" in str(e)
+    matches = load("matches")
+    save("matches", [m for m in matches if m.get("id") != mid])
+    print("ok delete playing rejected")
+
+
 if __name__ == "__main__":
     test_winner_validation()
     test_idempotent_finish()
@@ -301,4 +341,6 @@ if __name__ == "__main__":
     test_table_closes_on_finish()
     test_exchange_refund_on_cancel()
     test_exchange_daily_limit()
+    test_jwt_issue_verify()
+    test_delete_playing_match_rejected()
     print("all checks passed")

@@ -4,7 +4,7 @@
 
     <view class="title">{{table.name}}</view>
 
-    <text>状态: {{table.current_match_id ? '对局进行中' : (table.players_ready && table.opened ? '选手已到齐(可开始对局)' : (table.opened ? '已开台，等待选手' : '已关台，请重新扫码签到'))}}</text>
+    <text>状态: {{table.current_match_id ? '对局进行中' : (table.players_ready ? '两名选手已到齐，点击「开始对战」开台' : (table.opened ? '已开台，等待选手' : '等候扫码签到（满2人后可开始对战）'))}}</text>
 
   </view>
 
@@ -84,7 +84,7 @@
 
     <view class="bonus-section bonus-section-center">
 
-      <text class="bonus-title">炸清/接清（需双方确认后加分）</text>
+      <text class="bonus-title">炸清/接清（对方确认后加分，申报方胜1局）</text>
 
       <view class="bonus-row">
 
@@ -98,9 +98,9 @@
 
         <view class="pending-item" wx:for="{{pendingBonuses}}" wx:key="id">
 
-          <text>{{item.label}}（已确认{{item.confirmed_count}}/2）</text>
+          <text>{{item.label}}（待您确认）</text>
 
-          <button size="mini" bindtap="confirmBonus" data-id="{{item.id}}">确认</button>
+          <button size="mini" bindtap="confirmBonus" data-id="{{item.id}}">同意</button>
 
         </view>
 
@@ -118,13 +118,44 @@
 
     </view>
 
-    <text class="cooldown" wx:if="{{cooldown > 0}}">按钮冷却: {{cooldown}}秒</text>
+    <text class="cooldown" wx:if="{{cooldown > 0}}">炸清/接清/胜局/负局 操作冷却: {{cooldown}}秒</text>
 
 
 
     <view class="btn-secondary" bindtap="endEarly">提前结束(积分减半)</view>
 
     <view class="btn-secondary" bindtap="refreshMatch">刷新比分</view>
+
+    <view class="idle-mask" wx:if="{{idleUi.active}}">
+      <view class="idle-dialog">
+        <view class="idle-title" wx:if="{{idleUi.phase === 'prompt'}}">长时间无操作提醒</view>
+        <view class="idle-title" wx:else>结束比赛确认</view>
+        <text class="idle-desc" wx:if="{{idleUi.phase === 'prompt'}}">
+          双方已超过10分钟未操作。请在 {{idleUi.seconds_left}} 秒内选择，超时将自动结束并按当前比分结算。
+        </text>
+        <text class="idle-desc" wx:elif="{{idleUi.end_requested_by_me}}">
+          已向对方发起结束请求，等待对方确认（{{idleUi.end_seconds_left}} 秒）…
+        </text>
+        <text class="idle-desc" wx:elif="{{idleUi.need_my_end_response}}">
+          对方请求结束比赛，是否同意？{{idleUi.end_seconds_left}} 秒内未操作将自动结束。
+        </text>
+        <text class="idle-desc" wx:else>处理中…</text>
+        <view class="idle-status" wx:if="{{idleUi.phase === 'prompt'}}">
+          <text>您：{{idleUi.my_continue_confirmed ? '已确认继续' : '未确认'}}</text>
+          <text>对方：{{idleUi.opponent_continue_confirmed ? '已确认继续' : '未确认'}}</text>
+        </view>
+        <view class="idle-btns" wx:if="{{idleUi.phase === 'prompt'}}">
+          <button class="idle-btn primary" bindtap="onIdleContinue" disabled="{{!idleUi.need_my_continue}}">
+            {{idleUi.my_continue_confirmed ? '已确认继续' : '继续比赛'}}
+          </button>
+          <button class="idle-btn danger" bindtap="onIdleEnd">结束比赛</button>
+        </view>
+        <view class="idle-btns" wx:elif="{{idleUi.need_my_end_response}}">
+          <button class="idle-btn primary" bindtap="onIdleAgreeEnd">同意结束</button>
+          <button class="idle-btn" bindtap="onIdleRejectEnd">不同意，继续比赛</button>
+        </view>
+      </view>
+    </view>
 
     <view class="bonus-summary-bar">
 
@@ -182,7 +213,7 @@
       <view class="bonus-card-title">炸清 / 接清申报</view>
       <text class="bonus-card-desc">{{opponentBonusCard.claimer_name}} 申报了</text>
       <text class="bonus-card-type">{{opponentBonusCard.typeLabel}}</text>
-      <text class="bonus-card-hint">是否同意为该申报加分？</text>
+      <text class="bonus-card-hint">是否同意？确认后申报方加分并胜1局</text>
       <view class="bonus-card-actions">
         <view class="bonus-card-btn reject" bindtap="onRejectOpponentCard">拒绝</view>
         <view class="bonus-card-btn confirm" bindtap="onConfirmOpponentCard">确认</view>

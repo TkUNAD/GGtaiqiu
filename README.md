@@ -34,7 +34,7 @@ python app.py
 - 管理后台: http://127.0.0.1:5000/admin （默认 admin / admin123）
 - 投屏大屏: http://127.0.0.1:5000/screen
 
-环境变量（可选）：
+环境变量（可选，也可用项目根目录 `.env` / `wechat.secret.txt`）：
 
 | 变量 | 说明 |
 |------|------|
@@ -42,6 +42,8 @@ python app.py
 | WECHAT_APPID / WECHAT_SECRET | 微信小程序正式登录 |
 | DEV_MODE=false | 关闭开发模式，启用真实微信登录 |
 | PORT | 端口，默认5000 |
+
+配置微信登录：双击 **`setup-wechat.bat`**，详见 [docs/wechat-login.md](docs/wechat-login.md)。
 
 ### 2. 微信小程序
 
@@ -51,7 +53,7 @@ python app.py
 python scripts/generate_assets.py
 ```
 
-1. 用微信开发者工具打开 `miniprogram` 目录
+1. 用微信开发者工具打开**项目根目录**（已配置 `miniprogramRoot`）或只打开 `miniprogram` 目录
 2. 修改 `project.config.json` 中的 `appid` 为你的小程序 AppID
 3. 真机调试：修改 `miniprogram/utils/config.js` 中 `LAN_IP` 为你电脑局域网 IP（`ipconfig` 查看，一般用 `192.168.x.x`，**不要用 198.18.x**）
 4. 手机与电脑连接**同一 WiFi**；微信开发者工具勾选「不校验合法域名」
@@ -70,9 +72,17 @@ https://你的域名/pages/table/table?table_id=T01&qr_token=table_T01
 
 桌台数据在 `backend/data/tables.json`，默认 T01~T04。
 
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [docs/wechat-login.md](docs/wechat-login.md) | 微信授权登录流程、接口、配置与排错 |
+| [docs/scoring-rules.md](docs/scoring-rules.md) | 排位/休闲/炸清接清等加分规则 |
+
 ## 目录结构
 
 ```
+├── docs/                # 说明文档
 ├── backend/
 │   ├── app.py           # Flask + SocketIO 主程序
 │   ├── config.py        # 配置
@@ -87,6 +97,7 @@ https://你的域名/pages/table/table?table_id=T01&qr_token=table_T01
 ├── miniprogram/         # 微信原生小程序
 │   └── pages/
 │       ├── index/ rank/ table/ profile/ shop/
+├── setup-wechat.bat     # 配置微信 AppSecret
 └── run.bat
 ```
 

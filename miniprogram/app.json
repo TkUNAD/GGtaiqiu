@@ -6,6 +6,8 @@
     "pages/match-result/match-result",
     "pages/rank/rank",
     "pages/profile/profile",
+    "pages/profile-matches/profile-matches",
+    "pages/profile-logs/profile-logs",
     "pages/shop/shop"
   ],
   "window": {

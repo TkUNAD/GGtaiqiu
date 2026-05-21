@@ -1,6 +1,13 @@
 {
   "public_violations": [
     {
+      "user_id": "Ua269a32a9946",
+      "nickname": ".",
+      "reason": "管理员重置积分",
+      "action": "reset_score",
+      "at": "2026-05-19T22:18:24.098964"
+    },
+    {
       "user_id": "U7da49df39f6f",
       "nickname": "球友KzFR",
       "reason": "违规处理",
@@ -33,12 +40,64 @@
     "challenge_rank_min": 1,
     "challenge_rank_max": 5,
     "beyond_rank_daily_bonus_only": true,
-    "daily_ranked_limit": 2,
-    "weekly_ranked_limit": 9,
+    "daily_ranked_limit": 3,
+    "weekly_ranked_limit": 15,
     "ranked_over_limit_to_casual": true,
     "daily_bonus_valid_match": 5,
     "daily_bonus_break_run": 20,
     "daily_bonus_clearance": 15,
-    "daily_bonus_hour_open": 8
+    "daily_bonus_hour_open": 8,
+    "bonus_review_threshold": 2,
+    "cheat_penalty_points": 200,
+    "cheat_scroll_times": 5,
+    "tier_definitions": [
+      {
+        "name": "新锐学徒",
+        "min": 1000,
+        "max": 1199
+      },
+      {
+        "name": "业余球手",
+        "min": 1200,
+        "max": 1399
+      },
+      {
+        "name": "资深球友",
+        "min": 1400,
+        "max": 1599
+      },
+      {
+        "name": "赛场好手",
+        "min": 1600,
+        "max": 1799
+      },
+      {
+        "name": "实力战将",
+        "min": 1800,
+        "max": 1999
+      },
+      {
+        "name": "殿堂球王",
+        "min": 2000,
+        "max": 99999
+      }
+    ],
+    "point_rules": {
+      "max_ranked_tier_gap": 1,
+      "same_winner_base": 20,
+      "same_winner_per_frame": 2,
+      "same_loser_base": 15,
+      "same_loser_per_frame": 2,
+      "low_win_winner_base": 25,
+      "low_win_winner_per_frame": 3,
+      "low_win_loser_base": 15,
+      "low_win_loser_per_frame": 3,
+      "high_win_winner_base": 15,
+      "high_win_winner_per_frame": 2,
+      "high_win_loser_base": 10,
+      "high_win_loser_per_frame": 2,
+      "casual_winner_bonus": 0
+    },
+    "rule_description": ""
   }
 }

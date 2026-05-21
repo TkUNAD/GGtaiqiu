@@ -1,0 +1,27 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="hint card">加载中…</view>
+  <view wx:elif="{{loadError}}" class="card">
+    <text class="err">{{loadError}}</text>
+    <view class="btn-primary" bindtap="load">重试</view>
+  </view>
+  <view wx:elif="{{!list.length}}" class="empty card">暂无对局记录</view>
+  <view wx:else>
+    <view class="card item" wx:for="{{list}}" wx:key="id" bindtap="openMatch" data-id="{{item.id}}">
+      <view class="row-top">
+        <text class="type">{{item.match_type_label}} · {{item.table_name}}</text>
+        <text class="status">{{item.status_label}}</text>
+      </view>
+      <view class="row-mid">
+        <text>vs {{item.opponent_name}}</text>
+        <text class="score">{{item.score_text}}</text>
+      </view>
+      <view class="row-bot">
+        <text class="result {{item.result === '胜' ? 'win' : (item.result === '负' ? 'lose' : '')}}">{{item.result}}</text>
+        <text class="delta {{item.point_delta >= 0 ? 'plus' : 'minus'}}">
+          积分 {{item.point_delta >= 0 ? '+' : ''}}{{item.point_delta}}
+        </text>
+        <text class="time">{{item.ended_at || item.started_at}}</text>
+      </view>
+    </view>
+  </view>
+</view>

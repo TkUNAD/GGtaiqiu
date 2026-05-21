@@ -164,3 +164,62 @@
   background: linear-gradient(180deg, #7C3AED, #3B82F6);
   color: #fff;
 }
+.idle-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+}
+.idle-dialog {
+  width: 100%;
+  max-width: 620rpx;
+  background: #1e1b4b;
+  border-radius: 16rpx;
+  padding: 36rpx 28rpx;
+  border: 2rpx solid #7c3aed;
+}
+.idle-title {
+  font-size: 34rpx;
+  color: #e9d5ff;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 20rpx;
+}
+.idle-desc {
+  display: block;
+  font-size: 26rpx;
+  color: #c4b5fd;
+  line-height: 1.5;
+  margin-bottom: 24rpx;
+}
+.idle-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  font-size: 24rpx;
+  color: #a5b4fc;
+  margin-bottom: 24rpx;
+}
+.idle-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.idle-btn {
+  font-size: 28rpx;
+}
+.idle-btn.primary {
+  background: linear-gradient(180deg, #7c3aed, #3b82f6);
+  color: #fff;
+}
+.idle-btn.danger {
+  background: #b91c1c;
+  color: #fff;
+}

@@ -38,7 +38,7 @@
   },
   {
     "id": "T05",
-    "name": "乔氏金腿",
+    "name": "乔氏银腿（5号）",
     "venue_id": "V001",
     "qr_token": "table_T05",
     "opened": false,
@@ -47,13 +47,24 @@
     "waiting_players": []
   },
   {
-    "id": "T153554ab9f74",
-    "name": "关台测试桌",
-    "venue_id": "default",
+    "id": "T5b70057e4d08",
+    "name": "星牌银腿（6号）",
+    "qr_token": "qt",
+    "venue_id": "V001",
     "opened": false,
-    "opened_at": null,
-    "waiting_players": [],
     "current_match_id": null,
-    "qr_token": "qt"
+    "waiting_players": [],
+    "opened_at": null
+  },
+  {
+    "id": "T06",
+    "name": "乔氏金腿（7号）",
+    "venue_id": "V001",
+    "qr_token": "table_T06",
+    "qr_link": "pages/table/table?table_id=T06&qr_token=table_T06",
+    "opened": false,
+    "current_match_id": null,
+    "opened_at": null,
+    "waiting_players": []
   }
 ]

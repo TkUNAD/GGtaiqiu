@@ -3,6 +3,7 @@ import io
 import os
 from datetime import datetime
 from functools import wraps
+from typing import Dict
 
 from flask import Flask, jsonify, request, render_template, session, send_file
 from flask_cors import CORS
@@ -15,11 +16,30 @@ from admin_auth import (
     has_permission,
     is_super_admin,
     member_permission_required,
+    require_active_venue_member,
     super_admin_required,
 )
+
+
+def safe_int(val, default: int = 0, min_v: int = None, max_v: int = None) -> int:
+    try:
+        n = int(val)
+    except (TypeError, ValueError):
+        n = default
+    if min_v is not None:
+        n = max(min_v, n)
+    if max_v is not None:
+        n = min(max_v, n)
+    return n
 from anti_cheat import punish_user
 from db import find_by_id, load, mutate, now_iso, save
-from ladder_settings import get_ladder_rules, save_ladder_rules
+from ladder_settings import (
+    get_ladder_rules,
+    ladder_rules_payload,
+    save_global_ladder_rules,
+    save_venue_ladder_rules,
+    sync_venue_ladder_from_global,
+)
 from rating import build_leaderboard, get_tier, get_user_rank
 from table_util import default_qr_link, enrich_table, enrich_tables
 from venue_service import (
@@ -33,6 +53,7 @@ from venue_service import (
     mobile_venue_status,
     update_venue,
     authenticate_venue,
+    get_venue_admin_detail,
     venue_public_view,
 )
 from services import (
@@ -53,8 +74,20 @@ from services import (
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = config.SECRET_KEY
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "false").lower()
+    in ("1", "true", "yes"),
+)
+CORS(
+    app,
+    resources={r"/api/*": {"origins": config.CORS_ORIGINS}},
+    supports_credentials=True,
+)
+socketio = SocketIO(
+    app, cors_allowed_origins=config.CORS_ORIGINS, async_mode="threading"
+)
 
 
 def _client_ip():
@@ -65,8 +98,9 @@ def _ok(data=None, msg="ok"):
     return jsonify({"code": 0, "msg": msg, "data": data})
 
 
-def _err(msg, code=1):
-    return jsonify({"code": code, "msg": msg, "data": None}), 400
+def _err(msg, code=1, http_status=400):
+    """code 为业务码；http_status 为 HTTP 状态（勿写成 return _err(...), 401 双重元组）"""
+    return jsonify({"code": code, "msg": msg, "data": None}), http_status
 
 
 def _broadcast():
@@ -97,9 +131,21 @@ def screen_page():
 # ---------- 管理后台登录 ----------
 @app.route("/api/admin/login", methods=["POST"])
 def admin_login():
+    from admin_auth import (
+        build_admin_session_info,
+        check_login_rate_limit,
+        clear_login_attempts,
+        record_login_failure,
+    )
+
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
+    ip = _client_ip()
+
+    blocked = check_login_rate_limit(ip)
+    if blocked:
+        return _err(blocked, 429, 429)
 
     session.clear()
     ensure_venues_file()
@@ -108,6 +154,7 @@ def admin_login():
         session["admin_logged_in"] = True
         session["admin_role"] = "super"
         session["admin_username"] = username
+        clear_login_attempts(ip)
         return _ok(build_admin_session_info())
 
     venue = authenticate_venue(username, password)
@@ -119,12 +166,13 @@ def admin_login():
         session["venue_id"] = venue["id"]
         session["admin_username"] = username
         session["permissions"] = venue_permissions(venue)
+        clear_login_attempts(ip)
         info = build_admin_session_info()
         if not is_member_active(venue):
             info["member_tip"] = "球房会员已过期，仅可查看基础数据；开通后可管理桌台、修改天梯规则、屏蔽手机端广告"
         return _ok(info)
 
-    return _err("账号或密码错误")
+    return _err(record_login_failure(ip))
 
 
 @app.route("/api/admin/logout", methods=["POST"])
@@ -139,6 +187,89 @@ def admin_me():
     return _ok(build_admin_session_info())
 
 
+@app.route("/api/admin/password/change", methods=["POST"])
+@admin_required
+def admin_password_change():
+    from admin_auth import record_login_failure, check_login_rate_limit
+    from admin_password import change_password_logged_in
+
+    data = request.get_json(silent=True) or {}
+    ip = _client_ip()
+    blocked = check_login_rate_limit(ip)
+    if blocked:
+        return _err(blocked, 429, 429)
+
+    try:
+        result = change_password_logged_in(
+            session.get("admin_role", ""),
+            session.get("admin_username", ""),
+            session.get("venue_id"),
+            data.get("old_password") or "",
+            data.get("new_password") or "",
+            data.get("confirm_password") or data.get("new_password") or "",
+        )
+        return _ok(result)
+    except ValueError as e:
+        msg = str(e)
+        if "密码" in msg or "账号" in msg:
+            msg = record_login_failure(ip, msg)
+        return _err(msg)
+
+
+@app.route("/api/admin/password/change-with-old", methods=["POST"])
+def admin_password_change_with_old():
+    from admin_auth import check_login_rate_limit, record_login_failure, clear_login_attempts
+    from admin_password import change_password_with_old
+
+    data = request.get_json(silent=True) or {}
+    ip = _client_ip()
+    blocked = check_login_rate_limit(ip)
+    if blocked:
+        return _err(blocked, 429, 429)
+
+    try:
+        result = change_password_with_old(
+            data.get("username") or "",
+            data.get("old_password") or "",
+            data.get("new_password") or "",
+            data.get("confirm_password") or "",
+        )
+        clear_login_attempts(ip)
+        return _ok(result)
+    except ValueError as e:
+        msg = str(e)
+        if "密码" in msg or "账号" in msg or "密钥" in msg:
+            msg = record_login_failure(ip, msg)
+        return _err(msg)
+
+
+@app.route("/api/admin/password/forgot", methods=["POST"])
+def admin_password_forgot():
+    from admin_auth import check_login_rate_limit, record_login_failure, clear_login_attempts
+    from admin_password import reset_password_forgot
+
+    data = request.get_json(silent=True) or {}
+    ip = _client_ip()
+    blocked = check_login_rate_limit(ip)
+    if blocked:
+        return _err(blocked, 429, 429)
+
+    try:
+        result = reset_password_forgot(
+            data.get("username") or "",
+            data.get("recovery_secret") or "",
+            data.get("new_password") or "",
+            data.get("confirm_password") or "",
+        )
+        clear_login_attempts(ip)
+        return _ok(result)
+    except ValueError as e:
+        msg = str(e)
+        if "密码" in msg or "账号" in msg or "密钥" in msg:
+            msg = record_login_failure(ip, msg)
+        return _err(msg)
+
+
 @app.route("/api/venue/status")
 def venue_status_api():
     venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
@@ -147,51 +278,83 @@ def venue_status_api():
 
 @app.route("/api/settings/ladder")
 def public_ladder_rules():
-    return _ok(get_ladder_rules())
+    venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
+    return _ok(ladder_rules_payload(venue_id))
 
 
 # ---------- 微信登录 ----------
 @app.route("/api/auth/login", methods=["POST"])
 def auth_login():
+    """
+    前端传入 code（wx.login）、nickname、avatar（wx.getUserProfile）。
+    后端仅用 code 调微信 jscode2session 换取 openid；头像昵称由前端传入直接保存，不再向微信拉取。
+    须配置 WECHAT_APPID、WECHAT_SECRET。
+    """
     data = request.get_json() or {}
-    code = data.get("code", "")
+    code = (data.get("code") or "").strip()
+    nickname = (data.get("nickname") or "").strip()
+    avatar = (data.get("avatar") or "").strip()
     if not code:
         return _err("缺少 code")
+    if not nickname:
+        return _err("请先完成微信昵称授权", 400, 400)
     openid, err = wx_code_to_openid(code)
     if not openid:
         return _err(err or "登录失败")
     try:
         user = get_or_create_user(
             openid,
-            nickname=data.get("nickname", ""),
-            avatar=data.get("avatar", ""),
+            nickname=nickname,
+            avatar=avatar,
             phone=data.get("phone", ""),
             ip=_client_ip(),
         )
     except ValueError as e:
         return _err(str(e))
+    from auth_tokens import issue_tokens
+
     tier = get_tier(user["score"])
     users = load("users")
     rank = get_user_rank(users, user["id"])
+    tokens = issue_tokens(user)
     return _ok({
-        "token": openid,
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+        "expires_in": tokens["expires_in"],
+        "token_type": tokens["token_type"],
         "user": {**user, "tier": tier, "rank": rank},
     })
 
 
+@app.route("/api/auth/refresh", methods=["POST"])
+def auth_refresh():
+    data = request.get_json(silent=True) or {}
+    refresh = (data.get("refresh_token") or "").strip()
+    from auth_tokens import refresh_access_token
+
+    bundle, err = refresh_access_token(refresh)
+    if err:
+        return _err(err, 401, 401)
+    return _ok(bundle)
+
+
 def _user_from_token():
-    token = request.headers.get("X-Token") or request.args.get("token")
-    if not token:
+    from auth_tokens import verify_access_token
+
+    auth = request.headers.get("Authorization", "")
+    token = auth or request.headers.get("X-Token", "")
+    user_id = verify_access_token(token)
+    if not user_id:
         return None
     users = load("users")
-    return next((u for u in users if u.get("openid") == token), None)
+    return find_by_id(users, user_id)
 
 
 # ---------- 天梯榜 ----------
 @app.route("/api/rank/list")
 def rank_list():
     process_season_and_week()
-    limit = int(request.args.get("limit", 50))
+    limit = safe_int(request.args.get("limit"), 50, 1, 500)
     users = load("users")
     board = build_leaderboard(users, limit=limit)
     return _ok(board)
@@ -201,15 +364,29 @@ def rank_list():
 def challenge_targets():
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     rules = get_ladder_rules()
-    rmin = rules["challenge_rank_min"]
-    rmax = rules["challenge_rank_max"]
+    rmin = int(rules.get("challenge_rank_min", 1))
+    rmax = int(rules.get("challenge_rank_max", 5))
     users = load("users")
     my_rank = get_user_rank(users, user["id"])
-    board = build_leaderboard(users, limit=my_rank)
+    if my_rank >= 9999:
+        return _ok({
+            "my_rank": my_rank,
+            "targets": [],
+            "ladder_rules": {
+                "challenge_rank_min": rmin,
+                "challenge_rank_max": rmax,
+                "daily_ranked_limit": rules.get("daily_ranked_limit", 2),
+                "weekly_ranked_limit": rules.get("weekly_ranked_limit", 9),
+            },
+            "hint": "您暂无天梯排名，暂无可挑战玩家",
+        })
+    board = build_leaderboard(users, limit=min(my_rank, 500))
     targets = []
     for item in board:
+        if item["id"] == user["id"]:
+            continue
         gap = my_rank - item["rank"]
         if rmin <= gap <= rmax:
             targets.append(item)
@@ -230,7 +407,7 @@ def challenge_targets():
 def active_users():
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     users = load("users")
     result = [
         {"id": u["id"], "nickname": u.get("nickname", "球友"), "score": u.get("score", 1000)}
@@ -294,7 +471,7 @@ def table_join(table_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
         view = join_table(table_id, user["id"], data.get("qr_token", ""))
@@ -310,7 +487,7 @@ def table_set_race(table_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
         view = set_waiting_race(table_id, user["id"], int(data.get("race_to", 5)))
@@ -326,7 +503,7 @@ def table_leave(table_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     try:
         view = leave_table(table_id, user["id"])
         _broadcast()
@@ -341,7 +518,7 @@ def table_start_match(table_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
         m = start_from_table(
@@ -364,7 +541,7 @@ def match_start():
     """兼容旧版；请使用 /api/table/<id>/start"""
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     table_id = data.get("table_id")
     if table_id:
@@ -386,45 +563,45 @@ def match_start():
     return _err("请两名选手扫码到场后再开始（需 table_id）")
 
 
+def _match_api_payload(m: Dict, user_id: str) -> Dict:
+    from match_bonus import enrich_match_display, get_pending_for_user
+    from match_idle import build_idle_ui, process_idle_match
+
+    m = process_idle_match(m["id"])
+    users = load("users")
+    p1 = find_by_id(users, m.get("player1_id"))
+    p2 = find_by_id(users, m.get("player2_id"))
+    pending = get_pending_for_user(m, user_id)
+    display = enrich_match_display(m, user_id)
+    idle_ui = build_idle_ui(m, user_id)
+    return {**m, "p1": p1, "p2": p2, "bonus_pending_list": pending, "idle_ui": idle_ui, **display}
+
+
 @app.route("/api/match/<match_id>")
 def match_detail(match_id):
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     matches = load("matches")
     m = find_by_id(matches, match_id)
     if not m:
         return _err("对局不存在")
     if user["id"] not in (m.get("player1_id"), m.get("player2_id")):
-        return _err("无权查看该对局", 403), 403
-    users = load("users")
-    p1 = find_by_id(users, m["player1_id"])
-    p2 = find_by_id(users, m["player2_id"])
-    from match_bonus import enrich_match_display, get_pending_for_user
-
-    pending = get_pending_for_user(m, user["id"])
-    display = enrich_match_display(m)
-    return _ok({**m, "p1": p1, "p2": p2, "bonus_pending_list": pending, **display})
+        return _err("无权查看该对局", 403, 403)
+    return _ok(_match_api_payload(m, user["id"]))
 
 
 @app.route("/api/match/<match_id>/frame", methods=["POST"])
 def match_frame(match_id):
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json() or {}
     action = data.get("action")
     try:
         m = record_frame(match_id, user["id"], action)
-        from match_bonus import enrich_match_display, get_pending_for_user
-
-        pending = get_pending_for_user(m, user["id"])
-        users = load("users")
-        p1 = find_by_id(users, m["player1_id"])
-        p2 = find_by_id(users, m["player2_id"])
-        display = enrich_match_display(m)
         _broadcast()
-        return _ok({**m, "p1": p1, "p2": p2, "bonus_pending_list": pending, **display})
+        return _ok(_match_api_payload(m, user["id"]))
     except ValueError as e:
         return _err(str(e))
 
@@ -433,13 +610,13 @@ def match_frame(match_id):
 def match_finish(match_id):
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     matches = load("matches")
     m0 = find_by_id(matches, match_id)
     if not m0:
         return _err("对局不存在")
     if user["id"] not in (m0.get("player1_id"), m0.get("player2_id")):
-        return _err("非本局玩家", 403), 403
+        return _err("非本局玩家", 403, 403)
     data = request.get_json() or {}
     completed = data.get("completed", True)
     s1, s2 = m0.get("score1", 0), m0.get("score2", 0)
@@ -460,13 +637,63 @@ def match_finish(match_id):
         return _err(str(e))
 
 
+@app.route("/api/match/<match_id>/idle/continue", methods=["POST"])
+def match_idle_continue(match_id):
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    try:
+        from match_idle import idle_confirm_continue
+
+        result = idle_confirm_continue(match_id, user["id"])
+        _broadcast()
+        return _ok(_match_api_payload(result["match"], user["id"]))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/match/<match_id>/idle/end", methods=["POST"])
+def match_idle_end(match_id):
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    try:
+        from match_idle import idle_request_end
+
+        result = idle_request_end(match_id, user["id"])
+        _broadcast()
+        return _ok(_match_api_payload(result["match"], user["id"]))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/match/<match_id>/idle/end-response", methods=["POST"])
+def match_idle_end_response(match_id):
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    data = request.get_json(silent=True) or {}
+    agree = bool(data.get("agree"))
+    try:
+        from match_idle import idle_respond_end
+
+        result = idle_respond_end(match_id, user["id"], agree)
+        _broadcast()
+        m = result["match"]
+        if m.get("status") in ("finished", "invalid"):
+            return _ok(m)
+        return _ok(_match_api_payload(m, user["id"]))
+    except ValueError as e:
+        return _err(str(e))
+
+
 @app.route("/api/match/<match_id>/bonus/request", methods=["POST"])
 def match_bonus_request(match_id):
     from match_bonus import get_pending_for_user, request_bonus
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
         item = request_bonus(match_id, user["id"], data.get("type"))
@@ -487,7 +714,7 @@ def match_bonus_confirm(match_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
         result = confirm_bonus(match_id, user["id"], data.get("bonus_id"))
@@ -497,6 +724,9 @@ def match_bonus_confirm(match_id):
             "item": result["item"],
             "pending": get_pending_for_user(m, user["id"]),
             "applied": result["item"].get("status") == "applied",
+            "frame_awarded": result.get("frame_awarded", False),
+            "match_finished": result.get("match_finished", False),
+            "match": m,
         })
     except ValueError as e:
         return _err(str(e))
@@ -508,7 +738,7 @@ def match_bonus_reject(match_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
         result = reject_bonus(match_id, user["id"], data.get("bonus_id"))
@@ -563,12 +793,12 @@ def match_summary(match_id):
 
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     m = find_by_id(load("matches"), match_id)
     if not m:
         return _err("对局不存在")
     if user["id"] not in (m.get("player1_id"), m.get("player2_id")):
-        return _err("无权查看该对局", 403), 403
+        return _err("无权查看该对局", 403, 403)
     if m.get("status") not in ("finished", "invalid"):
         return _err("对局未结束")
     summary = m.get("summary") or build_match_summary(m)
@@ -580,31 +810,83 @@ def match_summary(match_id):
 def user_profile():
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     users = load("users")
     tier = get_tier(user["score"])
     rank = get_user_rank(users, user["id"])
     total = user.get("wins", 0) + user.get("losses", 0)
     win_rate = round(user.get("wins", 0) / total * 100, 1) if total else 0
-    matches = [m for m in load("matches") if user["id"] in (m.get("player1_id"), m.get("player2_id"))]
-    matches.sort(key=lambda x: x.get("started_at", ""), reverse=True)
-    logs = [l for l in load("score_logs") if l.get("user_id") == user["id"]][-50:]
-    logs.reverse()
+    from user_history import get_user_matches_list, get_user_score_logs_list
+
+    recent_matches = get_user_matches_list(user["id"], 5)
+    score_logs = get_user_score_logs_list(user["id"], 5)
     return _ok({
         "user": user,
         "tier": tier,
         "rank": rank,
         "win_rate": win_rate,
-        "recent_matches": matches[:20],
-        "score_logs": logs,
+        "recent_matches": recent_matches,
+        "score_logs": score_logs,
     })
+
+
+@app.route("/api/user/matches")
+def user_matches():
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    from user_history import get_user_matches_list
+
+    limit = min(int(request.args.get("limit", 20)), 50)
+    return _ok(get_user_matches_list(user["id"], limit))
+
+
+@app.route("/api/user/score-logs")
+def user_score_logs():
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    from user_history import get_user_score_logs_list
+
+    limit = min(int(request.args.get("limit", 20)), 50)
+    return _ok(get_user_score_logs_list(user["id"], limit))
+
+
+@app.route("/api/user/nickname", methods=["POST"])
+def update_nickname():
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    nickname = (request.get_json() or {}).get("nickname", "").strip()
+    if not nickname:
+        return _err("昵称不能为空")
+    if len(nickname) > 20:
+        return _err("昵称最多20个字符")
+
+    def _fn(users):
+        u = find_by_id(users, user["id"])
+        if not u:
+            raise ValueError("用户不存在")
+        u["nickname"] = nickname
+        u["updated_at"] = now_iso()
+        return users
+
+    try:
+        mutate("users", _fn)
+    except ValueError as e:
+        return _err(str(e))
+    users = load("users")
+    u = find_by_id(users, user["id"])
+    tier = get_tier(u["score"])
+    rank = get_user_rank(users, u["id"])
+    return _ok({"user": {**u, "tier": tier, "rank": rank}})
 
 
 @app.route("/api/user/bind-phone", methods=["POST"])
 def bind_phone():
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     phone = (request.get_json() or {}).get("phone", "")
     if not phone:
         return _err("请输入手机号")
@@ -650,7 +932,7 @@ def shop_products():
 def shop_exchange():
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     product_id = (request.get_json() or {}).get("product_id")
     try:
         record = exchange_product(user["id"], product_id)
@@ -664,7 +946,7 @@ def shop_exchange():
 def my_exchanges():
     user = _user_from_token()
     if not user:
-        return _err("请先登录", 401), 401
+        return _err("请先登录", 401, 401)
     exs = [e for e in load("exchanges") if e.get("user_id") == user["id"]]
     exs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return _ok(exs)
@@ -680,15 +962,45 @@ def screen_data():
 @app.route("/api/admin/settings/ladder", methods=["GET"])
 @admin_required
 def admin_get_ladder_settings():
-    return _ok(get_ladder_rules())
+    if is_super_admin():
+        payload = ladder_rules_payload(None)
+        payload["scope"] = "global"
+        return _ok(payload)
+    vid = session.get("venue_id")
+    payload = ladder_rules_payload(vid)
+    payload["scope"] = "venue"
+    payload["can_edit"] = has_permission("ladder_settings")
+    return _ok(payload)
 
 
 @app.route("/api/admin/settings/ladder", methods=["PUT"])
 @member_permission_required("ladder_settings")
 def admin_save_ladder_settings():
     data = request.get_json(silent=True) or {}
-    rules = save_ladder_rules(data)
-    return _ok(rules)
+    if is_super_admin():
+        save_global_ladder_rules(data)
+        payload = ladder_rules_payload(None)
+        payload["scope"] = "global"
+        return _ok(payload)
+    vid = session.get("venue_id")
+    if not vid:
+        return _err("球房会话无效")
+    save_venue_ladder_rules(vid, data)
+    payload = ladder_rules_payload(vid)
+    payload["scope"] = "venue"
+    return _ok(payload)
+
+
+@app.route("/api/admin/settings/ladder/sync", methods=["POST"])
+@member_permission_required("ladder_settings")
+def admin_sync_ladder_settings():
+    if is_super_admin():
+        return _err("总后台请直接编辑全局默认规则")
+    vid = session.get("venue_id")
+    if not vid:
+        return _err("球房会话无效")
+    sync_venue_ladder_from_global(vid)
+    return _ok(ladder_rules_payload(vid))
 
 
 @app.route("/api/admin/venues", methods=["GET"])
@@ -723,6 +1035,15 @@ def admin_delete_venue(venue_id):
     try:
         delete_venue(venue_id)
         return _ok()
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/venues/<venue_id>/detail", methods=["GET"])
+@super_admin_required
+def admin_venue_detail(venue_id):
+    try:
+        return _ok(get_venue_admin_detail(venue_id))
     except ValueError as e:
         return _err(str(e))
 
@@ -770,28 +1091,20 @@ def admin_review_match(match_id):
         return _err("对局不存在")
 
     if action == "approve":
-        if data.get("winner_id"):
-            m = finish_match(match_id, data["winner_id"], completed=data.get("completed", True))
-        else:
-
-            def _approve(ms):
-                item = find_by_id(ms, match_id)
-                if not item:
-                    raise ValueError("对局不存在")
-                item["status"] = "approved"
-                item["review_note"] = data.get("note", "")
-                return ms
-
-            try:
-                mutate("matches", _approve)
-            except ValueError as e:
-                return _err(str(e))
-            m = find_by_id(load("matches"), match_id)
-            table_id = m.get("table_id") if m else None
-            if table_id:
-                t = find_by_id(load("tables"), table_id)
-                if t and t.get("current_match_id") == match_id:
-                    _release_table(table_id)
+        winner_id = data.get("winner_id")
+        if not winner_id:
+            s1, s2 = m.get("score1", 0), m.get("score2", 0)
+            if s1 == s2:
+                return _err("比分相同，请指定胜者或改判")
+            winner_id = m["player1_id"] if s1 > s2 else m["player2_id"]
+        try:
+            m = finish_match(
+                match_id,
+                winner_id,
+                completed=data.get("completed", True),
+            )
+        except ValueError as e:
+            return _err(str(e))
     elif action == "reject":
         def _reject(ms):
             item = find_by_id(ms, match_id)
@@ -883,6 +1196,8 @@ def admin_users():
     from admin_scope import filter_users_for_venue
     from admin_auth import is_super_admin
 
+    from anti_cheat import count_serious_violations
+
     users = filter_users_for_venue(
         load("users"), session.get("venue_id"), is_super_admin()
     )
@@ -891,11 +1206,13 @@ def admin_users():
     for u in users:
         u["rank"] = rank_map.get(u["id"], 9999)
         u["tier"] = get_tier(u.get("score", 1000))
+        u["serious_violation_count"] = count_serious_violations(u["id"])
     return _ok(users)
 
 
 @app.route("/api/admin/user/<user_id>/score", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_adjust_score(user_id):
     from admin_scope import assert_user_in_venue
     from admin_auth import is_super_admin
@@ -917,6 +1234,7 @@ def admin_adjust_score(user_id):
 
 @app.route("/api/admin/user/<user_id>/punish", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_punish(user_id):
     from admin_scope import assert_user_in_venue
     from admin_auth import is_super_admin
@@ -926,13 +1244,32 @@ def admin_punish(user_id):
     except ValueError as e:
         return _err(str(e))
     data = request.get_json() or {}
-    punish_user(user_id, data.get("action", "warn"), data.get("reason", ""), data.get("public", True))
+    action = data.get("action", "warn")
+    reason = data.get("reason", "")
+    if action == "record_cheat" and not reason:
+        reason = "球房后台记录：恶意刷分/作弊"
+    extra = {}
+    if action == "record_cheat":
+        from anti_cheat import add_violation_and_check_permanent
+
+        extra = add_violation_and_check_permanent(user_id, reason, "record_cheat", data.get("public", True))
+    else:
+        punish_user(user_id, action, reason, data.get("public", True))
+    from anti_cheat import count_serious_violations
+
+    u = find_by_id(load("users"), user_id) or {}
     _broadcast()
-    return _ok()
+    return _ok({
+        "serious_violation_count": count_serious_violations(user_id),
+        "ban_permanent": bool(u.get("ban_permanent")),
+        "status": u.get("status"),
+        "auto_permanent_ban": extra.get("auto_permanent_ban", False),
+    })
 
 
 @app.route("/api/admin/user/<user_id>", methods=["DELETE"])
 @admin_required
+@require_active_venue_member
 def admin_delete_user(user_id):
     from admin_scope import assert_user_in_venue
     from admin_auth import is_super_admin
@@ -1000,7 +1337,7 @@ def admin_tables():
         )
         return _ok(enrich_tables(tables))
     if not has_permission("table_manage"):
-        return _err("球房未开通会员，无法管理桌台", 403), 403
+        return _err("球房未开通会员，无法管理桌台", 403, 403)
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     if not name:
@@ -1015,8 +1352,10 @@ def admin_tables():
             if tid.startswith("T") and tid[1:].isdigit():
                 nums.append(int(tid[1:]))
         next_num = max(nums) + 1 if nums else 1
+        import secrets
+
         tid = f"T{next_num:02d}"
-        token = f"table_{tid}"
+        token = secrets.token_urlsafe(16)
         venue_id = data.get("venue_id") or session.get("venue_id") or DEFAULT_VENUE_ID
         if not is_super_admin() and venue_id != session.get("venue_id"):
             raise ValueError("无权为该球房添加桌台")
@@ -1040,11 +1379,18 @@ def admin_tables():
     return _ok(created.get("table"))
 
 
-def _assert_table_access(table: dict):
+def _assert_table_venue_read(table: dict):
+    """仅校验桌台归属；会员到期也可查看/下载二维码"""
     if is_super_admin():
         return
     if table.get("venue_id", DEFAULT_VENUE_ID) != session.get("venue_id"):
-        raise ValueError("无权操作该桌台")
+        raise ValueError("无权查看该桌台")
+
+
+def _assert_table_access(table: dict):
+    _assert_table_venue_read(table)
+    if is_super_admin():
+        return
     if not has_permission("table_manage"):
         raise ValueError("球房未开通会员，无法管理桌台")
 
@@ -1105,17 +1451,18 @@ def admin_table_qrcode_png(table_id):
     t = find_by_id(load("tables"), table_id)
     if t:
         try:
-            _assert_table_access(t)
+            _assert_table_venue_read(t)
         except ValueError as e:
-            return _err(str(e), 403), 403
+            return _err(str(e), 403, 403)
     try:
         import qrcode
     except ImportError:
-        return _err("请安装 qrcode: pip install qrcode[pil]"), 500
+        return _err("请安装 qrcode: pip install qrcode[pil]", 500, 500)
 
     from io import BytesIO
 
-    t = find_by_id(load("tables"), table_id)
+    if not t:
+        t = find_by_id(load("tables"), table_id)
     if not t:
         return jsonify({"code": 1, "msg": "桌台不存在"}), 404
     t = enrich_table(t)
@@ -1133,13 +1480,14 @@ def admin_table_qrcode_png(table_id):
 
 @app.route("/api/admin/table/<table_id>/open", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_open_table(table_id):
     t = find_by_id(load("tables"), table_id)
     if t:
         try:
             _assert_table_access(t)
         except ValueError as e:
-            return _err(str(e), 403), 403
+            return _err(str(e), 403, 403)
     data = request.get_json() or {}
     opened = data.get("opened", True)
     hours = float(data.get("hours", 0))
@@ -1158,6 +1506,13 @@ def admin_open_table(table_id):
     except ValueError as e:
         return _err(str(e))
     if opened and user_id and hours > 0:
+        from admin_scope import assert_user_in_venue
+        from admin_auth import is_super_admin
+
+        try:
+            assert_user_in_venue(user_id, session.get("venue_id"), is_super_admin())
+        except ValueError as e:
+            return _err(str(e))
         open_table_hours_bonus(user_id, hours)
     _broadcast()
     return _ok()
@@ -1175,7 +1530,7 @@ def admin_release_table(table_id):
         _broadcast()
         return _ok(enrich_table(table))
     except ValueError as e:
-        return _err(str(e), 403), 403
+        return _err(str(e), 403, 403)
 
 
 @app.route("/api/admin/products", methods=["GET", "POST"])
@@ -1186,7 +1541,7 @@ def admin_products():
     if request.method == "GET":
         return _ok(load("products"))
     if not is_super_admin():
-        return _err("仅总后台可添加或修改商品", 403), 403
+        return _err("仅总后台可添加或修改商品", 403, 403)
     data = request.get_json() or {}
     product = {
         "id": data.get("id") or f"P{datetime.now().strftime('%H%M%S')}",
@@ -1305,25 +1660,37 @@ def admin_batch_delete_exchanges():
 
 
 @app.route("/api/admin/log/score/<log_id>", methods=["DELETE"])
-@super_admin_required
+@admin_required
+@require_active_venue_member
 def admin_delete_score_log(log_id):
+    from admin_auth import is_super_admin
     from services import delete_score_logs
 
     try:
-        result = delete_score_logs([log_id])
+        result = delete_score_logs(
+            [log_id],
+            session.get("venue_id"),
+            is_super_admin(),
+        )
         return _ok(result)
     except ValueError as e:
         return _err(str(e))
 
 
 @app.route("/api/admin/logs/score/batch-delete", methods=["POST"])
-@super_admin_required
+@admin_required
+@require_active_venue_member
 def admin_batch_delete_score_logs():
+    from admin_auth import is_super_admin
     from services import delete_score_logs
 
     data = request.get_json(silent=True) or {}
     try:
-        result = delete_score_logs(data.get("log_ids") or [])
+        result = delete_score_logs(
+            data.get("log_ids") or [],
+            session.get("venue_id"),
+            is_super_admin(),
+        )
         return _ok(result)
     except ValueError as e:
         return _err(str(e))
@@ -1334,16 +1701,16 @@ def admin_batch_delete_score_logs():
 def admin_score_logs():
     from admin_auth import is_super_admin
     from admin_scope import filter_score_logs_for_venue
+    from user_history import format_admin_score_detail
 
     logs = filter_score_logs_for_venue(
         load("score_logs"), session.get("venue_id"), is_super_admin()
     )
     users = load("users")
+    matches = load("matches")
     logs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    for l in logs[:1000]:
-        u = find_by_id(users, l.get("user_id"))
-        l["nickname"] = u.get("nickname") if u else ""
-    return _ok(logs[:1000])
+    out = [format_admin_score_detail(l, users, matches) for l in logs[:1000]]
+    return _ok(out)
 
 
 @app.route("/api/admin/logs/exchange")
@@ -1414,4 +1781,22 @@ if __name__ == "__main__":
     print(f"台球天梯系统启动: http://{config.HOST}:{config.PORT}")
     print(f"管理后台: http://127.0.0.1:{config.PORT}/admin")
     print(f"投屏大屏: http://127.0.0.1:{config.PORT}/screen")
-    socketio.run(app, host=config.HOST, port=config.PORT, debug=True, allow_unsafe_werkzeug=True)
+    if config.WECHAT_APPID and config.WECHAT_SECRET:
+        print(f"微信登录: 已配置 AppID={config.WECHAT_APPID}")
+    else:
+        print("微信登录: 未就绪 — 请运行 setup-wechat.bat")
+        print("  在 wechat.secret.txt 粘贴 AppSecret 后重启本窗口")
+    try:
+        config.validate_production_secrets()
+    except RuntimeError as e:
+        if config.DEV_MODE:
+            print(f"WARN: {e}")
+        else:
+            raise
+    socketio.run(
+        app,
+        host=config.HOST,
+        port=config.PORT,
+        debug=config.FLASK_DEBUG,
+        allow_unsafe_werkzeug=True,
+    )

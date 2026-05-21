@@ -5,6 +5,7 @@ const app = getApp();
 
 
 const BONUS_LABEL = { break_run: '炸清+20', clearance: '接清+15' };
+const ACTION_COOLDOWN_SEC = 60;
 
 
 
@@ -38,6 +39,8 @@ Page({
     loadError: '',
     pageReady: false,
     _initDone: false,
+    idleUi: { active: false },
+    idleCountdownTimer: null,
 
   },
 
@@ -136,11 +139,43 @@ Page({
 
 
 
+  syncIdleCountdown(idleUi) {
+
+    if (this.data.idleCountdownTimer) {
+
+      clearInterval(this.data.idleCountdownTimer);
+
+      this.setData({ idleCountdownTimer: null });
+
+    }
+
+    if (!idleUi || !idleUi.active) return;
+
+    const timer = setInterval(() => {
+
+      const ui = { ...this.data.idleUi };
+
+      if (!ui.active) return;
+
+      if (ui.seconds_left > 0) ui.seconds_left -= 1;
+
+      if (ui.end_seconds_left > 0) ui.end_seconds_left -= 1;
+
+      this.setData({ idleUi: ui });
+
+    }, 1000);
+
+    this.setData({ idleCountdownTimer: timer });
+
+  },
+
   onUnload() {
 
     this._destroyed = true;
 
     if (this.data.cooldownTimer) clearInterval(this.data.cooldownTimer);
+
+    if (this.data.idleCountdownTimer) clearInterval(this.data.idleCountdownTimer);
 
     this.stopPoll();
 
@@ -393,8 +428,6 @@ Page({
 
       if (table.current_match_id) {
 
-        this._pollBusy = false;
-
         await this.refreshMatchData(table.current_match_id);
 
       } else {
@@ -463,7 +496,10 @@ Page({
 
         loadError: '',
 
+        idleUi: match.idle_ui || { active: false },
+
       });
+      this.syncIdleCountdown(match.idle_ui);
 
       this.checkOpponentBonusPopup(match.bonus_pending_list);
 
@@ -471,9 +507,13 @@ Page({
 
       this.checkBonusReviewNotice(match);
 
+      this.syncCooldownFromMatch(enriched);
+
       if (match.status === 'finished' || match.status === 'invalid') {
 
         this.goResult(match.id);
+
+        return;
 
       }
 
@@ -523,17 +563,35 @@ Page({
 
   async ensureLogin() {
 
-    if (!app.globalData.token) {
+    const token = app.globalData.accessToken || app.globalData.token || wx.getStorageSync('access_token');
+
+    if (token) {
+
+      app.globalData.token = token;
+
+      app.globalData.accessToken = token;
+
+      return true;
+
+    }
+
+    try {
+
+      await api.login();
+
+      return true;
+
+    } catch (e) {
 
       this.setData({ loadError: '请先在首页完成微信授权登录' });
 
-      wx.showToast({ title: '请先在首页登录', icon: 'none' });
+      wx.showToast({ title: String(e), icon: 'none' });
+
+      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1500);
 
       return false;
 
     }
-
-    return true;
 
   },
 
@@ -654,11 +712,22 @@ Page({
 
 
 
+  isCooldownActive() {
+    return this.data.cooldown > 0;
+  },
+
+  syncCooldownFromMatch(match) {
+    const sec = (match && match.action_cooldown_remaining) || 0;
+    if (sec > 0) {
+      this.startCooldown(sec);
+    }
+  },
+
   async reportFrame(action) {
 
-    if (this.data.cooldown > 0) {
+    if (this.isCooldownActive()) {
 
-      wx.showToast({ title: `冷却中 ${this.data.cooldown}s`, icon: 'none' });
+      wx.showToast({ title: `请等待 ${this.data.cooldown} 秒后再操作`, icon: 'none' });
 
       return;
 
@@ -696,24 +765,19 @@ Page({
 
 
 
-  startCooldown() {
-
-    this.setData({ cooldown: 60 });
-
+  startCooldown(seconds) {
+    const sec = seconds > 0 ? seconds : ACTION_COOLDOWN_SEC;
     if (this.data.cooldownTimer) clearInterval(this.data.cooldownTimer);
-
+    this.setData({ cooldown: sec });
     const timer = setInterval(() => {
-
       const c = this.data.cooldown - 1;
-
       this.setData({ cooldown: c });
-
-      if (c <= 0) clearInterval(timer);
-
+      if (c <= 0) {
+        clearInterval(timer);
+        this.setData({ cooldownTimer: null });
+      }
     }, 1000);
-
     this.setData({ cooldownTimer: timer });
-
   },
 
 
@@ -721,6 +785,69 @@ Page({
   onWin() { this.reportFrame('win'); },
 
   onLose() { this.reportFrame('lose'); },
+
+  async onIdleContinue() {
+    if (!this.data.match || !this.data.match.id) return;
+    if (!this.data.idleUi.need_my_continue) return;
+    try {
+      const match = await api.request(`/api/match/${this.data.match.id}/idle/continue`, 'POST', {});
+      if (match.status === 'finished' || match.status === 'invalid') {
+        this.goResult(match.id);
+        return;
+      }
+      await this.refreshMatchData(match.id);
+      if (match.idle_ui && match.idle_ui.both_continue_ready) {
+        wx.showToast({ title: '双方已确认，比赛继续', icon: 'none' });
+      }
+    } catch (e) {
+      wx.showToast({ title: String(e), icon: 'none' });
+    }
+  },
+
+  async onIdleEnd() {
+    if (!this.data.match || !this.data.match.id) return;
+    try {
+      const match = await api.request(`/api/match/${this.data.match.id}/idle/end`, 'POST', {});
+      if (match.status === 'finished' || match.status === 'invalid') {
+        this.goResult(match.id);
+        return;
+      }
+      await this.refreshMatchData(match.id);
+      wx.showToast({ title: '已通知对方', icon: 'none' });
+    } catch (e) {
+      wx.showToast({ title: String(e), icon: 'none' });
+    }
+  },
+
+  async onIdleAgreeEnd() {
+    await this._idleEndResponse(true);
+  },
+
+  async onIdleRejectEnd() {
+    await this._idleEndResponse(false);
+  },
+
+  async _idleEndResponse(agree) {
+    if (!this.data.match || !this.data.match.id) return;
+    try {
+      const match = await api.request(
+        `/api/match/${this.data.match.id}/idle/end-response`,
+        'POST',
+        { agree },
+      );
+      if (match.status === 'finished' || match.status === 'invalid') {
+        this.goResult(match.id);
+        return;
+      }
+      await this.refreshMatchData(match.id);
+      wx.showToast({
+        title: agree ? '已同意结束' : '已拒绝，比赛继续',
+        icon: 'none',
+      });
+    } catch (e) {
+      wx.showToast({ title: String(e), icon: 'none' });
+    }
+  },
 
 
 
@@ -732,7 +859,7 @@ Page({
 
       content: '未打满局数积分将减半，确认结束？',
 
-      success: async (r) => {
+      success: (r) => {
 
         if (!r.confirm) return;
 
@@ -745,21 +872,17 @@ Page({
 
         const winner = m.score1 > m.score2 ? m.player1_id : (m.score2 > m.score1 ? m.player2_id : null);
 
-        try {
+        const body = { completed: false };
 
-          const body = { completed: false };
+        if (winner) body.winner_id = winner;
 
-          if (winner) body.winner_id = winner;
-
-          const match = await api.request(`/api/match/${m.id}/finish`, 'POST', body);
-
-          this.goResult(match.id);
-
-        } catch (e) {
-
-          wx.showToast({ title: String(e), icon: 'none' });
-
-        }
+        api.request(`/api/match/${m.id}/finish`, 'POST', body)
+          .then((match) => {
+            this.goResult(match.id);
+          })
+          .catch((e) => {
+            wx.showToast({ title: String(e), icon: 'none' });
+          });
 
       },
 
@@ -781,39 +904,42 @@ Page({
 
     }
 
+    if (this.isCooldownActive()) {
+
+      wx.showToast({ title: `请等待 ${this.data.cooldown} 秒后再申报`, icon: 'none' });
+
+      return;
+
+    }
+
     wx.showModal({
 
       title: '申报确认',
 
-      content: `申报${BONUS_LABEL[type]}？将通知对方手机弹窗确认，双方各确认一次后加分`,
+      content: `申报${BONUS_LABEL[type]}？将通知对方确认，对方同意后即可加分并为您胜1局`,
 
-      success: async (res) => {
+      success: (res) => {
 
         if (!res.confirm) return;
 
-        try {
+        api.request(
 
-          const data = await api.request(
+          `/api/match/${this.data.match.id}/bonus/request`,
 
-            `/api/match/${this.data.match.id}/bonus/request`,
+          'POST',
 
-            'POST',
+          { type },
 
-            { type },
-
-          );
-
-          wx.showToast({ title: '已通知对方确认', icon: 'none' });
-
-          this.setData({ pendingBonuses: this.mapPending(data.pending) });
-
-          this.refreshMatchData(this.data.match.id);
-
-        } catch (err) {
-
-          wx.showToast({ title: String(err), icon: 'none' });
-
-        }
+        )
+          .then((data) => {
+            wx.showToast({ title: '已通知对方确认', icon: 'none' });
+            this.startCooldown();
+            this.setData({ pendingBonuses: this.mapPending(data.pending) });
+            this.refreshMatchData(this.data.match.id);
+          })
+          .catch((err) => {
+            wx.showToast({ title: String(err), icon: 'none' });
+          });
 
       },
 
@@ -843,15 +969,22 @@ Page({
 
       });
 
-      wx.showToast({
-
-        title: data.applied ? '双方已确认，加分成功' : '已确认，等待申报方确认',
-
-        icon: 'none',
-
-      });
+      let tip = '已同意，申报生效';
+      if (data.frame_awarded) {
+        tip = data.match_finished ? '已同意：对方加分胜局，对局已结束' : '已同意：对方加分并胜1局';
+      } else if (data.applied) {
+        tip = '已同意，加分成功';
+      }
+      wx.showToast({ title: tip, icon: 'none', duration: data.match_finished ? 2500 : 1500 });
 
       this.setData({ pendingBonuses: this.mapPending(data.pending) });
+
+      if (data.match_finished && data.match) {
+        const enriched = await api.request(`/api/match/${this.data.match.id}`);
+        this.setData({ match: enriched, pendingBonuses: [], opponentBonusCard: null });
+        this.stopPoll();
+        return;
+      }
 
       this.refreshMatchData(this.data.match.id);
 

@@ -1,8 +1,8 @@
 """桌台扫码签到：两名选手均到场后才能开赛"""
 from typing import Dict, List, Optional  # noqa: F401 - Dict used in view_holder
 
-from db import find_by_id, load, mutate, now_iso, save
-from services import start_match
+from db import find_by_id, load, mutate, now_iso
+from services import reconcile_table_matches, start_match, table_has_active_match
 
 
 def _waiting_list(table: Dict) -> List[Dict]:
@@ -17,6 +17,8 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
     expected = table.get("qr_token") or ""
     if expected and expected != (qr_token or ""):
         raise ValueError("二维码无效，请重新扫码")
+
+    reconcile_table_matches(table_id)
 
     view_holder: Dict = {}
 
@@ -34,8 +36,9 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
             if m and m.get("status") == "playing":
                 if user_id not in (m.get("player1_id"), m.get("player2_id")):
                     raise ValueError("本桌正在进行其他选手的对局，请换桌或稍后再试")
-            view_holder["view"] = build_table_view(t, user_id)
-            return ts
+                view_holder["view"] = build_table_view(t, user_id)
+                return ts
+            t["current_match_id"] = None
 
         waiting = _waiting_list(t)
         ids = [w["user_id"] for w in waiting]
@@ -49,11 +52,6 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
                 "nickname": u.get("nickname", "球友"),
                 "joined_at": now_iso(),
             })
-
-        if len(_waiting_list(t)) >= 2 and not t.get("opened"):
-            t["opened"] = True
-            t["opened_at"] = now_iso()
-            t["opened_by_scan"] = True
 
         view_holder["view"] = build_table_view(t, user_id)
         return ts
@@ -143,26 +141,31 @@ def start_from_table(
     challenger_id: str = None,
     target_id: str = None,
 ) -> Dict:
+    reconcile_table_matches(table_id)
+
     view_holder: Dict = {}
 
-    def _peek(ts):
+    def _prepare(ts):
         table = find_by_id(ts, table_id)
         if not table:
             raise ValueError("桌台不存在")
+        waiting = table.get("waiting_players") or []
+        if len(waiting) < 2:
+            raise ValueError("需两名选手均扫码到场后才能开始（当前 %d/2）" % len(waiting))
+        ids = {w["user_id"] for w in waiting}
+        if user_id not in ids:
+            raise ValueError("请在本桌扫码签到后再开始")
+        if not table.get("opened"):
+            table["opened"] = True
+            table["opened_at"] = now_iso()
+            table["opened_by_scan"] = True
         view_holder["table"] = table
         return ts
 
-    mutate("tables", _peek)
+    mutate("tables", _prepare)
     table = view_holder["table"]
 
     waiting = table.get("waiting_players") or []
-    if len(waiting) < 2:
-        raise ValueError("需两名选手均扫码到场后才能开始（当前 %d/2）" % len(waiting))
-
-    ids = {w["user_id"] for w in waiting}
-    if user_id not in ids:
-        raise ValueError("请在本桌扫码签到后再开始")
-
     player1_id = waiting[0]["user_id"]
     player2_id = waiting[1]["user_id"]
     synced_race = _synced_race_to(waiting)
@@ -221,6 +224,6 @@ def build_table_view(table: Dict, user_id: str = None) -> Dict:
         "current_match_id": table.get("current_match_id"),
         "waiting_players": players,
         "waiting_count": len(players),
-        "can_start": ready and not table.get("current_match_id"),
+        "can_start": ready and not table_has_active_match(table),
         "i_am_waiting": any(p["user_id"] == user_id for p in players) if user_id else False,
     }

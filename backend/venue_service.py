@@ -52,8 +52,10 @@ def ensure_venues_file():
     default = {
         "id": DEFAULT_VENUE_ID,
         "name": "默认球房",
+        "manager_name": "",
         "username": "demo_hall",
         "password_hash": generate_password_hash("hall123"),
+        "security_code_hash": generate_password_hash("hall123"),
         "member_expires_at": "2099-12-31T23:59:59",
         "contact_phone": "",
         "note": "演示球房（已开通会员）",
@@ -64,11 +66,25 @@ def ensure_venues_file():
     return [default]
 
 
+def _venue_counts(venue_id: str) -> Tuple[int, int]:
+    from admin_scope import users_linked_to_venue
+
+    ensure_table_venue_ids()
+    tables = load("tables")
+    table_count = sum(1 for t in tables if t.get("venue_id", DEFAULT_VENUE_ID) == venue_id)
+    member_count = len(users_linked_to_venue(venue_id))
+    return table_count, member_count
+
+
 def list_venues() -> List[Dict]:
     ensure_venues_file()
     result = []
     for v in load("venues"):
-        result.append(venue_public_view(v, admin=True))
+        row = venue_public_view(v, admin=True)
+        tc, mc = _venue_counts(v["id"])
+        row["table_count"] = tc
+        row["member_count"] = mc
+        result.append(row)
     return result
 
 
@@ -83,6 +99,16 @@ def find_venue_by_username(username: str) -> Optional[Dict]:
 def get_venue(venue_id: str) -> Optional[Dict]:
     ensure_venues_file()
     return find_by_id(load("venues"), venue_id)
+
+
+def verify_venue_security_code(username: str, code: str) -> bool:
+    v = find_venue_by_username(username)
+    if not v or not code:
+        return False
+    h = v.get("security_code_hash", "")
+    if not h:
+        return False
+    return check_password_hash(h, code.strip())
 
 
 def authenticate_venue(username: str, password: str) -> Optional[Dict]:
@@ -103,17 +129,20 @@ def venue_public_view(venue: Dict, admin: bool = False) -> Dict:
     row = {
         "id": venue["id"],
         "name": venue.get("name", ""),
+        "manager_name": venue.get("manager_name", ""),
         "username": venue.get("username", ""),
         "member_expires_at": venue.get("member_expires_at"),
         "is_member_active": active,
         "contact_phone": venue.get("contact_phone", ""),
         "note": venue.get("note", ""),
         "permissions": perms,
+        "has_custom_ladder_rules": bool(venue.get("ladder_rules")),
         "created_at": venue.get("created_at"),
         "updated_at": venue.get("updated_at"),
     }
     if admin:
         row["has_password"] = bool(venue.get("password_hash"))
+        row["has_security_code"] = bool(venue.get("security_code_hash"))
     return row
 
 
@@ -138,21 +167,35 @@ def mobile_venue_status(venue_id: str) -> Dict:
     }
 
 
+def _normalize_member_expires(val) -> str:
+    s = (val or "").strip()
+    if not s:
+        return ""
+    if len(s) == 10 and s[4] == "-":
+        return s + "T23:59:59"
+    return s
+
+
 def create_venue(data: Dict) -> Dict:
     name = (data.get("name") or "").strip()
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
+    security_code = (data.get("security_code") or "").strip()
     if not name or not username or not password:
         raise ValueError("请填写球房名称、登录账号和密码")
+    if not security_code:
+        raise ValueError("请填写安全码（用于球房忘记密码时核实身份）")
     if find_venue_by_username(username):
         raise ValueError("登录账号已存在")
 
     venue = {
         "id": new_id("V"),
         "name": name,
+        "manager_name": (data.get("manager_name") or "").strip(),
         "username": username,
         "password_hash": generate_password_hash(password),
-        "member_expires_at": data.get("member_expires_at") or "",
+        "security_code_hash": generate_password_hash(security_code),
+        "member_expires_at": _normalize_member_expires(data.get("member_expires_at")),
         "contact_phone": data.get("contact_phone", ""),
         "note": data.get("note", ""),
         "created_at": now_iso(),
@@ -168,6 +211,8 @@ def create_venue(data: Dict) -> Dict:
 
 
 def update_venue(venue_id: str, data: Dict) -> Dict:
+    old = get_venue(venue_id)
+    was_active = is_member_active(old) if old else False
     updated = {}
 
     def _fn(venues):
@@ -176,12 +221,18 @@ def update_venue(venue_id: str, data: Dict) -> Dict:
             raise ValueError("球房不存在")
         if data.get("name") is not None:
             v["name"] = (data.get("name") or "").strip()
+        if data.get("manager_name") is not None:
+            v["manager_name"] = (data.get("manager_name") or "").strip()
         if data.get("contact_phone") is not None:
             v["contact_phone"] = data.get("contact_phone", "")
         if data.get("note") is not None:
             v["note"] = data.get("note", "")
         if data.get("member_expires_at") is not None:
-            v["member_expires_at"] = data.get("member_expires_at") or ""
+            v["member_expires_at"] = _normalize_member_expires(data.get("member_expires_at"))
+        if data.get("security_code"):
+            code = (data.get("security_code") or "").strip()
+            if code:
+                v["security_code_hash"] = generate_password_hash(code)
         if data.get("username") is not None:
             uname = (data.get("username") or "").strip()
             if not uname:
@@ -197,7 +248,66 @@ def update_venue(venue_id: str, data: Dict) -> Dict:
         return venues
 
     mutate("venues", _fn)
-    return venue_public_view(updated["venue"], admin=True)
+    new_v = updated["venue"]
+    if not was_active and is_member_active(new_v):
+        from ladder_settings import sync_venue_ladder_from_global
+
+        sync_venue_ladder_from_global(venue_id)
+    return venue_public_view(new_v, admin=True)
+
+
+def get_venue_admin_detail(venue_id: str) -> Dict:
+    """总后台：球房详情（桌台、会员、积分概况）"""
+    from admin_scope import users_linked_to_venue
+    from rating import build_leaderboard, get_tier
+
+    v = get_venue(venue_id)
+    if not v:
+        raise ValueError("球房不存在")
+    ensure_table_venue_ids()
+    tables = load("tables")
+    venue_tables = [
+        {
+            "id": t["id"],
+            "name": t.get("name", ""),
+            "number": t.get("number", ""),
+            "opened": bool(t.get("opened")),
+            "current_match_id": t.get("current_match_id"),
+        }
+        for t in tables
+        if t.get("venue_id", DEFAULT_VENUE_ID) == venue_id
+    ]
+    member_ids = users_linked_to_venue(venue_id)
+    users = load("users")
+    members = []
+    total_score = 0
+    for u in users:
+        if u.get("id") not in member_ids:
+            continue
+        sc = int(u.get("score", 0))
+        total_score += sc
+        tier = get_tier(sc)
+        members.append({
+            "id": u["id"],
+            "nickname": u.get("nickname", ""),
+            "phone": u.get("phone", ""),
+            "score": sc,
+            "tier_name": tier.get("tier_name", ""),
+            "wins": u.get("wins", 0),
+            "losses": u.get("losses", 0),
+            "status": u.get("status", "active"),
+        })
+    members.sort(key=lambda x: x["score"], reverse=True)
+    tc, mc = _venue_counts(venue_id)
+    base = venue_public_view(v, admin=True)
+    base["table_count"] = tc
+    base["member_count"] = mc
+    return {
+        "venue": base,
+        "tables": venue_tables,
+        "members": members,
+        "total_member_score": total_score,
+    }
 
 
 def delete_venue(venue_id: str):

@@ -5,6 +5,7 @@ Page({
   data: {
     profile: null,
     phone: '',
+    editNickname: '',
   },
 
   onShow() {
@@ -21,7 +22,12 @@ Page({
       this.setData({
         profile,
         phone: profile.user.phone || '',
+        editNickname: profile.user.nickname || '',
       });
+      if (app.globalData.user) {
+        app.globalData.user = { ...app.globalData.user, ...profile.user };
+        wx.setStorageSync('user', app.globalData.user);
+      }
     } catch (e) {
       wx.showToast({ title: e, icon: 'none' });
     }
@@ -29,6 +35,37 @@ Page({
 
   onPhoneInput(e) {
     this.setData({ phone: e.detail.value });
+  },
+
+  onNicknameInput(e) {
+    this.setData({ editNickname: e.detail.value });
+  },
+
+  saveNickname() {
+    const nickname = (this.data.editNickname || '').trim();
+    if (!nickname) {
+      wx.showToast({ title: '昵称不能为空', icon: 'none' });
+      return;
+    }
+    if (nickname.length > 20) {
+      wx.showToast({ title: '昵称最多20个字', icon: 'none' });
+      return;
+    }
+    api.request('/api/user/nickname', 'POST', { nickname })
+      .then((data) => {
+        const u = data.user || {};
+        if (app.globalData.user && app.globalData.token) {
+          app.setUser({ ...app.globalData.user, ...u }, app.globalData.token);
+        }
+        const last = wx.getStorageSync('wx_last_profile') || {};
+        wx.setStorageSync('wx_last_profile', {
+          nickname,
+          avatar: last.avatar || u.avatar || '',
+        });
+        wx.showToast({ title: '昵称已更新', icon: 'success' });
+        return this.load();
+      })
+      .catch((e) => wx.showToast({ title: String(e), icon: 'none' }));
   },
 
   bindPhone() {
@@ -52,6 +89,20 @@ Page({
   goShop() {
     wx.setStorageSync('shop_tab', 'records');
     wx.switchTab({ url: '/pages/shop/shop' });
+  },
+
+  goMatches() {
+    wx.navigateTo({ url: '/pages/profile-matches/profile-matches' });
+  },
+
+  goScoreLogs() {
+    wx.navigateTo({ url: '/pages/profile-logs/profile-logs' });
+  },
+
+  openMatch(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/match-result/match-result?match_id=${encodeURIComponent(id)}` });
   },
 
   goLogin() {

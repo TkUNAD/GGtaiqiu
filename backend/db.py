@@ -97,8 +97,10 @@ def save(name: str, data: Any):
     _ensure_data_dir()
     path = _path(name)
     with _lock:
-        with open(path, "w", encoding="utf-8") as f:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
 
 
 def mutate(name: str, fn: Callable[[Any], Any]) -> Any:

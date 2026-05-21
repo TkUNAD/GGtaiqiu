@@ -5,6 +5,8 @@ App({
   globalData: {
     baseUrl: '',
     token: '',
+    accessToken: '',
+    refreshToken: '',
     user: null,
     networkOk: false,
     venueId: VENUE_ID,
@@ -15,14 +17,19 @@ App({
     this.globalData.baseUrl = getApiBaseUrl();
     console.log('[API] baseUrl =', this.globalData.baseUrl);
 
-    const token = wx.getStorageSync('token');
+    const access = wx.getStorageSync('access_token') || wx.getStorageSync('token');
+    const refresh = wx.getStorageSync('refresh_token');
     const cachedUser = wx.getStorageSync('user');
-    if (token) {
-      this.globalData.token = token;
-      if (cachedUser) {
-        this.globalData.user = cachedUser;
+    if (access || refresh) {
+      this.globalData.accessToken = access;
+      this.globalData.token = access;
+      this.globalData.refreshToken = refresh;
+      if (cachedUser) this.globalData.user = cachedUser;
+      if (access) {
+        this.refreshProfile();
+      } else if (refresh) {
+        api.tryRefreshToken().then(() => this.refreshProfile()).catch(() => {});
       }
-      this.refreshProfile();
     }
 
     this.loadVenueStatus();
@@ -46,7 +53,7 @@ App({
       });
   },
   refreshProfile() {
-    if (!this.globalData.token) return;
+    if (!this.globalData.accessToken && !this.globalData.token) return;
     api.request('/api/user/profile')
       .then((profile) => {
         const u = { ...profile.user, tier: profile.tier, rank: profile.rank };
@@ -61,10 +68,14 @@ App({
         }
       });
   },
-  setUser(user, token) {
+  setUser(user, accessToken, refreshToken) {
     this.globalData.user = user;
-    this.globalData.token = token;
+    this.globalData.accessToken = accessToken || '';
+    this.globalData.token = accessToken || '';
+    if (refreshToken) this.globalData.refreshToken = refreshToken;
     wx.setStorageSync('user', user);
-    wx.setStorageSync('token', token);
+    wx.setStorageSync('access_token', accessToken || '');
+    wx.setStorageSync('token', accessToken || '');
+    if (refreshToken) wx.setStorageSync('refresh_token', refreshToken);
   },
 });

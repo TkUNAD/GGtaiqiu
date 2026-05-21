@@ -8,22 +8,35 @@
 
   <view class="hero card">
     <view class="title">台球天梯系统</view>
-    <view wx:if="{{user}}">
-      <text>{{user.nickname}}</text>
-      <text wx:if="{{user.tier}}"> | {{user.tier.tier_name}} {{user.tier.star}}星</text>
-      <text> | {{user.score}}分</text>
-      <text wx:if="{{user.rank}}"> | 第{{user.rank}}名</text>
+    <view wx:if="{{user}}" class="user-info">
+      <image wx:if="{{user.avatar}}" class="user-avatar" src="{{user.avatar}}" mode="aspectFill" />
+      <view class="user-meta">
+        <text class="user-name">{{user.nickname}}</text>
+        <text wx:if="{{user.tier}}" class="user-detail">{{user.tier.tier_name}} {{user.tier.star}}星</text>
+        <text class="user-detail">{{user.score}}分</text>
+        <text wx:if="{{user.rank}}" class="user-detail">第{{user.rank}}名</text>
+      </view>
     </view>
     <view wx:else>
-      <view class="btn-primary {{logging ? 'disabled' : ''}}" bindtap="onLogin">
-        {{logging ? '登录中...' : '微信授权登录'}}
-      </view>
-      <view class="dev-login" wx:if="{{showTestLogin}}">
-        <text class="dev-label">测试专用（固定2个账号）</text>
-        <view class="dev-btns">
-          <view class="btn-test" bindtap="loginTest" data-role="a">选手A 登录</view>
-          <view class="btn-test" bindtap="loginTest" data-role="b">选手B 登录</view>
-        </view>
+      <!-- 须用 button 才能在点击时同步弹出微信授权窗（头像+昵称） -->
+      <button
+        class="btn-primary btn-wx-login"
+        bindtap="onLogin"
+        disabled="{{logging}}"
+        hover-class="btn-wx-login-hover"
+      >
+        {{logging ? '授权登录中...' : '微信授权登录'}}
+      </button>
+      <view class="login-hint">首次登录需微信授权；授权过后再次登录无需重复授权</view>
+      <!-- 新版基础库 getUserProfile 不可用时的备用 -->
+      <view class="auth-fallback" wx:if="{{showAuthFallback}}">
+        <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+          <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />
+          <view wx:else class="avatar-placeholder">+</view>
+          <text class="avatar-tip">点击选择头像</text>
+        </button>
+        <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{pendingNickname}}" bind:change="onNicknameInput" />
+        <button class="btn-primary btn-wx-login" bindtap="onConfirmProfileLogin" disabled="{{logging}}">确认授权并登录</button>
       </view>
     </view>
     <view wx:if="{{user}}" class="btn-logout" bindtap="onLogout">退出当前账号</view>
@@ -32,7 +45,7 @@
   <view class="card">
     <view class="title">扫码开台对战</view>
     <view class="btn-primary" bindtap="scanTable">扫描桌台二维码</view>
-    <text class="tip">支持抢5、抢7，需后台开台才能打排位</text>
+    <text class="tip">支持抢5、抢7，两名选手到场后点击「开始对战」开台（开台后可打排位）</text>
   </view>
 
   <view class="card" wx:if="{{challengeTargets.length}}">

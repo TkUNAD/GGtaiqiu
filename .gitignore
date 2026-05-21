@@ -9,7 +9,10 @@ build/
 
 # Environment & secrets
 .env
-.env.*
+.env.local
+!.env.example
+wechat.secret.txt
+backend/config_local.py
 *.pem
 
 # IDE

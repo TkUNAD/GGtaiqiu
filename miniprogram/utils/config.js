@@ -2,17 +2,12 @@
  * 接口地址
  * 真机/预览：必须用电脑局域网 IP（ipconfig 里 192.168.x.x）
  * 勿用 198.18.x（Clash/VPN 虚拟网卡，手机连不上）
+ * 正式版小程序必须使用 HTTPS 后端（微信要求），请在微信公众平台配置合法域名
  */
 const PORT = 5000;
 const LAN_IP = '192.168.0.108';
 /** 当前球房 ID，与后台「球房会员」中一致；多球房部署时可按扫码参数覆盖 */
 const VENUE_ID = 'V001';
-
-/**
- * 是否显示首页「测试专用」登录（选手A/B）
- * 下次测试时改为 true，正式发布保持 false
- */
-const SHOW_TEST_LOGIN = false;
 
 function getApiBaseUrl() {
   const manual = wx.getStorageSync('manual_api_base');
@@ -38,7 +33,6 @@ module.exports = {
   PORT,
   LAN_IP,
   VENUE_ID,
-  SHOW_TEST_LOGIN,
   getApiBaseUrl,
   setManualApiBase,
 };

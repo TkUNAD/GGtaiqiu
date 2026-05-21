@@ -10,25 +10,48 @@
   </view>
 
   <view class="card">
+    <view class="title">修改昵称</view>
+    <input
+      class="nickname-input"
+      placeholder="请输入新昵称（1-20字）"
+      maxlength="20"
+      bindinput="onNicknameInput"
+      value="{{editNickname}}"
+    />
+    <view class="btn-primary" bindtap="saveNickname">保存昵称</view>
+  </view>
+
+  <view class="card">
     <view class="title">绑定手机 (1手机1账号)</view>
     <input placeholder="请输入手机号" type="number" maxlength="11" bindinput="onPhoneInput" value="{{phone}}" />
     <view class="btn-primary" bindtap="bindPhone">绑定</view>
   </view>
 
-  <view class="card">
-    <view class="title">最近对局</view>
-    <view class="match-row" wx:for="{{profile.recent_matches}}" wx:key="id">
-      <text>{{item.match_type === 'ranked' ? '排位' : '休闲'}} {{item.score1}}:{{item.score2}}</text>
-      <text class="status">{{item.status}}</text>
+  <view class="card tappable" bindtap="goMatches">
+    <view class="title-row">
+      <text class="title">最近对局</text>
+      <text class="more">查看近20局 ›</text>
     </view>
+    <view class="match-row" wx:for="{{profile.recent_matches}}" wx:key="id" catchtap="openMatch" data-id="{{item.id}}">
+      <view class="match-main">
+        <text>{{item.match_type_label}} vs {{item.opponent_name}} {{item.score_text}}</text>
+        <text class="status">{{item.status_label}}</text>
+      </view>
+      <text class="delta {{item.point_delta >= 0 ? 'plus' : 'minus'}}">{{item.point_delta >= 0 ? '+' : ''}}{{item.point_delta}}</text>
+    </view>
+    <view wx:if="{{!profile.recent_matches.length}}" class="empty-hint">暂无对局</view>
   </view>
 
-  <view class="card">
-    <view class="title">积分记录</view>
+  <view class="card tappable" bindtap="goScoreLogs">
+    <view class="title-row">
+      <text class="title">积分记录</text>
+      <text class="more">查看近20条 ›</text>
+    </view>
     <view class="log-row" wx:for="{{profile.score_logs}}" wx:key="id">
       <text>{{item.reason}}</text>
       <text class="{{item.delta > 0 ? 'plus' : 'minus'}}">{{item.delta > 0 ? '+' : ''}}{{item.delta}}</text>
     </view>
+    <view wx:if="{{!profile.score_logs.length}}" class="empty-hint">暂无记录</view>
   </view>
 
   <view class="btn-secondary" bindtap="goShop">我的兑换记录</view>

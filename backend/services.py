@@ -12,17 +12,18 @@ from anti_cheat import (
     match_duration_valid,
     punish_user,
 )
+import config
 from config import (
     DEV_MODE,
     EXCHANGE_DAILY_LIMIT,
     EXCHANGE_MIN_SCORE,
     INITIAL_SCORE,
-    WECHAT_APPID,
-    WECHAT_SECRET,
+    MATCH_ACTION_COOLDOWN,
     WIN_LOSE_COOLDOWN,
 )
 from db import find_by_id, load, mutate, new_id, now_iso, save
-from ladder_settings import get_ladder_rules
+from ladder_settings import get_effective_ladder_rules, get_ladder_rules
+from venue_service import DEFAULT_VENUE_ID
 from rating import (
     apply_inactive_penalty,
     build_leaderboard,
@@ -31,26 +32,31 @@ from rating import (
     get_tier,
     get_user_rank,
     inc_ranked_quota,
-    ranked_point_delta,
+    can_ranked_by_tier,
     ranked_quota_ok,
+    tier_gap,
+    tier_match_point_deltas,
     should_hide_rank,
 )
 
 
 def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
+    """仅用 code 换取 openid/session_key；用户头像昵称由前端 getUserProfile 传入，不在此接口获取。"""
     # 测试账号固定 code，仅开发模式可用
     if code.startswith("test_player_"):
         if not DEV_MODE:
             return None, "测试入口已关闭"
         return f"dev_{code}", None
-    if not WECHAT_APPID or not WECHAT_SECRET:
+    appid = config.WECHAT_APPID
+    secret = config.WECHAT_SECRET
+    if not appid or not secret:
         if DEV_MODE:
             return f"dev_{code}", None
         return None, "未配置微信小程序 AppID/Secret，无法完成微信登录"
     url = "https://api.weixin.qq.com/sns/jscode2session"
     params = {
-        "appid": WECHAT_APPID,
-        "secret": WECHAT_SECRET,
+        "appid": appid,
+        "secret": secret,
         "js_code": code,
         "grant_type": "authorization_code",
     }
@@ -59,7 +65,15 @@ def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
         data = r.json()
         if "openid" in data:
             return data["openid"], data.get("session_key")
-        return None, data.get("errmsg", "微信登录失败")
+        errmsg = data.get("errmsg", "微信登录失败")
+        if errmsg == "invalid code":
+            return None, (
+                "登录码无效或已过期，请重新点击「微信授权登录」。"
+                "若仍失败，请确认微信公众平台 AppID/Secret 与项目一致，并重启 run.bat"
+            )
+        if "invalid appsecret" in errmsg or errmsg == "invalid signature":
+            return None, "AppSecret 与 AppID 不匹配，请在 wechat.secret.txt 填写正确密钥后重启后端"
+        return None, errmsg
     except Exception as e:
         return None, str(e)
 
@@ -182,6 +196,10 @@ def delete_matches(
         missing = id_set - {m["id"] for m in to_delete}
         raise ValueError("对局不存在: " + ", ".join(list(missing)[:3]))
 
+    playing_ids = [m["id"] for m in to_delete if m.get("status") == "playing"]
+    if playing_ids:
+        raise ValueError("不能删除进行中的对局，请先结束或释放桌台")
+
     if not is_super and venue_id:
         tables = load("tables")
         for m in to_delete:
@@ -238,8 +256,14 @@ def delete_exchanges(exchange_ids: List[str]) -> Dict:
     return {"deleted": len(ids), "exchange_ids": ids}
 
 
-def delete_score_logs(log_ids: List[str]) -> Dict:
-    """总后台删除积分日志"""
+def delete_score_logs(
+    log_ids: List[str],
+    venue_id: Optional[str] = None,
+    is_super: bool = True,
+) -> Dict:
+    """删除积分日志（总后台任意；球房仅可删本球房关联用户的日志）"""
+    from admin_scope import filter_score_logs_for_venue
+
     ids = list({lid for lid in (log_ids or []) if lid})
     if not ids:
         raise ValueError("请选择要删除的日志")
@@ -250,6 +274,12 @@ def delete_score_logs(log_ids: List[str]) -> Dict:
     missing = id_set - existing
     if missing:
         raise ValueError("日志不存在: " + ", ".join(list(missing)[:3]))
+
+    scoped = filter_score_logs_for_venue(logs, venue_id, is_super)
+    allowed_ids = {l.get("id") for l in scoped if l.get("id")}
+    forbidden = id_set - allowed_ids
+    if forbidden:
+        raise ValueError("无权删除其他球房或范围外的积分日志")
 
     def _fn(logs):
         return [l for l in logs if l.get("id") not in id_set]
@@ -471,6 +501,11 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
 
     mutate("users", _update_existing)
     if holder.get("user"):
+        from anti_cheat import check_user_allowed
+
+        ok, msg = check_user_allowed(holder["user"])
+        if not ok:
+            raise ValueError(msg)
         return holder["user"]
 
     ok, msg = check_ip_limit(ip, openid)
@@ -512,6 +547,11 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
         return us
 
     mutate("users", _create)
+    if not holder.get("user"):
+        users = load("users")
+        holder["user"] = next((u for u in users if u.get("openid") == openid), None)
+    if not holder.get("user"):
+        raise ValueError("用户创建失败，请重试")
     return holder["user"]
 
 
@@ -546,10 +586,16 @@ def resolve_match_type(
     users = load("users")
     p1 = find_by_id(users, player1_id)
     p2 = find_by_id(users, player2_id)
-    rules = get_ladder_rules()
+    venue_id = table.get("venue_id", DEFAULT_VENUE_ID)
+    rules = get_effective_ladder_rules(venue_id)
+
+    if p1 and p2:
+        ok_tier, tier_msg = can_ranked_by_tier(p1, p2, rules=rules)
+        if not ok_tier:
+            return "casual", tier_msg
 
     for p, _pid in ((p1, player1_id), (p2, player2_id)):
-        ok, msg = ranked_quota_ok(p)
+        ok, msg = ranked_quota_ok(p, rules=rules)
         if not ok:
             if rules.get("ranked_over_limit_to_casual", True):
                 return "casual", msg
@@ -558,7 +604,7 @@ def resolve_match_type(
     if challenger_id and target_id:
         cr = get_user_rank(users, challenger_id)
         tr = get_user_rank(users, target_id)
-        ok, msg = can_challenge_rank(cr, tr)
+        ok, msg = can_challenge_rank(cr, tr, rules=rules)
         if ok:
             return "ranked", "挑战符合天梯规则，自动排位赛"
         return "casual", msg
@@ -568,10 +614,58 @@ def resolve_match_type(
     if r1 == r2:
         return "casual", "双方排名相同，本场为休闲局"
     ch_rank, tg_rank = (r1, r2) if r1 > r2 else (r2, r1)
-    ok, msg = can_challenge_rank(ch_rank, tg_rank)
+    ok, msg = can_challenge_rank(ch_rank, tg_rank, rules=rules)
     if ok:
         return "ranked", "符合天梯挑战规则，自动排位赛"
     return "casual", msg or "不符合天梯规则，本场为休闲局"
+
+
+def reconcile_table_matches(table_id: str) -> None:
+    """清理桌台残留的 current_match_id 与同桌孤儿 playing 对局"""
+
+    def _matches(ms):
+        tables = load("tables")
+        table = find_by_id(tables, table_id) or {}
+        active_mid = table.get("current_match_id")
+        if active_mid:
+            am = find_by_id(ms, active_mid)
+            if not am or am.get("status") != "playing":
+                active_mid = None
+        for m in ms:
+            if m.get("table_id") != table_id:
+                continue
+            if m.get("status") != "playing":
+                continue
+            if active_mid and m.get("id") == active_mid:
+                continue
+            m["status"] = "cancelled"
+            m["ended_at"] = now_iso()
+            m["invalid_reason"] = "系统自动清理：残留未结束对局"
+        return ms
+
+    mutate("matches", _matches)
+
+    def _tables(ts):
+        t = find_by_id(ts, table_id)
+        if not t:
+            return ts
+        mid = t.get("current_match_id")
+        if mid:
+            m = find_by_id(load("matches"), mid)
+            if not m or m.get("status") != "playing":
+                t["current_match_id"] = None
+        return ts
+
+    mutate("tables", _tables)
+
+
+def table_has_active_match(table: Dict) -> bool:
+    """桌台是否真有进行中对局（排除过期的 current_match_id）"""
+    mid = table.get("current_match_id")
+    if not mid:
+        return False
+    m = find_by_id(load("matches"), mid)
+    return bool(m and m.get("status") == "playing")
 
 
 def start_match(
@@ -587,6 +681,8 @@ def start_match(
     if player1_id == player2_id:
         raise ValueError("禁止虚拟对战")
 
+    reconcile_table_matches(table_id)
+
     table = find_by_id(load("tables"), table_id)
     if not table:
         raise ValueError("桌台不存在")
@@ -596,8 +692,12 @@ def start_match(
     p2 = find_by_id(users, player2_id)
     if not p1 or not p2:
         raise ValueError("玩家不存在")
-    if p1.get("status") == "banned" or p2.get("status") == "banned":
-        raise ValueError("账号已封禁")
+    from anti_cheat import check_user_allowed
+
+    for p in (p1, p2):
+        ok, msg = check_user_allowed(p)
+        if not ok:
+            raise ValueError(msg)
 
     is_ranked = match_type == "ranked"
     if is_ranked and not table.get("opened"):
@@ -607,9 +707,17 @@ def start_match(
     ranked_valid = True
     ranked_reason = ranked_reason_hint or ""
 
-    rules = get_ladder_rules()
+    venue_id = table.get("venue_id", DEFAULT_VENUE_ID)
+    rules = get_effective_ladder_rules(venue_id)
     if is_ranked:
-        ok, msg = ranked_quota_ok(p1)
+        ok_tier, tier_msg = can_ranked_by_tier(p1, p2, rules=rules)
+        if not ok_tier:
+            is_ranked = False
+            match_type = "casual"
+            ranked_valid = False
+            ranked_reason = tier_msg
+    if is_ranked:
+        ok, msg = ranked_quota_ok(p1, rules=rules)
         if not ok:
             if rules.get("ranked_over_limit_to_casual", True):
                 is_ranked = False
@@ -618,7 +726,7 @@ def start_match(
             else:
                 raise ValueError(msg)
         else:
-            ok2, msg2 = ranked_quota_ok(p2)
+            ok2, msg2 = ranked_quota_ok(p2, rules=rules)
             if not ok2:
                 if rules.get("ranked_over_limit_to_casual", True):
                     is_ranked = False
@@ -631,7 +739,7 @@ def start_match(
         users_list = load("users")
         cr = get_user_rank(users_list, challenger_id)
         tr = get_user_rank(users_list, target_id)
-        ok3, msg3 = can_challenge_rank(cr, tr)
+        ok3, msg3 = can_challenge_rank(cr, tr, rules=rules)
         if not ok3:
             if "超出" in msg3 and "日常加分" in msg3:
                 is_ranked = False
@@ -661,6 +769,7 @@ def start_match(
         "completed": False,
         "half_points": False,
         "last_action_at": {},
+        "last_activity_at": now_iso(),
         "bonuses": [],
         "bonus_pending": [],
     }
@@ -702,6 +811,69 @@ def start_match(
     return match
 
 
+def get_match_action_cooldown_remaining(m: Dict, user_id: str) -> int:
+    """距下次可操作剩余秒数（炸清/接清/胜局/负局共用）"""
+    last = m.get("last_action_at") or {}
+    now = datetime.now()
+    latest = None
+    prefix = f"{user_id}_"
+    for k, v in last.items():
+        if not k.startswith(prefix):
+            continue
+        try:
+            t = datetime.fromisoformat(v)
+            if latest is None or t > latest:
+                latest = t
+        except ValueError:
+            continue
+    if latest is None:
+        return 0
+    elapsed = (now - latest).total_seconds()
+    if elapsed >= MATCH_ACTION_COOLDOWN:
+        return 0
+    return max(1, int(MATCH_ACTION_COOLDOWN - elapsed))
+
+
+def _check_match_action_cooldown(m: Dict, user_id: str, action_label: str = "操作") -> None:
+    remain = get_match_action_cooldown_remaining(m, user_id)
+    if remain > 0:
+        raise ValueError(f"请等待{remain}秒后再{action_label}")
+
+
+def _touch_match_action_cooldown(m: Dict, user_id: str) -> None:
+    last = m.setdefault("last_action_at", {})
+    last[f"{user_id}_action"] = now_iso()
+    from match_idle import touch_match_activity
+
+    touch_match_activity(m)
+
+
+def auto_finish_idle_match(match_id: str, reason: str = "") -> Dict:
+    """闲置/超时自动结束：按当前局分结算并释放桌台"""
+    m = find_by_id(load("matches"), match_id)
+    if not m:
+        raise ValueError("对局不存在")
+    if m.get("status") != "playing":
+        return m
+    from match_idle import _winner_from_scores, touch_match_activity
+
+    touch_match_activity(m)
+
+    def _clear(ms):
+        mm = find_by_id(ms, match_id)
+        if mm:
+            mm.pop("idle_state", None)
+        return ms
+
+    mutate("matches", _clear)
+
+    winner_id, completed = _winner_from_scores(m)
+    result = finalize_match(match_id, winner_id, completed=completed)
+    if reason and result:
+        result["auto_end_reason"] = reason
+    return result
+
+
 def record_frame(match_id: str, user_id: str, action: str) -> Dict:
     """action: win | lose"""
     finish_holder: Dict[str, Any] = {}
@@ -711,16 +883,8 @@ def record_frame(match_id: str, user_id: str, action: str) -> Dict:
         if not m or m["status"] != "playing":
             raise ValueError("对局不存在或已结束")
 
-        now = datetime.now()
-        last = m.setdefault("last_action_at", {})
-        key = f"{user_id}_{action}"
-        if key in last:
-            try:
-                prev = datetime.fromisoformat(last[key])
-            except ValueError:
-                prev = None
-            if prev is not None and (now - prev).total_seconds() < WIN_LOSE_COOLDOWN:
-                raise ValueError(f"请等待{WIN_LOSE_COOLDOWN}秒后再操作")
+        label = "本局胜利" if action == "win" else "本局失败"
+        _check_match_action_cooldown(m, user_id, label)
 
         if action == "win":
             if user_id == m["player1_id"]:
@@ -729,7 +893,6 @@ def record_frame(match_id: str, user_id: str, action: str) -> Dict:
                 m["score2"] += 1
             else:
                 raise ValueError("非本局玩家")
-            last[f"{user_id}_win"] = now_iso()
         elif action == "lose":
             if user_id == m["player1_id"]:
                 m["score2"] += 1
@@ -737,9 +900,10 @@ def record_frame(match_id: str, user_id: str, action: str) -> Dict:
                 m["score1"] += 1
             else:
                 raise ValueError("非本局玩家")
-            last[f"{user_id}_lose"] = now_iso()
         else:
             raise ValueError("无效操作")
+
+        _touch_match_action_cooldown(m, user_id)
 
         race = m["race_to"]
         if m["score1"] >= race or m["score2"] >= race:
@@ -752,7 +916,7 @@ def record_frame(match_id: str, user_id: str, action: str) -> Dict:
     mutate("matches", _fn)
 
     if finish_holder.get("finish"):
-        return finish_match(match_id, finish_holder["winner"], completed=True)
+        return finalize_match(match_id, finish_holder["winner"], completed=True)
     return find_by_id(load("matches"), match_id) or {}
 
 
@@ -815,7 +979,8 @@ def _apply_finish_user_updates(
             _update_week_score(winner_id, casual_winner_bonus)
 
 
-def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -> Dict:
+def finalize_match(match_id: str, winner_id: str = None, completed: bool = True) -> Dict:
+    """对局结算编排：match 终态、用户积分、日志、周榜、释放桌台（失败时回滚 match 为 playing）"""
     from match_bonus import build_match_summary
 
     outcome: Dict[str, Any] = {}
@@ -872,20 +1037,36 @@ def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -
             raise ValueError("玩家数据异常")
 
         is_ranked = m.get("match_type") == "ranked" and m.get("ranked_valid", True)
-        w_score = w.get("score", INITIAL_SCORE)
-        l_score = l.get("score", INITIAL_SCORE)
+
+        table_row = find_by_id(load("tables"), m.get("table_id"))
+        match_venue_id = (
+            table_row.get("venue_id", DEFAULT_VENUE_ID) if table_row else DEFAULT_VENUE_ID
+        )
+        ladder_rules = get_effective_ladder_rules(match_venue_id)
 
         if is_ranked:
-            w_delta = ranked_point_delta(w_score, l_score, True)
-            l_delta = ranked_point_delta(w_score, l_score, False)
-            if m.get("half_points"):
-                w_delta = w_delta // 2
-                l_delta = l_delta // 2
+            w_delta, l_delta = tier_match_point_deltas(
+                winner_id,
+                loser_id,
+                p1,
+                m.get("score1", 0),
+                m.get("score2", 0),
+                w,
+                l,
+                rules=ladder_rules,
+                half_points=bool(m.get("half_points")),
+            )
+            m["tier_gap"] = tier_gap(
+                w.get("score", INITIAL_SCORE),
+                l.get("score", INITIAL_SCORE),
+                ladder_rules,
+            )
+            m["frame_diff"] = abs(m.get("score1", 0) - m.get("score2", 0))
             m["score_delta"] = {"winner": w_delta, "loser": l_delta}
             outcome["w_delta"] = w_delta
             outcome["l_delta"] = l_delta
         else:
-            bonus = daily_bonus("valid_match")
+            bonus = daily_bonus("valid_match", rules=ladder_rules)
             if m.get("half_points"):
                 bonus = bonus // 2
             m["score_delta"] = {"winner": bonus, "loser": 0}
@@ -923,16 +1104,28 @@ def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -
         mutate("matches", _summary)
         return find_by_id(load("matches"), match_id) or m
 
-    _apply_finish_user_updates(
-        outcome["winner_id"],
-        outcome["loser_id"],
-        match_id,
-        outcome["is_ranked"],
-        outcome.get("w_delta", 0),
-        outcome.get("l_delta", 0),
-        outcome.get("casual_bonus", 0),
-        False,
-    )
+    try:
+        _apply_finish_user_updates(
+            outcome["winner_id"],
+            outcome["loser_id"],
+            match_id,
+            outcome["is_ranked"],
+            outcome.get("w_delta", 0),
+            outcome.get("l_delta", 0),
+            outcome.get("casual_bonus", 0),
+            False,
+        )
+    except Exception as e:
+        def _rollback(ms):
+            mm = find_by_id(ms, match_id)
+            if mm and mm.get("status") == "finished":
+                mm["status"] = "playing"
+                mm.pop("ended_at", None)
+                mm.pop("winner_id", None)
+            return ms
+
+        mutate("matches", _rollback)
+        raise ValueError(f"结算失败: {e}") from e
 
     def _summary(ms):
         mm = find_by_id(ms, match_id)
@@ -942,6 +1135,10 @@ def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -
 
     mutate("matches", _summary)
     return find_by_id(load("matches"), match_id) or m
+
+
+def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -> Dict:
+    return finalize_match(match_id, winner_id, completed)
 
 
 def _release_table(table_id: str):

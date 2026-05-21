@@ -8,8 +8,22 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: "Microsoft YaHei", sans-serif; background: linear-gradient(180deg, #EDE9FE 0%, #DBEAFE 100%); min-height: 100vh; }
     .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(180deg, #6B21A8 0%, #2563EB 100%); }
-    .login-box { background: #fff; padding: 40px; border-radius: 12px; width: 360px; box-shadow: 0 8px 32px rgba(107,33,168,0.25); }
-    .login-box h2 { margin-bottom: 24px; color: #6B21A8; }
+    .login-box { background: #fff; padding: 40px; border-radius: 12px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px rgba(107,33,168,0.25); }
+    .login-box h2 { margin-bottom: 24px; color: #6B21A8; text-align: center; }
+    .login-box .login-submit {
+      display: block;
+      width: 85%;
+      max-width: 320px;
+      margin: 8px auto 0;
+      padding: 12px 28px;
+      font-size: 16px;
+      letter-spacing: 2px;
+    }
+    .login-links { display: flex; gap: 12px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+    .login-links button { background: transparent; color: #6B21A8; border: 1px solid #C4B5FD; padding: 6px 14px; font-size: 13px; }
+    .login-links button:hover { background: #F5F3FF; }
+    .sidebar-footer .btn-change-pwd { display: block; width: 100%; margin-bottom: 10px; padding: 8px 10px; font-size: 13px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); }
+    .pwd-hint { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 12px; background: #F5F3FF; padding: 10px; border-radius: 6px; }
     input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #C4B5FD; border-radius: 4px; }
     button { padding: 10px 20px; background: linear-gradient(180deg, #7C3AED, #3B82F6); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     button:hover { background: linear-gradient(180deg, #6B21A8, #2563EB); }
@@ -54,18 +68,34 @@
     .badge-green { background: #DDD6FE; color: #5B21B6; }
     .badge-red { background: #ffcdd2; }
     .badge-yellow { background: #fff9c4; }
+    .rule-desc { width: 100%; min-height: 200px; font-family: inherit; font-size: 13px; line-height: 1.5; background: #F5F3FF; }
+    .venue-only-nav.hidden { display: none !important; }
+    .sidebar a.nav-disabled { opacity: 0.4; pointer-events: none; cursor: not-allowed; color: #9ca3af !important; }
+    .sidebar a .nav-badge { font-size: 10px; background: #ef4444; color: #fff; padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
+    .ops-disabled { opacity: 0.45; pointer-events: none; filter: grayscale(0.3); }
+    .qr-view-only { cursor: zoom-in; }
+    .review-section { margin-bottom: 24px; }
+    .review-section h4 { margin-bottom: 10px; color: #5B21B6; }
+    .venue-form label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+    .ladder-rules-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 16px; }
+    .ladder-rules-col { flex: 1; min-width: 300px; }
+    .ladder-rules-col .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   </style>
 </head>
 <body>
   <div id="loginPage" class="login-wrap">
-    <div class="login-box">
+    <form id="loginForm" class="login-box" autocomplete="on" onsubmit="event.preventDefault(); doLogin();">
       <h2>台球天梯管理后台</h2>
-      <p style="font-size:13px;color:#666;margin-bottom:12px">总后台账号或球房会员账号登录</p>
-      <input id="username" placeholder="账号（总后台 admin / 球房账号）" value="admin">
-      <input id="password" type="password" placeholder="密码" value="admin123">
-      <button onclick="doLogin()">登录</button>
+      <p style="font-size:13px;color:#666;margin-bottom:12px">总后台账号或球房会员账号登录（回车可提交）</p>
+      <input id="username" name="username" placeholder="账号（总后台 admin / 球房账号）" value="admin" required>
+      <input id="password" name="password" type="password" placeholder="密码（见项目根目录 .env 中 ADMIN_PASS）" required>
+      <button type="submit" class="login-submit">登录</button>
+      <div class="login-links">
+        <button type="button" onclick="showPasswordModal('change-login')">修改密码</button>
+        <button type="button" onclick="showPasswordModal('forgot')">忘记密码</button>
+      </div>
       <p id="loginErr" style="color:red;margin-top:12px"></p>
-    </div>
+    </form>
   </div>
 
   <div id="mainPage" class="layout hidden">
@@ -73,16 +103,18 @@
       <p id="adminBadge" style="padding:8px 20px;font-size:12px;color:#E9D5FF;border-bottom:1px solid rgba(255,255,255,0.15)"></p>
       <nav class="sidebar-nav">
         <a class="active" data-tab="dashboard" onclick="switchTab('dashboard')">仪表盘</a>
-        <a data-tab="matches" onclick="switchTab('matches')">对局管理</a>
-        <a data-tab="users" onclick="switchTab('users')">玩家管理</a>
-        <a data-tab="tables" id="nav-tables" onclick="switchTab('tables')">桌台管理</a>
-        <a data-tab="ladder" id="nav-ladder" onclick="switchTab('ladder')">天梯规则</a>
+        <a data-tab="matches" class="venue-only-nav member-only-nav" onclick="switchTab('matches')">对局管理</a>
+        <a data-tab="users" class="venue-only-nav" onclick="switchTab('users')">玩家管理</a>
+        <a data-tab="tables" id="nav-tables" class="venue-only-nav" onclick="switchTab('tables')">桌台管理</a>
+        <a data-tab="review" id="nav-review" class="venue-only-nav member-only-nav" onclick="switchTab('review')">对局审核<span id="reviewNavBadge" class="nav-badge hidden">0</span></a>
+        <a data-tab="ladder" id="nav-ladder" class="venue-only-nav member-only-nav" onclick="switchTab('ladder')">天梯规则</a>
         <a data-tab="venues" id="nav-venues" class="super-only hidden" onclick="switchTab('venues')">球房会员</a>
-        <a data-tab="products" onclick="switchTab('products')">兑换商品</a>
-        <a data-tab="exchanges" onclick="switchTab('exchanges')">兑换审核</a>
-        <a data-tab="logs" onclick="switchTab('logs')">积分日志</a>
+        <a data-tab="products" class="venue-only-nav member-only-nav" onclick="switchTab('products')">兑换商品</a>
+        <a data-tab="exchanges" class="venue-only-nav member-only-nav" onclick="switchTab('exchanges')">兑换记录</a>
+        <a data-tab="logs" class="venue-only-nav member-only-nav" onclick="switchTab('logs')">积分明细</a>
       </nav>
       <div class="sidebar-footer">
+        <button type="button" class="btn-change-pwd" onclick="showPasswordModal('logged-in')">修改密码</button>
         <div id="resetAllSection" class="sidebar-reset">
           <h4>危险操作</h4>
           <p id="resetAllDesc">清空本后台范围内的玩家、对局、积分日志等。需输入当前登录账号密码确认。</p>
@@ -93,8 +125,16 @@
     </div>
     <div class="content">
       <div id="tab-dashboard" class="tab-panel">
-        <h3>仪表盘</h3>
+        <h3 id="dashboardTitle">仪表盘</h3>
         <div class="stats" id="stats"></div>
+        <div id="superVenueTableWrap" class="card hidden" style="margin-top:16px">
+          <h3 style="margin-bottom:12px">各台球俱乐部概况（数据来自球房会员）</h3>
+          <div class="table-scroll">
+            <table><thead><tr>
+              <th>球房</th><th>管理人员</th><th>登录账号</th><th>台桌数</th><th>玩家数</th><th>会员总积分</th><th>会员到期</th><th>会员状态</th>
+            </tr></thead><tbody id="superVenueStats"></tbody></table>
+          </div>
+        </div>
       </div>
       <div id="tab-matches" class="tab-panel hidden">
         <div class="card">
@@ -125,19 +165,43 @@
           <div class="table-scroll">
           <table><thead><tr>
             <th style="width:40px"><input type="checkbox" id="userSelectAll" title="全选" onchange="toggleAllUsers(this)"></th>
-            <th>昵称</th><th>手机</th><th>积分</th><th>段位</th><th>排名</th><th>胜/负</th><th>状态</th><th>操作</th>
+            <th>昵称</th><th>手机</th><th>积分</th><th>段位</th><th>排名</th><th>胜/负</th><th>违规</th><th>状态</th><th>操作</th>
           </tr></thead>
           <tbody id="userTable"></tbody></table>
           </div>
         </div>
       </div>
+      <div id="tab-review" class="tab-panel hidden">
+        <div class="card">
+          <p style="font-size:13px;color:#666;margin-bottom:16px">审核比赛中恶意刷分、作弊及炸清/接清异常申报；兑换发放请在此处理。</p>
+          <div class="review-section">
+            <h4>炸清 / 接清待审核</h4>
+            <div class="table-scroll"><table><thead><tr>
+              <th>对局</th><th>桌台</th><th>选手</th><th>类型</th><th>操作</th>
+            </tr></thead><tbody id="reviewBonusTable"></tbody></table></div>
+          </div>
+          <div class="review-section">
+            <h4>对局结果待审核</h4>
+            <div class="table-scroll"><table><thead><tr>
+              <th>对局</th><th>桌台</th><th>比分</th><th>状态</th><th>操作</th>
+            </tr></thead><tbody id="reviewMatchTable"></tbody></table></div>
+          </div>
+          <div class="review-section">
+            <h4>兑换待审核</h4>
+            <div class="table-scroll"><table><thead><tr>
+              <th>用户</th><th>商品</th><th>积分</th><th>时间</th><th>操作</th>
+            </tr></thead><tbody id="reviewExchangeTable"></tbody></table></div>
+          </div>
+          <button type="button" class="secondary" onclick="loadReviewTab()">刷新审核列表</button>
+        </div>
+      </div>
       <div id="tab-tables" class="tab-panel hidden">
         <div class="card">
-          <div class="toolbar">
-            <button onclick="showAddTableForm()">添加台球桌</button>
-            <button class="secondary" onclick="loadTables()">刷新</button>
+          <div class="toolbar" id="tablesToolbar">
+            <button type="button" id="btnAddTable" onclick="showAddTableForm()">添加台球桌</button>
+            <button type="button" class="secondary" onclick="loadTables()">刷新</button>
           </div>
-          <p style="color:#6B21A8;font-size:13px;margin-bottom:12px">点击下方<strong>二维码图片</strong>可放大、改链接、下载打印</p>
+          <p id="tablesQrTip" style="color:#6B21A8;font-size:13px;margin-bottom:12px">点击下方<strong>二维码图片</strong>可放大、改链接、下载打印</p>
           <div class="table-scroll">
           <table><thead><tr>
             <th>二维码</th><th>编号</th><th>名称</th><th>扫码链接</th><th>开台</th><th>当前对局</th><th>操作</th>
@@ -171,23 +235,77 @@
       </div>
       <div id="tab-ladder" class="tab-panel hidden">
         <div class="card">
-          <h3>天梯基础规则</h3>
+          <h3 id="ladderPanelTitle">天梯基础规则</h3>
+          <p id="ladderScopeTip" style="font-size:13px;color:#5B21B6;margin-bottom:12px"></p>
           <p id="ladderPermTip" style="color:#c62828;font-size:13px;margin-bottom:12px;display:none">未开通会员，仅可查看；开通后可修改</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:640px">
-            <label>挑战名次下限<input id="lr_challenge_min" type="number" min="1"></label>
-            <label>挑战名次上限<input id="lr_challenge_max" type="number" min="1"></label>
-            <label>每日排位上限(场)<input id="lr_daily_limit" type="number" min="0"></label>
-            <label>每周排位上限(场)<input id="lr_weekly_limit" type="number" min="0"></label>
-            <label>有效局日常加分<input id="lr_bonus_valid" type="number" min="0"></label>
-            <label>炸清加分<input id="lr_bonus_break" type="number" min="0"></label>
-            <label>接清加分<input id="lr_bonus_clear" type="number" min="0"></label>
-            <label>开台小时加分<input id="lr_bonus_hour" type="number" min="0"></label>
-            <label>炸清/接清审核阈值(次)<input id="lr_bonus_review" type="number" min="2"></label>
-            <label>作弊扣分<input id="lr_cheat_penalty" type="number" min="0"></label>
-            <label>大屏滚动次数<input id="lr_cheat_scroll" type="number" min="1"></label>
+          <div class="ladder-rules-row">
+            <div class="ladder-rules-col">
+              <div id="tierNamesSection" class="super-only hidden" style="margin-bottom:16px">
+                <h4 style="margin:0 0 8px">六段位名称</h4>
+                <div class="rules-grid" id="tierNamesGrid">
+                  <label>第1段<input id="tier_name_0" type="text"></label>
+                  <label>第2段<input id="tier_name_1" type="text"></label>
+                  <label>第3段<input id="tier_name_2" type="text"></label>
+                  <label>第4段<input id="tier_name_3" type="text"></label>
+                  <label>第5段<input id="tier_name_4" type="text"></label>
+                  <label>第6段<input id="tier_name_5" type="text"></label>
+                </div>
+              </div>
+              <h4 style="margin:0 0 8px">选手获得积分规则</h4>
+              <p style="font-size:12px;color:#666;margin-bottom:8px">局分差 = 双方局分之差（如抢5 比分5:3 则差2）。积分 = 基础分 + 局分差×每分加成。</p>
+              <h5 style="margin:8px 0 6px;color:#5B21B6">（1）同段位</h5>
+              <div class="rules-grid">
+                <label>胜者基础分<input id="pr_same_w_base" type="number" min="0"></label>
+                <label>胜者每局差分<input id="pr_same_w_per" type="number" min="0"></label>
+                <label>败者基础分<input id="pr_same_l_base" type="number" min="0"></label>
+                <label>败者每局差分<input id="pr_same_l_per" type="number" min="0"></label>
+              </div>
+              <h5 style="margin:12px 0 6px;color:#5B21B6">（2）相差1段位 · 低段胜</h5>
+              <div class="rules-grid">
+                <label>低段胜基础分<input id="pr_low_w_base" type="number" min="0"></label>
+                <label>低段胜每局差分<input id="pr_low_w_per" type="number" min="0"></label>
+                <label>高段负基础分<input id="pr_low_l_base" type="number" min="0"></label>
+                <label>高段负每局差分<input id="pr_low_l_per" type="number" min="0"></label>
+              </div>
+              <h5 style="margin:12px 0 6px;color:#5B21B6">（2）相差1段位 · 高段胜</h5>
+              <div class="rules-grid">
+                <label>高段胜基础分<input id="pr_high_w_base" type="number" min="0"></label>
+                <label>高段胜每局差分<input id="pr_high_w_per" type="number" min="0"></label>
+                <label>低段负基础分<input id="pr_high_l_base" type="number" min="0"></label>
+                <label>低段负每局差分<input id="pr_high_l_per" type="number" min="0"></label>
+              </div>
+              <h5 style="margin:12px 0 6px;color:#5B21B6">（3）段位与休闲</h5>
+              <div class="rules-grid">
+                <label>允许排位最大段位差<input id="pr_max_tier_gap" type="number" min="0" title="差2级及以上为休闲"></label>
+                <label>休闲赛胜者加分<input id="pr_casual_winner" type="number" min="0"></label>
+              </div>
+              <p style="font-size:12px;color:#666;margin-top:8px">段位差超过上述级数仅休闲赛；炸清/接清在比赛结束时另行加分。</p>
+            </div>
+            <div class="ladder-rules-col">
+              <h4 style="margin:0 0 8px">挑战与日常规则</h4>
+              <div class="rules-grid">
+                <label>挑战名次下限<input id="lr_challenge_min" type="number" min="1"></label>
+                <label>挑战名次上限<input id="lr_challenge_max" type="number" min="1"></label>
+                <label>每日排位上限(场)<input id="lr_daily_limit" type="number" min="0"></label>
+                <label>每周排位上限(场)<input id="lr_weekly_limit" type="number" min="0"></label>
+                <label>有效局日常加分<input id="lr_bonus_valid" type="number" min="0"></label>
+                <label>炸清加分<input id="lr_bonus_break" type="number" min="0"></label>
+                <label>接清加分<input id="lr_bonus_clear" type="number" min="0"></label>
+                <label>开台小时加分<input id="lr_bonus_hour" type="number" min="0"></label>
+                <label>炸清/接清审核阈值(次)<input id="lr_bonus_review" type="number" min="2"></label>
+                <label>作弊扣分<input id="lr_cheat_penalty" type="number" min="0"></label>
+                <label>大屏滚动次数<input id="lr_cheat_scroll" type="number" min="1"></label>
+              </div>
+            </div>
           </div>
-          <p style="font-size:13px;color:#666;margin:12px 0">只能挑战比自己高 <strong id="lr_rule_hint">1~5</strong> 名；超出上限仅日常加分；超限只能休闲局。单场炸清/接清达到审核阈值需后台审核；认定作弊将扣分并大屏滚动公示。</p>
-          <button id="btnSaveLadder" onclick="saveLadderSettings()">保存规则</button>
+          <h4 style="margin:16px 0 8px">规则说明</h4>
+          <p style="font-size:12px;color:#666;margin-bottom:6px">根据当前配置自动生成（保存后更新）。</p>
+          <textarea id="lr_description_preview" class="rule-desc" readonly></textarea>
+          <p style="font-size:13px;color:#666;margin:12px 0">只能挑战比自己高 <strong id="lr_rule_hint">1~5</strong> 名；超出上限仅日常加分；超限只能休闲局。</p>
+          <div class="toolbar">
+            <button id="btnSaveLadder" onclick="saveLadderSettings()">保存规则</button>
+            <button type="button" class="secondary venue-only-nav" id="btnSyncLadder" onclick="syncLadderFromGlobal()">同步总后台默认规则</button>
+          </div>
         </div>
       </div>
       <div id="tab-venues" class="tab-panel hidden">
@@ -197,21 +315,22 @@
             <button onclick="showVenueForm()">新增球房</button>
             <button class="secondary" onclick="loadVenues()">刷新</button>
           </div>
-          <table><thead><tr><th>球房</th><th>登录账号</th><th>会员到期</th><th>状态</th><th>权限</th><th>操作</th></tr></thead>
+          <table><thead><tr><th>球房</th><th>管理人员</th><th>台桌数</th><th>会员数</th><th>登录账号</th><th>会员到期</th><th>状态</th><th>操作</th></tr></thead>
             <tbody id="venueTable"></tbody></table>
         </div>
       </div>
       <div id="tab-logs" class="tab-panel hidden">
         <div class="card">
           <div class="toolbar">
-            <button type="button" class="secondary" onclick="loadLogs()">刷新日志</button>
-            <button type="button" class="danger super-only hidden" onclick="batchDeleteLogs()">批量删除</button>
-            <span id="logSelectHint" class="super-only hidden" style="font-size:13px;color:#666;align-self:center"></span>
+            <button type="button" class="secondary" onclick="loadLogs()">刷新明细</button>
+            <button type="button" class="danger venue-only-nav" onclick="batchDeleteLogs()">批量删除</button>
+            <span id="logSelectHint" style="font-size:13px;color:#666;align-self:center"></span>
+            <span style="font-size:13px;color:#666;align-self:center">含每局结算、炸清/接清等积分变动；删除不会回滚用户当前积分</span>
           </div>
           <div class="table-scroll">
             <table><thead><tr>
-              <th class="super-only hidden" style="width:40px"><input type="checkbox" id="logSelectAll" title="全选" onchange="toggleAllLogs(this)"></th>
-              <th>用户</th><th>变动</th><th>原因</th><th>时间</th><th class="super-only hidden">操作</th>
+              <th style="width:40px"><input type="checkbox" id="logSelectAll" title="全选" onchange="toggleAllLogs(this)"></th>
+              <th>用户</th><th>变动</th><th>原因</th><th>关联对局</th><th>时间</th><th>操作</th>
             </tr></thead>
             <tbody id="logTable"></tbody></table>
           </div>
@@ -229,6 +348,8 @@
     let currentTab = 'dashboard';
     let _tablesCache = [];
     let adminSession = null;
+    var _venueExpiredMode = false;
+    var _venueMemberActive = true;
 
     function escapeHtml(s) {
       return String(s == null ? '' : s)
@@ -236,12 +357,31 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
+    var MATCH_STATUS_ZH = {
+      playing: '进行中', finished: '已结束', invalid: '无效', cancelled: '已取消',
+      pending_review: '待审核', approved: '已通过', rejected: '已驳回', modified: '已改判'
+    };
+    var MATCH_TYPE_ZH = { ranked: '排位', casual: '休闲' };
+    function fmtMatchStatus(s) { return MATCH_STATUS_ZH[s] || s || '-'; }
+    function fmtMatchType(t) { return MATCH_TYPE_ZH[t] || t || '-'; }
+
+    function adminHeaders(extra) {
+      var h = { 'Content-Type': 'application/json' };
+      if (adminSession && adminSession.csrf_token) {
+        h['X-CSRF-Token'] = adminSession.csrf_token;
+      }
+      if (extra) {
+        for (var k in extra) h[k] = extra[k];
+      }
+      return h;
+    }
+
     async function api(url, opts = {}) {
       const method = (opts.method || 'GET').toUpperCase();
       const res = await fetch(API + url, {
         credentials: 'include',
         method: method,
-        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+        headers: adminHeaders(opts.headers),
         body: opts.body != null ? JSON.stringify(opts.body) : undefined,
       });
       var data;
@@ -252,6 +392,93 @@
       }
       if (data.code !== 0) throw new Error(data.msg || '请求失败');
       return data.data;
+    }
+
+    var _passwordModalMode = '';
+
+    function showPasswordModal(mode) {
+      _passwordModalMode = mode;
+      var title = '修改密码';
+      var hint = '';
+      var fields = '';
+      if (mode === 'forgot') {
+        title = '忘记密码';
+        fields =
+          '<input id="pwdUsername" placeholder="登录账号" value="' + escapeHtml(document.getElementById('username') && document.getElementById('username').value || '') + '">' +
+          '<input id="pwdRecovery" type="text" placeholder="核实安全码（球房）或 JWT_SECRET（总后台 admin）" autocomplete="off">' +
+          '<input id="pwdNew" type="password" placeholder="新密码（至少6位）">' +
+          '<input id="pwdConfirm" type="password" placeholder="确认新密码">';
+      } else if (mode === 'logged-in') {
+        hint = '<div class="pwd-hint">当前登录：<strong>' + escapeHtml(adminSession && adminSession.username || '') + '</strong>（' + escapeHtml(adminSession && adminSession.role === 'super' ? '总后台' : (adminSession.venue_name || '球房')) + '）</div>';
+        fields =
+          '<input id="pwdOld" type="password" placeholder="当前密码">' +
+          '<input id="pwdNew" type="password" placeholder="新密码（至少6位）">' +
+          '<input id="pwdConfirm" type="password" placeholder="确认新密码">';
+      } else {
+        hint = '<div class="pwd-hint">登录前修改密码需验证当前密码。总后台为 <code>admin</code> + .env 中的 <code>ADMIN_PASS</code>。</div>';
+        fields =
+          '<input id="pwdUsername" placeholder="账号" value="' + escapeHtml(document.getElementById('username') && document.getElementById('username').value || '') + '">' +
+          '<input id="pwdOld" type="password" placeholder="当前密码">' +
+          '<input id="pwdNew" type="password" placeholder="新密码（至少6位）">' +
+          '<input id="pwdConfirm" type="password" placeholder="确认新密码">';
+      }
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modalContent').innerHTML =
+        '<div class="modal-box"><h3>' + title + '</h3>' + hint + fields +
+        '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<button type="button" onclick="submitPasswordModal()">确定</button>' +
+        '<button type="button" class="secondary" onclick="closeModal()">取消</button></div>' +
+        '<p id="pwdModalErr" style="color:red;margin-top:10px;font-size:13px"></p></div>';
+    }
+
+    async function submitPasswordModal() {
+      var errEl = document.getElementById('pwdModalErr');
+      if (errEl) errEl.textContent = '';
+      var newPwd = (document.getElementById('pwdNew') || {}).value || '';
+      var confirmPwd = (document.getElementById('pwdConfirm') || {}).value || '';
+      try {
+        if (_passwordModalMode === 'forgot') {
+          await api('/api/admin/password/forgot', {
+            method: 'POST',
+            body: {
+              username: document.getElementById('pwdUsername').value,
+              recovery_secret: document.getElementById('pwdRecovery').value,
+              new_password: newPwd,
+              confirm_password: confirmPwd,
+            },
+          });
+          alert('密码已重置，请使用新密码登录');
+          closeModal();
+          return;
+        }
+        if (_passwordModalMode === 'logged-in') {
+          await api('/api/admin/password/change', {
+            method: 'POST',
+            body: {
+              old_password: document.getElementById('pwdOld').value,
+              new_password: newPwd,
+              confirm_password: confirmPwd,
+            },
+          });
+          alert('密码已修改，请牢记新密码');
+          closeModal();
+          return;
+        }
+        await api('/api/admin/password/change-with-old', {
+          method: 'POST',
+          body: {
+            username: document.getElementById('pwdUsername').value,
+            old_password: document.getElementById('pwdOld').value,
+            new_password: newPwd,
+            confirm_password: confirmPwd,
+          },
+        });
+        alert('密码已修改，请使用新密码登录');
+        closeModal();
+      } catch (e) {
+        if (errEl) errEl.textContent = e.message || String(e);
+        else alert(e.message || String(e));
+      }
     }
 
     async function doLogin() {
@@ -269,19 +496,83 @@
       }
     }
 
+    function isoToDateInput(iso) {
+      if (!iso) return '';
+      return String(iso).slice(0, 10);
+    }
+
+    function dateInputToExpiry(val) {
+      if (!val) return '';
+      if (val.length <= 10) return val + 'T23:59:59';
+      return val;
+    }
+
+    function buildVenueFormHtml(v, isEdit) {
+      var exp = isoToDateInput(v && v.member_expires_at);
+      return '<div class="venue-form">' +
+        '<label>球房名称<input id="v_name" value="' + escapeHtml((v && v.name) || '') + '"></label>' +
+        '<label>管理人员<input id="v_manager" value="' + escapeHtml((v && v.manager_name) || '') + '" placeholder="管理人员姓名"></label>' +
+        '<label>登录账号<input id="v_user" value="' + escapeHtml((v && v.username) || '') + '"></label>' +
+        '<label>登录密码（可见）<input id="v_pass" type="text" autocomplete="new-password" placeholder="' + (isEdit ? '不修改请留空' : '必填') + '"></label>' +
+        '<label>安全码（忘记密码核实）<input id="v_sec" type="text" autocomplete="off" placeholder="' + (isEdit ? '不修改请留空' : '必填，请告知球房保管') + '"></label>' +
+        '<label>会员到期日期<input id="v_exp" type="date" value="' + escapeHtml(exp) + '"></label>' +
+        '<label>联系电话<input id="v_phone" value="' + escapeHtml((v && v.contact_phone) || '') + '" placeholder="可选"></label></div>';
+    }
+
     function applyAdminSession() {
       if (!adminSession) return;
+      const isSuper = adminSession.role === 'super';
+      _venueMemberActive = isSuper || !!adminSession.is_member_active;
+      _venueExpiredMode = !isSuper && !adminSession.is_member_active;
       const badge = document.getElementById('adminBadge');
-      const roleLabel = adminSession.role === 'super' ? '总后台' : ('球房: ' + (adminSession.venue_name || ''));
-      const mem = adminSession.is_member_active ? '会员有效' : '未开通/已过期';
+      const roleLabel = isSuper ? '总后台' : ('球房: ' + (adminSession.venue_name || ''));
+      const mem = adminSession.is_member_active ? '会员有效' : '会员已到期';
       badge.textContent = roleLabel + ' · ' + mem;
       document.querySelectorAll('.super-only').forEach(el => {
-        el.classList.toggle('hidden', adminSession.role !== 'super');
+        el.classList.toggle('hidden', !isSuper);
       });
-      const canLadder = adminSession.role === 'super' || (adminSession.permissions && adminSession.permissions.ladder_settings);
-      const canTable = adminSession.role === 'super' || (adminSession.permissions && adminSession.permissions.table_manage);
+      document.querySelectorAll('.venue-only-nav').forEach(el => {
+        el.classList.toggle('hidden', isSuper);
+      });
+      var allowedExpired = ['dashboard', 'users', 'tables'];
+      document.querySelectorAll('.sidebar a[data-tab]').forEach(function(a) {
+        var tab = a.dataset.tab;
+        if (isSuper) {
+          a.classList.remove('nav-disabled');
+          return;
+        }
+        if (_venueExpiredMode && allowedExpired.indexOf(tab) < 0) {
+          a.classList.add('nav-disabled');
+        } else {
+          a.classList.remove('nav-disabled');
+        }
+      });
+      var resetSection = document.getElementById('resetAllSection');
+      if (resetSection) resetSection.classList.toggle('hidden', isSuper || _venueExpiredMode);
+      if (isSuper) {
+        document.getElementById('ladderPanelTitle').textContent = '全局默认天梯规则';
+        document.getElementById('dashboardTitle').textContent = '总后台仪表盘';
+      } else {
+        document.getElementById('dashboardTitle').textContent = '俱乐部仪表盘';
+      }
+      const canLadder = isSuper || (adminSession.permissions && adminSession.permissions.ladder_settings);
+      const canTable = isSuper || (adminSession.permissions && adminSession.permissions.table_manage);
       document.getElementById('btnSaveLadder').disabled = !canLadder;
       document.getElementById('ladderPermTip').style.display = canLadder ? 'none' : 'block';
+      var btnAdd = document.getElementById('btnAddTable');
+      var tablesTip = document.getElementById('tablesQrTip');
+      if (btnAdd) btnAdd.style.display = (_venueExpiredMode || !canTable) ? 'none' : '';
+      if (tablesTip) {
+        tablesTip.innerHTML = _venueExpiredMode
+          ? '会员已到期：二维码<strong>可正常扫码</strong>，可点击放大或下载；不可改名、开台、改链接等操作。'
+          : '点击下方<strong>二维码图片</strong>可放大、改链接、下载打印';
+      }
+      var userToolbar = document.querySelector('#tab-users .toolbar');
+      if (userToolbar) {
+        userToolbar.querySelectorAll('button').forEach(function(b) {
+          b.style.display = _venueExpiredMode ? 'none' : '';
+        });
+      }
       var resetDesc = document.getElementById('resetAllDesc');
       var resetBtn = document.getElementById('btnResetAll');
       if (resetDesc) {
@@ -294,9 +585,6 @@
       if (resetBtn) {
         resetBtn.textContent = adminSession.role === 'super' ? '重置全部数据' : '重置本球房数据';
       }
-      if (!canTable) {
-        document.querySelector('#tab-tables .toolbar').innerHTML = '<p style="color:#c62828">未开通会员，无法管理桌台。请联系总后台开通会员。</p>';
-      }
     }
 
     async function doLogout() {
@@ -305,28 +593,64 @@
     }
 
     function switchTab(tab) {
+      var link = document.querySelector('.sidebar a[data-tab="' + tab + '"]');
+      if (link && link.classList.contains('nav-disabled')) {
+        alert('会员已到期，该功能不可用。续费后可使用全部功能。');
+        return;
+      }
       currentTab = tab;
       document.querySelectorAll('.sidebar a[data-tab]').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
       document.getElementById('tab-' + tab).classList.remove('hidden');
       if (tab === 'dashboard') loadDashboard();
-      if (tab === 'matches') loadMatches();
+      if (tab === 'matches') { bindMatchTableEvents(); loadMatches(); }
       if (tab === 'users') { bindUserTableEvents(); loadUsers(); }
-      if (tab === 'tables') loadTables();
+      if (tab === 'tables') { bindTableTableEvents(); loadTables(); }
+      if (tab === 'review') { bindReviewTabEvents(); loadReviewTab(); }
       if (tab === 'ladder') loadLadderSettings();
-      if (tab === 'venues') loadVenues();
+      if (tab === 'venues') { bindVenueTableEvents(); loadVenues(); }
       if (tab === 'products') loadProducts();
-      if (tab === 'exchanges') loadExchanges();
-      if (tab === 'logs') loadLogs();
+      if (tab === 'exchanges') { bindExchangeTableEvents(); loadExchanges(); }
+      if (tab === 'logs') { bindLogTableEvents(); loadLogs(); }
     }
 
     async function loadDashboard() {
-      const d = await api('/api/admin/dashboard');
-      document.getElementById('stats').innerHTML =
-        '<div class="stat-item"><strong>' + d.users_count + '</strong>注册玩家</div>' +
-        '<div class="stat-item"><strong>' + d.matches_count + '</strong>总对局</div>' +
-        '<div class="stat-item"><strong>' + (d.pending_bonus_reviews || 0) + '</strong>待审核炸清/接清</div>' +
-        '<div class="stat-item"><strong>' + d.pending_exchanges + '</strong>待审核兑换</div>';
+      try {
+        const d = await api('/api/admin/dashboard');
+        var statsEl = document.getElementById('stats');
+        var wrap = document.getElementById('superVenueTableWrap');
+        if (d.scope === 'super') {
+          wrap.classList.remove('hidden');
+          statsEl.innerHTML =
+            '<div class="stat-item"><strong>' + d.venues_count + '</strong>台球俱乐部</div>' +
+            '<div class="stat-item"><strong>' + (d.active_venues_count || 0) + '</strong>会员有效</div>' +
+            '<div class="stat-item"><strong>' + (d.expired_venues_count || 0) + '</strong>会员已过期</div>' +
+            '<div class="stat-item"><strong>' + (d.total_tables || 0) + '</strong>台桌总数</div>' +
+            '<div class="stat-item"><strong>' + (d.total_member_count || 0) + '</strong>平台玩家</div>' +
+            '<div class="stat-item"><strong>' + (d.total_member_score || d.total_score || 0) + '</strong>会员总积分</div>' +
+            '<div class="stat-item"><strong>' + (d.total_matches || 0) + '</strong>对局总数</div>' +
+            '<div class="stat-item"><strong>' + (d.pending_bonus_reviews || 0) + '</strong>待审核炸清/接清</div>' +
+            '<div class="stat-item"><strong>' + (d.pending_exchanges || 0) + '</strong>待审核兑换</div>';
+          document.getElementById('superVenueStats').innerHTML = (d.venues || []).map(function(v) {
+            var st = v.is_member_active ? '<span class="badge badge-green">会员中</span>' : '<span class="badge badge-red">已过期</span>';
+            return '<tr><td>' + escapeHtml(v.venue_name) + '</td><td>' + escapeHtml(v.manager_name || '-') +
+              '</td><td>' + escapeHtml(v.username || '-') + '</td><td>' + v.table_count + '</td><td>' + v.member_count + '</td><td>' + v.member_total_score +
+              '</td><td>' + escapeHtml(v.member_expires_at || '-') + '</td><td>' + st + '</td></tr>';
+          }).join('') || '<tr><td colspan="8" style="text-align:center;color:#666">暂无球房，请在「球房会员」中新增</td></tr>';
+        } else {
+          wrap.classList.add('hidden');
+          statsEl.innerHTML =
+            '<div class="stat-item"><strong>' + d.users_count + '</strong>注册玩家</div>' +
+            '<div class="stat-item"><strong>' + d.matches_count + '</strong>总对局</div>' +
+            '<div class="stat-item"><strong>' + (d.pending_bonus_reviews || 0) + '</strong>待审核炸清/接清</div>' +
+            '<div class="stat-item"><strong>' + d.pending_exchanges + '</strong>待审核兑换</div>';
+          updateReviewNavBadge((d.pending_bonus_reviews || 0) + (d.pending_exchanges || 0));
+          if (_venueMemberActive) loadReviewTab();
+        }
+      } catch (e) {
+        var statsEl = document.getElementById('stats');
+        if (statsEl) statsEl.innerHTML = '<p style="color:red">仪表盘加载失败: ' + escapeHtml(e.message) + '</p>';
+      }
     }
 
     function fmtDelta(n) {
@@ -376,36 +700,68 @@
       }
     }
 
+    var _matchTableBound = false;
+
+    function bindMatchTableEvents() {
+      var tbody = document.getElementById('matchTable');
+      if (!tbody || _matchTableBound) return;
+      _matchTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.mid) return;
+        var act = btn.dataset.act;
+        var mid = btn.dataset.mid;
+        if (act === 'bonus-approve') bonusReview(mid, btn.dataset.bid, btn.dataset.uid, 'approve');
+        else if (act === 'bonus-reject') bonusReview(mid, btn.dataset.bid, btn.dataset.uid, 'reject');
+        else if (act === 'bonus-cheat') bonusReview(mid, btn.dataset.bid, btn.dataset.uid, 'cheat');
+        else if (act === 'review-approve') reviewMatch(mid, 'approve');
+        else if (act === 'review-reject') reviewMatch(mid, 'reject');
+        else if (act === 'delete-match') deleteMatch(mid, btn.dataset.status || '');
+      });
+    }
+
     async function loadMatches() {
-      const list = await api('/api/admin/matches');
-      document.getElementById('matchTable').innerHTML = list.slice(0, 100).map(m => {
-        const mid = attrEsc(m.id);
-        const midHtml = escapeHtml(m.id);
-        let actions = '-';
-        if (m.needs_bonus_review && m.bonus_review_queue && m.bonus_review_queue.length) {
-          const q = m.bonus_review_queue[0];
-          const alert = m.bonus_review_alert ? '<div style="color:#c62828;font-weight:bold;margin-bottom:6px">' + escapeHtml(m.bonus_review_alert) + '</div>' : '';
-          actions = alert +
-            '<button onclick="bonusReview(\'' + midHtml + '\',\'' + escapeHtml(q.bonus_id) + '\',\'' + escapeHtml(q.user_id) + '\',\'approve\')">审核通过加分</button> ' +
-            '<button onclick="bonusReview(\'' + midHtml + '\',\'' + escapeHtml(q.bonus_id) + '\',\'' + escapeHtml(q.user_id) + '\',\'reject\')">驳回</button> ' +
-            '<button class="danger" onclick="bonusReview(\'' + midHtml + '\',\'' + escapeHtml(q.bonus_id) + '\',\'' + escapeHtml(q.user_id) + '\',\'cheat\')">认定作弊</button>';
-        } else if (m.status === 'playing' || m.status === 'pending_review') {
-          actions = '<button onclick="reviewMatch(\'' + midHtml + '\',\'approve\')">通过</button> ' +
-            '<button class="danger" onclick="reviewMatch(\'' + midHtml + '\',\'reject\')">驳回</button> ';
-        }
-        if (actions === '-') actions = '';
-        actions += '<button type="button" class="danger" onclick="deleteMatch(\'' + midHtml + '\',\'' + escapeHtml(m.status) + '\')">删除</button>';
-        const p1extra = '炸' + (m.p1_break_run || 0) + '/接' + (m.p1_clearance || 0);
-        const p2extra = '炸' + (m.p2_break_run || 0) + '/接' + (m.p2_clearance || 0);
-        return '<tr><td><input type="checkbox" class="match-cb" data-id="' + mid + '" data-status="' + escapeHtml(m.status) + '" onchange="updateMatchSelectHint()"></td>' +
-          '<td>' + midHtml + '</td><td>' + escapeHtml(m.table_id) + '</td>' +
-          '<td>' + escapeHtml(m.p1_name) + '<br><small>现' + (m.p1_current_score || 0) + '分</small></td>' +
-          '<td>' + m.score1 + '</td><td>' + fmtDelta(m.p1_point_delta) + '</td><td>' + p1extra + '</td>' +
-          '<td>' + escapeHtml(m.p2_name) + '<br><small>现' + (m.p2_current_score || 0) + '分</small></td>' +
-          '<td>' + m.score2 + '</td><td>' + fmtDelta(m.p2_point_delta) + '</td><td>' + p2extra + '</td>' +
-          '<td>' + escapeHtml(m.match_type) + '</td><td>' + escapeHtml(m.status) + '</td><td>' + actions + '</td></tr>';
-      }).join('');
-      updateMatchSelectHint();
+      var tbody = document.getElementById('matchTable');
+      try {
+        const list = await api('/api/admin/matches');
+        var isSuper = adminSession && adminSession.role === 'super';
+        tbody.innerHTML = list.slice(0, 100).map(m => {
+          const mid = attrEsc(m.id);
+          let actions = '';
+          if (isSuper) {
+            if (m.needs_bonus_review && m.bonus_review_queue && m.bonus_review_queue.length) {
+              const q = m.bonus_review_queue[0];
+              const bid = attrEsc(q.bonus_id);
+              const uid = attrEsc(q.user_id);
+              const alert = m.bonus_review_alert ? '<div style="color:#c62828;font-weight:bold;margin-bottom:6px">' + escapeHtml(m.bonus_review_alert) + '</div>' : '';
+              actions = alert +
+                '<button type="button" data-act="bonus-approve" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">审核通过加分</button> ' +
+                '<button type="button" data-act="bonus-reject" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">驳回</button> ' +
+                '<button type="button" class="danger" data-act="bonus-cheat" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">认定作弊</button>';
+            } else if (m.status === 'playing' || m.status === 'pending_review') {
+              actions = '<button type="button" data-act="review-approve" data-mid="' + mid + '">通过</button> ' +
+                '<button type="button" class="danger" data-act="review-reject" data-mid="' + mid + '">驳回</button> ';
+            }
+          } else if (!_venueExpiredMode) {
+            actions = '<span style="font-size:12px;color:#666">审核请至「对局审核」</span> ';
+          }
+          if (!_venueExpiredMode || isSuper) {
+            actions += '<button type="button" class="danger" data-act="delete-match" data-mid="' + mid + '" data-status="' + escapeHtml(m.status) + '">删除</button>';
+          }
+          const p1extra = '炸' + (m.p1_break_run || 0) + '/接' + (m.p1_clearance || 0);
+          const p2extra = '炸' + (m.p2_break_run || 0) + '/接' + (m.p2_clearance || 0);
+          return '<tr><td><input type="checkbox" class="match-cb" data-id="' + mid + '" data-status="' + escapeHtml(m.status) + '" onchange="updateMatchSelectHint()"></td>' +
+            '<td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) + '</td>' +
+            '<td>' + escapeHtml(m.p1_name) + '<br><small>现' + (m.p1_current_score || 0) + '分</small></td>' +
+            '<td>' + m.score1 + '</td><td>' + fmtDelta(m.p1_point_delta) + '</td><td>' + p1extra + '</td>' +
+            '<td>' + escapeHtml(m.p2_name) + '<br><small>现' + (m.p2_current_score || 0) + '分</small></td>' +
+            '<td>' + m.score2 + '</td><td>' + fmtDelta(m.p2_point_delta) + '</td><td>' + p2extra + '</td>' +
+            '<td>' + fmtMatchType(m.match_type) + '</td><td>' + fmtMatchStatus(m.status) + '</td><td>' + actions + '</td></tr>';
+        }).join('');
+        updateMatchSelectHint();
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="13" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+      }
     }
 
     async function batchDeleteMatches() {
@@ -430,6 +786,7 @@
           body: { action, bonus_id: bonusId, user_id: userId, note }
         });
         alert(action === 'approve' ? '已通过并加分' : action === 'cheat' ? '已处罚并公示' : '已驳回');
+        loadReviewTab();
         loadMatches();
         loadDashboard();
       } catch (e) { alert(e.message); }
@@ -439,7 +796,9 @@
       const winner_id = action === 'approve' ? prompt('胜者用户ID(可选)') : '';
       try {
         await api('/api/admin/match/' + id + '/review', { method: 'POST', body: { action, winner_id: winner_id || undefined } });
+        loadReviewTab();
         loadMatches();
+        loadDashboard();
       } catch (e) { alert(e.message || String(e)); }
     }
 
@@ -475,6 +834,8 @@
         else if (act === 'ban') punish(uid, 'ban');
         else if (act === 'unban') punish(uid, 'unban');
         else if (act === 'reset') punish(uid, 'reset_score');
+        else if (act === 'cheat') punish(uid, 'record_cheat');
+        else if (act === 'perm') punish(uid, 'permanent_ban');
       });
     }
 
@@ -504,22 +865,37 @@
         var list = await api('/api/admin/users');
         document.getElementById('userTable').innerHTML = list.map(function(u) {
           var uid = attrEsc(u.id);
-          var status = u.status === 'banned'
-            ? '<span class="badge badge-red">封禁</span>'
-            : '<span class="badge badge-green">正常</span>';
-          var ops = '<div class="btn-group">';
-          ops += '<button type="button" data-act="adjust" data-uid="' + uid + '">调分</button> ';
-          if (u.status === 'banned') {
-            ops += '<button type="button" data-act="unban" data-uid="' + uid + '">解封</button> ';
+          var vcount = u.serious_violation_count || 0;
+          var status = u.ban_permanent
+            ? '<span class="badge badge-red">永久封禁</span>'
+            : (u.status === 'banned'
+              ? '<span class="badge badge-red">封禁</span>'
+              : '<span class="badge badge-green">正常</span>');
+          var viol = vcount >= 3
+            ? '<span class="badge badge-red">' + vcount + '次</span>'
+            : (vcount > 0 ? '<span class="badge badge-yellow">' + vcount + '次</span>' : '0');
+          var ops = '';
+          if (_venueExpiredMode && adminSession && adminSession.role !== 'super') {
+            ops = '<span class="ops-disabled" style="font-size:12px;color:#999">会员已到期，不可操作</span>';
           } else {
-            ops += '<button type="button" class="danger" data-act="ban" data-uid="' + uid + '">封禁</button> ';
-            ops += '<button type="button" data-act="reset" data-uid="' + uid + '">重置积分</button> ';
+            ops = '<div class="btn-group">';
+            ops += '<button type="button" data-act="adjust" data-uid="' + uid + '">调分</button> ';
+            if (u.status === 'banned' || u.ban_permanent) {
+              ops += '<button type="button" data-act="unban" data-uid="' + uid + '">解封</button> ';
+            } else {
+              ops += '<button type="button" class="danger" data-act="cheat" data-uid="' + uid + '">记作弊</button> ';
+              ops += '<button type="button" class="danger" data-act="perm" data-uid="' + uid + '">永久封禁</button> ';
+              ops += '<button type="button" data-act="ban" data-uid="' + uid + '">封禁</button> ';
+              ops += '<button type="button" data-act="reset" data-uid="' + uid + '">重置积分</button> ';
+            }
+            ops += '<button type="button" class="danger" data-act="delete" data-uid="' + uid + '">删除</button></div>';
           }
-          ops += '<button type="button" class="danger" data-act="delete" data-uid="' + uid + '">删除</button></div>';
-          return '<tr><td><input type="checkbox" class="user-cb" data-id="' + uid + '" onchange="updateUserSelectHint()"></td>' +
+          var userCb = (_venueExpiredMode && adminSession && adminSession.role !== 'super')
+            ? '<td></td>' : '<td><input type="checkbox" class="user-cb" data-id="' + uid + '" onchange="updateUserSelectHint()"></td>';
+          return '<tr>' + userCb +
             '<td>' + escapeHtml(u.nickname) + '</td><td>' + escapeHtml(u.phone || '-') + '</td><td>' + (u.score != null ? u.score : 0) + '</td>' +
             '<td>' + escapeHtml(u.tier ? u.tier.tier_name : '') + '</td><td>' + u.rank + '</td>' +
-            '<td>' + u.wins + '/' + u.losses + '</td><td>' + status + '</td><td>' + ops + '</td></tr>';
+            '<td>' + u.wins + '/' + u.losses + '</td><td>' + viol + '</td><td>' + status + '</td><td>' + ops + '</td></tr>';
         }).join('');
         updateUserSelectHint();
       } catch (e) {
@@ -577,10 +953,24 @@
     }
 
     function punish(uid, action) {
-      var reason = prompt('原因', action === 'reset_score' ? '管理员重置积分' : '违规处理');
+      var defaults = {
+        reset_score: '管理员重置积分',
+        record_cheat: '恶意刷分/作弊',
+        permanent_ban: '永久禁止使用系统',
+        ban: '违规封禁',
+      };
+      var reason = prompt('原因', defaults[action] || '违规处理');
       if (reason === null) return;
+      if (action === 'record_cheat' && !confirm('记录一次严重违规？累计满3次将自动永久封禁。')) return;
+      if (action === 'permanent_ban' && !confirm('确定永久封禁该用户？')) return;
       api('/api/admin/user/' + encodeURIComponent(uid) + '/punish', { method: 'POST', body: { action: action, reason: reason, public: true } })
-        .then(function() { loadUsers(); alert(action === 'reset_score' ? '已重置为初始积分1000' : '操作成功'); })
+        .then(function(r) {
+          loadUsers();
+          var tip = action === 'reset_score' ? '已重置为初始积分1000' : '操作成功';
+          if (r && r.auto_permanent_ban) tip = '已累计3次违规，已自动永久封禁';
+          else if (r && r.serious_violation_count >= 3) tip = '严重违规已达' + r.serious_violation_count + '次';
+          alert(tip);
+        })
         .catch(function(e) { alert(e.message || e); });
     }
 
@@ -614,6 +1004,26 @@
       } catch (e) { alert(e.message || String(e)); }
     }
 
+    var _tableTableBound = false;
+
+    function bindTableTableEvents() {
+      var tbody = document.getElementById('tableTable');
+      if (!tbody || _tableTableBound) return;
+      _tableTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var el = e.target.closest('[data-act]');
+        if (!el || !el.dataset.tid) return;
+        var tid = el.dataset.tid;
+        var act = el.dataset.act;
+        if (act === 'qr' || act === 'qr-view') showTableQr(tid, act === 'qr-view');
+        else if (act === 'edit') editTableName(tid);
+        else if (act === 'toggle-open') toggleTable(tid, true);
+        else if (act === 'toggle-close') toggleTable(tid, false);
+        else if (act === 'release') releaseTable(tid);
+        else if (act === 'delete') deleteTable(tid);
+      });
+    }
+
     async function loadTables() {
       const tbody = document.getElementById('tableTable');
       try {
@@ -623,24 +1033,31 @@
           tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">暂无桌台</td></tr>';
           return;
         }
+        var expiredVenue = _venueExpiredMode && adminSession && adminSession.role !== 'super';
         tbody.innerHTML = list.map(t => {
           const link = t.qr_link || tableDefaultLink(t);
           const short = link.length > 32 ? link.slice(0, 32) + '...' : link;
-          const tid = escapeHtml(t.id);
-          const qrSrc = API + '/api/admin/table/' + encodeURIComponent(t.id) + '/qrcode.png?t=' + Date.now();
+          const tid = attrEsc(t.id);
+          const qrSrc = qrImageUrl(t.id, link);
+          var qrCell = expiredVenue
+            ? '<img class="qr-thumb qr-view-only" src="' + qrSrc + '" alt="QR" data-act="qr-view" data-tid="' + tid + '" title="点击查看系统二维码">'
+            : '<img class="qr-thumb" src="' + qrSrc + '" alt="QR" data-act="qr" data-tid="' + tid + '" style="cursor:pointer">';
+          var ops = expiredVenue
+            ? '<button type="button" data-act="qr-view" data-tid="' + tid + '">查看二维码</button>'
+            : '<div class="btn-group">' +
+              '<button type="button" data-act="qr" data-tid="' + tid + '">二维码</button>' +
+              '<button type="button" data-act="edit" data-tid="' + tid + '">改名</button>' +
+              (t.opened ? '<button type="button" class="secondary" data-act="toggle-close" data-tid="' + tid + '">关台</button>' :
+                '<button type="button" data-act="toggle-open" data-tid="' + tid + '">开台</button>') +
+              '<button type="button" class="secondary" data-act="release" data-tid="' + tid + '">释放</button>' +
+              '<button type="button" class="danger" data-act="delete" data-tid="' + tid + '">删除</button></div>';
           return '<tr>' +
-            '<td><img class="qr-thumb" src="' + qrSrc + '" alt="QR" onclick="showTableQr(\'' + tid + '\')"></td>' +
-            '<td>' + tid + '</td><td>' + escapeHtml(t.name) + '</td>' +
+            '<td>' + qrCell + '</td>' +
+            '<td>' + escapeHtml(t.id) + '</td><td>' + escapeHtml(t.name) + '</td>' +
             '<td title="' + escapeHtml(link) + '"><code style="font-size:11px">' + escapeHtml(short) + '</code></td>' +
             '<td>' + (t.opened ? '<span class="badge badge-green">已开台</span>' : '<span class="badge badge-yellow">未开台</span>') +
             '</td><td>' + escapeHtml(t.current_match_id || '-') + '</td>' +
-            '<td><div class="btn-group">' +
-            '<button onclick="showTableQr(\'' + tid + '\')">二维码</button>' +
-            '<button onclick="editTableName(\'' + tid + '\')">改名</button>' +
-            (t.opened ? '<button class="secondary" onclick="toggleTable(\'' + tid + '\',false)">关台</button>' :
-              '<button onclick="toggleTable(\'' + tid + '\',true)">开台</button>') +
-            '<button class="secondary" onclick="releaseTable(\'' + tid + '\')">释放</button>' +
-            '<button class="danger" onclick="deleteTable(\'' + tid + '\')">删除</button></div></td></tr>';
+            '<td>' + ops + '</td></tr>';
         }).join('');
       } catch (e) {
         tbody.innerHTML = '<tr><td colspan="7" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) +
@@ -666,25 +1083,47 @@
       if (prev) prev.textContent = text;
     }
 
-    function showTableQr(id) {
+    function showTableQr(id, readOnly) {
+      readOnly = readOnly || (_venueExpiredMode && adminSession && adminSession.role !== 'super');
       const t = _tablesCache.find(x => x.id === id);
       if (!t) { alert('请先点击刷新'); return; }
       const link = t.qr_link || tableDefaultLink(t);
       document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modalContent').className = 'modal-box wide';
+      if (readOnly) {
+        document.getElementById('modalContent').innerHTML =
+          '<h3>' + escapeHtml(t.name) + '（' + escapeHtml(t.id) + '）系统二维码</h3>' +
+          '<p style="font-size:13px;color:#666;margin-bottom:8px">会员已到期：二维码可正常扫码，不可修改链接或 Token。</p>' +
+          '<div class="qr-wrap"><img id="qrImg" style="width:220px;height:220px" src="' + qrImageUrl(id, link) + '"></div>' +
+          '<p class="qr-label">扫码路径</p>' +
+          '<div class="link-preview" id="qrLinkPreview">' + escapeHtml(link) + '</div>' +
+          '<div class="qr-actions">' +
+          '<button type="button" class="secondary" onclick="copyQrLinkReadOnly()">复制路径</button>' +
+          '<button type="button" class="secondary" onclick="downloadQrImageServer(\'' + escapeHtml(id) + '\')">下载图片</button>' +
+          '<button type="button" class="secondary" onclick="closeModal()">关闭</button></div>';
+        return;
+      }
       document.getElementById('modalContent').innerHTML =
-        '<div class="modal-box wide">' +
         '<h3>' + escapeHtml(t.name) + '（' + escapeHtml(t.id) + '）二维码</h3>' +
-        '<div class="qr-wrap"><img id="qrImg" style="width:220px;height:220px" src="' + qrImageUrl(id) + '"></div>' +
+        '<div class="qr-wrap"><img id="qrImg" style="width:220px;height:220px" src="' + qrImageUrl(id, link) + '"></div>' +
         '<p class="qr-label">扫码链接</p><input id="qrLinkInput" value="' + escapeHtml(link) + '">' +
         '<p class="qr-label">Token</p><input id="qrTokenInput" value="' + escapeHtml(t.qr_token || '') + '">' +
         '<div class="link-preview" id="qrLinkPreview">' + escapeHtml(link) + '</div>' +
         '<div class="qr-actions">' +
-        '<button onclick="saveTableQr(\'' + escapeHtml(id) + '\')">保存</button>' +
-        '<button class="secondary" onclick="copyQrLink()">复制</button>' +
-        '<button class="secondary" onclick="downloadQrImageServer(\'' + escapeHtml(id) + '\')">下载</button>' +
-        '<button class="secondary" onclick="resetTableQrLink(\'' + escapeHtml(id) + '\')">默认</button>' +
-        '<button class="secondary" onclick="closeModal()">关闭</button></div></div>';
+        '<button type="button" onclick="saveTableQr(\'' + escapeHtml(id) + '\')">保存</button>' +
+        '<button type="button" class="secondary" onclick="copyQrLink()">复制</button>' +
+        '<button type="button" class="secondary" onclick="downloadQrImageServer(\'' + escapeHtml(id) + '\')">下载</button>' +
+        '<button type="button" class="secondary" onclick="resetTableQrLink(\'' + escapeHtml(id) + '\')">默认</button>' +
+        '<button type="button" class="secondary" onclick="closeModal()">关闭</button></div>';
       document.getElementById('qrLinkInput').onblur = function() { refreshModalQr(id); };
+    }
+
+    function copyQrLinkReadOnly() {
+      var el = document.getElementById('qrLinkPreview');
+      var link = el ? el.textContent.trim() : '';
+      navigator.clipboard.writeText(link).then(() => alert('已复制扫码路径')).catch(() => {
+        prompt('复制路径', link);
+      });
     }
 
     async function saveTableQr(id) {
@@ -706,7 +1145,9 @@
     }
 
     function downloadQrImageServer(id) {
-      const text = document.getElementById('qrLinkInput').value.trim();
+      var t = _tablesCache.find(function(x) { return x.id === id; });
+      var text = (document.getElementById('qrLinkInput') && document.getElementById('qrLinkInput').value.trim()) ||
+        (t && (t.qr_link || tableDefaultLink(t))) || '';
       const a = document.createElement('a');
       a.href = qrImageUrl(id, text);
       a.download = id + '-qrcode.png';
@@ -762,12 +1203,30 @@
       api('/api/admin/table/' + id + '/open', { method: 'POST', body: { opened, user_id: user_id || undefined, hours } }).then(loadTables);
     }
 
+    var _productTableBound = false;
+    function bindProductTableEvents() {
+      var tbody = document.getElementById('productTable');
+      if (!tbody || _productTableBound) return;
+      _productTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.pid) return;
+        if (btn.dataset.act === 'del') delProduct(btn.dataset.pid);
+      });
+    }
+
     async function loadProducts() {
-      const list = await api('/api/admin/products');
-      document.getElementById('productTable').innerHTML = list.map(p =>
-        '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.type) + '</td><td>' + p.points + '</td><td>' + p.stock + '</td>' +
-        '<td>' + (p.enabled ? '上架' : '下架') + '</td><td><button class="danger" onclick="delProduct(\'' + p.id + '\')">删除</button></td></tr>'
-      ).join('');
+      try {
+        const list = await api('/api/admin/products');
+        document.getElementById('productTable').innerHTML = list.map(function(p) {
+          var pid = attrEsc(p.id);
+          return '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.type) + '</td><td>' + p.points + '</td><td>' + p.stock + '</td>' +
+            '<td>' + (p.enabled ? '上架' : '下架') + '</td><td><button type="button" class="danger" data-act="del" data-pid="' + pid + '">删除</button></td></tr>';
+        }).join('');
+        bindProductTableEvents();
+      } catch (e) {
+        alert('加载商品失败: ' + (e.message || e));
+      }
     }
 
     function showProductForm() {
@@ -859,35 +1318,151 @@
       } catch (e) { alert(e.message || String(e)); }
     }
 
+    var _exchangeTableBound = false;
+
+    function bindExchangeTableEvents() {
+      var tbody = document.getElementById('exchangeTable');
+      if (!tbody || _exchangeTableBound) return;
+      _exchangeTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.eid) return;
+        var act = btn.dataset.act;
+        var eid = btn.dataset.eid;
+        if (act === 'ex-approve') reviewEx(eid, 'approved');
+        else if (act === 'ex-reject') reviewEx(eid, 'rejected');
+        else if (act === 'ex-delete') deleteExchange(eid, btn.dataset.status || '');
+      });
+    }
+
     async function loadExchanges() {
-      const list = await api('/api/admin/exchanges');
-      var isSuper = adminSession && adminSession.role === 'super';
-      document.getElementById('exchangeTable').innerHTML = list.map(function(e) {
-        var eid = attrEsc(e.id);
-        var eidHtml = escapeHtml(e.id);
-        var actions = '';
-        if (e.status === 'pending') {
-          actions = '<button onclick="reviewEx(\'' + eidHtml + '\',\'approved\')">发放</button> ' +
-            '<button class="danger" onclick="reviewEx(\'' + eidHtml + '\',\'rejected\')">拒绝</button> ';
-        }
-        if (isSuper) {
-          actions += '<button type="button" class="danger" onclick="deleteExchange(\'' + eidHtml + '\',\'' + escapeHtml(e.status) + '\')">删除</button>';
-        } else if (!actions) {
-          actions = '-';
-        }
-        var checkCol = isSuper
-          ? '<td><input type="checkbox" class="exchange-cb" data-id="' + eid + '" data-status="' + escapeHtml(e.status) + '" onchange="updateExchangeSelectHint()"></td>'
-          : '';
-        return '<tr>' + checkCol +
-          '<td>' + escapeHtml(e.nickname) + '</td><td>' + escapeHtml(e.product_name) + '</td><td>' + e.points +
-          '</td><td>' + escapeHtml(e.status) + '</td><td>' + (e.created_at || '').slice(0, 19) +
-          '</td><td>' + actions + '</td></tr>';
-      }).join('');
-      updateExchangeSelectHint();
+      var tbody = document.getElementById('exchangeTable');
+      try {
+        const list = await api('/api/admin/exchanges');
+        var isSuper = adminSession && adminSession.role === 'super';
+        tbody.innerHTML = list.map(function(e) {
+          var eid = attrEsc(e.id);
+          var actions = '';
+          if (e.status === 'pending' && isSuper) {
+            actions = '<button type="button" data-act="ex-approve" data-eid="' + eid + '">发放</button> ' +
+              '<button type="button" class="danger" data-act="ex-reject" data-eid="' + eid + '">拒绝</button> ';
+          } else if (e.status === 'pending' && !isSuper) {
+            actions = '<span style="font-size:12px;color:#666">请至「对局审核」处理</span> ';
+          }
+          if (isSuper) {
+            actions += '<button type="button" class="danger" data-act="ex-delete" data-eid="' + eid + '" data-status="' + escapeHtml(e.status) + '">删除</button>';
+          } else if (!actions) {
+            actions = '-';
+          }
+          var checkCol = isSuper
+            ? '<td><input type="checkbox" class="exchange-cb" data-id="' + eid + '" data-status="' + escapeHtml(e.status) + '" onchange="updateExchangeSelectHint()"></td>'
+            : '';
+          return '<tr>' + checkCol +
+            '<td>' + escapeHtml(e.nickname) + '</td><td>' + escapeHtml(e.product_name) + '</td><td>' + e.points +
+            '</td><td>' + escapeHtml(e.status) + '</td><td>' + (e.created_at || '').slice(0, 19) +
+            '</td><td>' + actions + '</td></tr>';
+        }).join('');
+        updateExchangeSelectHint();
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+      }
     }
 
     function reviewEx(id, status) {
-      api('/api/admin/exchange/' + id + '/review', { method: 'POST', body: { status, note: '' } }).then(loadExchanges);
+      api('/api/admin/exchange/' + id + '/review', { method: 'POST', body: { status, note: '' } }).then(function() {
+        loadReviewTab();
+        loadExchanges();
+        loadDashboard();
+      });
+    }
+
+    function updateReviewNavBadge(n) {
+      var b = document.getElementById('reviewNavBadge');
+      if (!b) return;
+      if (n > 0) {
+        b.textContent = n > 99 ? '99+' : String(n);
+        b.classList.remove('hidden');
+      } else {
+        b.classList.add('hidden');
+      }
+    }
+
+    var _reviewTabBound = false;
+
+    function bindReviewTabEvents() {
+      var panel = document.getElementById('tab-review');
+      if (!panel || _reviewTabBound) return;
+      _reviewTabBound = true;
+      panel.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        if (btn.dataset.act === 'bonus-approve') bonusReview(btn.dataset.mid, btn.dataset.bid, btn.dataset.uid, 'approve');
+        else if (btn.dataset.act === 'bonus-reject') bonusReview(btn.dataset.mid, btn.dataset.bid, btn.dataset.uid, 'reject');
+        else if (btn.dataset.act === 'bonus-cheat') bonusReview(btn.dataset.mid, btn.dataset.bid, btn.dataset.uid, 'cheat');
+        else if (btn.dataset.act === 'review-approve') reviewMatch(btn.dataset.mid, 'approve');
+        else if (btn.dataset.act === 'review-reject') reviewMatch(btn.dataset.mid, 'reject');
+        else if (btn.dataset.act === 'ex-approve') reviewEx(btn.dataset.eid, 'approved');
+        else if (btn.dataset.act === 'ex-reject') reviewEx(btn.dataset.eid, 'rejected');
+      });
+    }
+
+    async function loadReviewTab() {
+      var bonusTb = document.getElementById('reviewBonusTable');
+      var matchTb = document.getElementById('reviewMatchTable');
+      var exTb = document.getElementById('reviewExchangeTable');
+      try {
+        var matches = await api('/api/admin/matches');
+        var exchanges = await api('/api/admin/exchanges');
+        var pendingCount = 0;
+        var bonusRows = [];
+        matches.forEach(function(m) {
+          if (m.needs_bonus_review && m.bonus_review_queue && m.bonus_review_queue.length) {
+            var q = m.bonus_review_queue[0];
+            pendingCount++;
+            var mid = attrEsc(m.id);
+            var bid = attrEsc(q.bonus_id);
+            var uid = attrEsc(q.user_id);
+            var who = (q.user_id === m.player1_id ? m.p1_name : m.p2_name) || q.user_id;
+            bonusRows.push('<tr><td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) +
+              '</td><td>' + escapeHtml(who) + ' · ' + escapeHtml(q.label || q.type) +
+              '</td><td>' + escapeHtml(q.type) + '</td><td>' +
+              '<button type="button" data-act="bonus-approve" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">通过</button> ' +
+              '<button type="button" data-act="bonus-reject" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">驳回</button> ' +
+              '<button type="button" class="danger" data-act="bonus-cheat" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">认定作弊</button></td></tr>');
+          }
+        });
+        bonusTb.innerHTML = bonusRows.length ? bonusRows.join('') : '<tr><td colspan="5" style="text-align:center;color:#666">暂无待审核</td></tr>';
+
+        var matchRows = [];
+        matches.forEach(function(m) {
+          if (m.status === 'pending_review') {
+            pendingCount++;
+            var mid = attrEsc(m.id);
+            matchRows.push('<tr><td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) +
+              '</td><td>' + m.score1 + ' : ' + m.score2 + '</td><td>' + fmtMatchStatus(m.status) + '</td><td>' +
+              '<button type="button" data-act="review-approve" data-mid="' + mid + '">通过</button> ' +
+              '<button type="button" class="danger" data-act="review-reject" data-mid="' + mid + '">驳回</button></td></tr>');
+          }
+        });
+        matchTb.innerHTML = matchRows.length ? matchRows.join('') : '<tr><td colspan="5" style="text-align:center;color:#666">暂无待审核</td></tr>';
+
+        var exRows = [];
+        exchanges.forEach(function(e) {
+          if (e.status === 'pending') {
+            pendingCount++;
+            var eid = attrEsc(e.id);
+            exRows.push('<tr><td>' + escapeHtml(e.nickname) + '</td><td>' + escapeHtml(e.product_name) +
+              '</td><td>' + e.points + '</td><td>' + (e.created_at || '').slice(0, 19) + '</td><td>' +
+              '<button type="button" data-act="ex-approve" data-eid="' + eid + '">发放</button> ' +
+              '<button type="button" class="danger" data-act="ex-reject" data-eid="' + eid + '">拒绝</button></td></tr>');
+          }
+        });
+        exTb.innerHTML = exRows.length ? exRows.join('') : '<tr><td colspan="5" style="text-align:center;color:#666">暂无待审核</td></tr>';
+        updateReviewNavBadge(pendingCount);
+      } catch (e) {
+        var msg = '<tr><td colspan="5" style="color:red">' + escapeHtml(e.message) + '</td></tr>';
+        bonusTb.innerHTML = matchTb.innerHTML = exTb.innerHTML = msg;
+      }
     }
 
     function getSelectedLogIds() {
@@ -949,24 +1524,36 @@
       } catch (e) { alert(e.message || String(e)); }
     }
 
+    var _logTableBound = false;
+
+    function bindLogTableEvents() {
+      var tbody = document.getElementById('logTable');
+      if (!tbody || _logTableBound) return;
+      _logTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || btn.dataset.act !== 'log-delete' || !btn.dataset.lid) return;
+        deleteLog(btn.dataset.lid);
+      });
+    }
+
     async function loadLogs() {
-      const list = await api('/api/admin/logs/score');
-      var isSuper = adminSession && adminSession.role === 'super';
-      document.getElementById('logTable').innerHTML = list.slice(0, 200).map(function(l) {
-        var lid = attrEsc(l.id);
-        var lidHtml = escapeHtml(l.id);
-        var checkCol = isSuper
-          ? '<td><input type="checkbox" class="log-cb" data-id="' + lid + '" onchange="updateLogSelectHint()"></td>'
-          : '';
-        var delCol = isSuper
-          ? '<td><button type="button" class="danger" onclick="deleteLog(\'' + lidHtml + '\')">删除</button></td>'
-          : '';
-        return '<tr>' + checkCol +
-          '<td>' + escapeHtml(l.nickname || l.user_id) + '</td><td>' + (l.delta > 0 ? '+' : '') + l.delta +
-          '</td><td>' + escapeHtml(l.reason) + '</td><td>' + (l.created_at || '').slice(0, 19) +
-          '</td>' + delCol + '</tr>';
-      }).join('');
-      updateLogSelectHint();
+      var tbody = document.getElementById('logTable');
+      try {
+        const list = await api('/api/admin/logs/score');
+        tbody.innerHTML = list.slice(0, 200).map(function(l) {
+          var lid = attrEsc(l.id);
+          return '<tr>' +
+            '<td><input type="checkbox" class="log-cb" data-id="' + lid + '" onchange="updateLogSelectHint()"></td>' +
+            '<td>' + escapeHtml(l.nickname || l.user_id) + '</td><td>' + (l.delta > 0 ? '+' : '') + l.delta +
+            '</td><td>' + escapeHtml(l.reason) + '</td><td><small>' + escapeHtml(l.match_info || '-') + '</small></td><td>' +
+            escapeHtml(l.created_at_short || (l.created_at || '').slice(0, 19)) +
+            '</td><td><button type="button" class="danger" data-act="log-delete" data-lid="' + lid + '">删除</button></td></tr>';
+        }).join('');
+        updateLogSelectHint();
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+      }
     }
 
     function exportMatches() {
@@ -977,74 +1564,171 @@
       document.getElementById('modal').classList.add('hidden');
     }
 
+    function fillLadderForm(rules, description) {
+      var pr = rules.point_rules || {};
+      var tiers = rules.tier_definitions || [];
+      for (var i = 0; i < 6; i++) {
+        var el = document.getElementById('tier_name_' + i);
+        if (el) el.value = (tiers[i] && tiers[i].name) ? tiers[i].name : '';
+      }
+      document.getElementById('pr_same_w_base').value = pr.same_winner_base != null ? pr.same_winner_base : 20;
+      document.getElementById('pr_same_w_per').value = pr.same_winner_per_frame != null ? pr.same_winner_per_frame : 2;
+      document.getElementById('pr_same_l_base').value = pr.same_loser_base != null ? pr.same_loser_base : 15;
+      document.getElementById('pr_same_l_per').value = pr.same_loser_per_frame != null ? pr.same_loser_per_frame : 2;
+      document.getElementById('pr_low_w_base').value = pr.low_win_winner_base != null ? pr.low_win_winner_base : 25;
+      document.getElementById('pr_low_w_per').value = pr.low_win_winner_per_frame != null ? pr.low_win_winner_per_frame : 3;
+      document.getElementById('pr_low_l_base').value = pr.low_win_loser_base != null ? pr.low_win_loser_base : 15;
+      document.getElementById('pr_low_l_per').value = pr.low_win_loser_per_frame != null ? pr.low_win_loser_per_frame : 3;
+      document.getElementById('pr_high_w_base').value = pr.high_win_winner_base != null ? pr.high_win_winner_base : 15;
+      document.getElementById('pr_high_w_per').value = pr.high_win_winner_per_frame != null ? pr.high_win_winner_per_frame : 2;
+      document.getElementById('pr_high_l_base').value = pr.high_win_loser_base != null ? pr.high_win_loser_base : 10;
+      document.getElementById('pr_high_l_per').value = pr.high_win_loser_per_frame != null ? pr.high_win_loser_per_frame : 2;
+      document.getElementById('pr_max_tier_gap').value = pr.max_ranked_tier_gap != null ? pr.max_ranked_tier_gap : 1;
+      document.getElementById('pr_casual_winner').value = pr.casual_winner_bonus != null ? pr.casual_winner_bonus : 5;
+      document.getElementById('lr_challenge_min').value = rules.challenge_rank_min;
+      document.getElementById('lr_challenge_max').value = rules.challenge_rank_max;
+      document.getElementById('lr_daily_limit').value = rules.daily_ranked_limit;
+      document.getElementById('lr_weekly_limit').value = rules.weekly_ranked_limit;
+      document.getElementById('lr_bonus_valid').value = rules.daily_bonus_valid_match;
+      document.getElementById('lr_bonus_break').value = rules.daily_bonus_break_run;
+      document.getElementById('lr_bonus_clear').value = rules.daily_bonus_clearance;
+      document.getElementById('lr_bonus_hour').value = rules.daily_bonus_hour_open;
+      document.getElementById('lr_bonus_review').value = rules.bonus_review_threshold || 2;
+      document.getElementById('lr_cheat_penalty').value = rules.cheat_penalty_points || 200;
+      document.getElementById('lr_cheat_scroll').value = rules.cheat_scroll_times || 3;
+      document.getElementById('lr_rule_hint').textContent = rules.challenge_rank_min + '~' + rules.challenge_rank_max;
+      document.getElementById('lr_description_preview').value = description || '';
+    }
+
+    function collectTierDefinitions() {
+      if (!adminSession || adminSession.role !== 'super') return undefined;
+      var defs = [];
+      for (var i = 0; i < 6; i++) {
+        defs.push({ name: document.getElementById('tier_name_' + i).value });
+      }
+      return defs;
+    }
+
+    function collectLadderBody() {
+      var body = {
+        challenge_rank_min: parseInt(document.getElementById('lr_challenge_min').value, 10),
+        challenge_rank_max: parseInt(document.getElementById('lr_challenge_max').value, 10),
+        daily_ranked_limit: parseInt(document.getElementById('lr_daily_limit').value, 10),
+        weekly_ranked_limit: parseInt(document.getElementById('lr_weekly_limit').value, 10),
+        daily_bonus_valid_match: parseInt(document.getElementById('lr_bonus_valid').value, 10),
+        daily_bonus_break_run: parseInt(document.getElementById('lr_bonus_break').value, 10),
+        daily_bonus_clearance: parseInt(document.getElementById('lr_bonus_clear').value, 10),
+        daily_bonus_hour_open: parseInt(document.getElementById('lr_bonus_hour').value, 10),
+        bonus_review_threshold: parseInt(document.getElementById('lr_bonus_review').value, 10),
+        cheat_penalty_points: parseInt(document.getElementById('lr_cheat_penalty').value, 10),
+        cheat_scroll_times: parseInt(document.getElementById('lr_cheat_scroll').value, 10),
+        rule_description: '',
+        point_rules: {
+          max_ranked_tier_gap: parseInt(document.getElementById('pr_max_tier_gap').value, 10),
+          same_winner_base: parseInt(document.getElementById('pr_same_w_base').value, 10),
+          same_winner_per_frame: parseInt(document.getElementById('pr_same_w_per').value, 10),
+          same_loser_base: parseInt(document.getElementById('pr_same_l_base').value, 10),
+          same_loser_per_frame: parseInt(document.getElementById('pr_same_l_per').value, 10),
+          low_win_winner_base: parseInt(document.getElementById('pr_low_w_base').value, 10),
+          low_win_winner_per_frame: parseInt(document.getElementById('pr_low_w_per').value, 10),
+          low_win_loser_base: parseInt(document.getElementById('pr_low_l_base').value, 10),
+          low_win_loser_per_frame: parseInt(document.getElementById('pr_low_l_per').value, 10),
+          high_win_winner_base: parseInt(document.getElementById('pr_high_w_base').value, 10),
+          high_win_winner_per_frame: parseInt(document.getElementById('pr_high_w_per').value, 10),
+          high_win_loser_base: parseInt(document.getElementById('pr_high_l_base').value, 10),
+          high_win_loser_per_frame: parseInt(document.getElementById('pr_high_l_per').value, 10),
+          casual_winner_bonus: parseInt(document.getElementById('pr_casual_winner').value, 10),
+        },
+      };
+      var tiers = collectTierDefinitions();
+      if (tiers) body.tier_definitions = tiers;
+      return body;
+    }
+
     async function loadLadderSettings() {
-      const r = await api('/api/admin/settings/ladder');
-      document.getElementById('lr_challenge_min').value = r.challenge_rank_min;
-      document.getElementById('lr_challenge_max').value = r.challenge_rank_max;
-      document.getElementById('lr_daily_limit').value = r.daily_ranked_limit;
-      document.getElementById('lr_weekly_limit').value = r.weekly_ranked_limit;
-      document.getElementById('lr_bonus_valid').value = r.daily_bonus_valid_match;
-      document.getElementById('lr_bonus_break').value = r.daily_bonus_break_run;
-      document.getElementById('lr_bonus_clear').value = r.daily_bonus_clearance;
-      document.getElementById('lr_bonus_hour').value = r.daily_bonus_hour_open;
-      document.getElementById('lr_bonus_review').value = r.bonus_review_threshold || 2;
-      document.getElementById('lr_cheat_penalty').value = r.cheat_penalty_points || 200;
-      document.getElementById('lr_cheat_scroll').value = r.cheat_scroll_times || 3;
-      document.getElementById('lr_rule_hint').textContent = r.challenge_rank_min + '~' + r.challenge_rank_max;
+      const payload = await api('/api/admin/settings/ladder');
+      const rules = payload.rules || payload;
+      const tip = document.getElementById('ladderScopeTip');
+      if (payload.scope === 'global') {
+        tip.textContent = '此处为小程序与各球房的默认天梯规则。球房开通/续费会员时将同步本规则；各球房可在自己的后台单独调整。';
+      } else {
+        tip.textContent = payload.has_custom_rules
+          ? '当前使用本球房独立规则。可点击「同步总后台默认规则」恢复为全局默认。'
+          : '当前与总后台默认规则一致。保存后将使用本球房独立配置。';
+      }
+      fillLadderForm(rules, payload.description);
     }
 
     async function saveLadderSettings() {
       try {
-        await api('/api/admin/settings/ladder', { method: 'PUT', body: {
-          challenge_rank_min: parseInt(document.getElementById('lr_challenge_min').value, 10),
-          challenge_rank_max: parseInt(document.getElementById('lr_challenge_max').value, 10),
-          daily_ranked_limit: parseInt(document.getElementById('lr_daily_limit').value, 10),
-          weekly_ranked_limit: parseInt(document.getElementById('lr_weekly_limit').value, 10),
-          daily_bonus_valid_match: parseInt(document.getElementById('lr_bonus_valid').value, 10),
-          daily_bonus_break_run: parseInt(document.getElementById('lr_bonus_break').value, 10),
-          daily_bonus_clearance: parseInt(document.getElementById('lr_bonus_clear').value, 10),
-          daily_bonus_hour_open: parseInt(document.getElementById('lr_bonus_hour').value, 10),
-          bonus_review_threshold: parseInt(document.getElementById('lr_bonus_review').value, 10),
-          cheat_penalty_points: parseInt(document.getElementById('lr_cheat_penalty').value, 10),
-          cheat_scroll_times: parseInt(document.getElementById('lr_cheat_scroll').value, 10),
-        }});
+        await api('/api/admin/settings/ladder', { method: 'PUT', body: collectLadderBody() });
         alert('天梯规则已保存');
         loadLadderSettings();
       } catch (e) { alert(e.message); }
     }
 
+    async function syncLadderFromGlobal() {
+      if (!confirm('确定将本球房天梯规则同步为总后台当前默认规则？')) return;
+      try {
+        await api('/api/admin/settings/ladder/sync', { method: 'POST' });
+        alert('已同步总后台默认规则');
+        loadLadderSettings();
+      } catch (e) { alert(e.message); }
+    }
+
+    var _venueTableBound = false;
+
+    function bindVenueTableEvents() {
+      var tbody = document.getElementById('venueTable');
+      if (!tbody || _venueTableBound) return;
+      _venueTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.vid) return;
+        var vid = btn.dataset.vid;
+        var act = btn.dataset.act;
+        if (act === 'venue-detail') showVenueDetail(vid);
+        else if (act === 'venue-edit') editVenue(vid);
+        else if (act === 'venue-delete') deleteVenue(vid);
+      });
+    }
+
     async function loadVenues() {
-      const list = await api('/api/admin/venues');
-      document.getElementById('venueTable').innerHTML = list.map(v => {
-        const exp = (v.member_expires_at || '').slice(0, 10) || '-';
-        const st = v.is_member_active ? '<span class="badge badge-green">会员中</span>' : '<span class="badge badge-red">未开通</span>';
-        const perms = v.is_member_active ? '桌台/规则/去广告' : '仅基础查看';
-        var vidHtml = escapeHtml(v.id);
-        return '<tr><td>' + escapeHtml(v.name) + '</td><td>' + escapeHtml(v.username) + '</td><td>' + exp +
-          '</td><td>' + st + '</td><td>' + perms + '</td><td>' +
-          '<button onclick="editVenue(\'' + vidHtml + '\')">编辑</button> ' +
-          '<button type="button" class="danger" onclick="deleteVenue(\'' + vidHtml + '\')">删除</button></td></tr>';
-      }).join('');
+      var tbody = document.getElementById('venueTable');
+      try {
+        const list = await api('/api/admin/venues');
+        tbody.innerHTML = list.map(v => {
+          const exp = (v.member_expires_at || '').slice(0, 10) || '-';
+          const st = v.is_member_active ? '<span class="badge badge-green">会员中</span>' : '<span class="badge badge-red">未开通</span>';
+          var vid = attrEsc(v.id);
+          return '<tr><td>' + escapeHtml(v.name) + '</td><td>' + escapeHtml(v.manager_name || '-') +
+            '</td><td>' + (v.table_count || 0) + '</td><td>' + (v.member_count || 0) + '</td><td>' + escapeHtml(v.username) + '</td><td>' + exp +
+            '</td><td>' + st + '</td><td>' +
+            '<button type="button" data-act="venue-detail" data-vid="' + vid + '">详情</button> ' +
+            '<button type="button" data-act="venue-edit" data-vid="' + vid + '">编辑</button> ' +
+            '<button type="button" class="danger" data-act="venue-delete" data-vid="' + vid + '">删除</button></td></tr>';
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+      }
     }
 
     function showVenueForm() {
       document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modalContent').className = 'modal-box';
       document.getElementById('modalContent').innerHTML =
-        '<h3>新增球房</h3>' +
-        '<input id="v_name" placeholder="球房名称">' +
-        '<input id="v_user" placeholder="登录账号">' +
-        '<input id="v_pass" type="password" placeholder="登录密码">' +
-        '<input id="v_exp" placeholder="会员到期 如 2026-12-31T23:59:59">' +
-        '<input id="v_phone" placeholder="联系电话(可选)">' +
-        '<button onclick="saveNewVenue()">创建</button> <button class="secondary" onclick="closeModal()">取消</button>';
+        '<h3>新增球房</h3>' + buildVenueFormHtml(null, false) +
+        '<button type="button" onclick="saveNewVenue()">创建</button> <button type="button" class="secondary" onclick="closeModal()">取消</button>';
     }
 
     async function saveNewVenue() {
       await api('/api/admin/venues', { method: 'POST', body: {
         name: document.getElementById('v_name').value,
+        manager_name: document.getElementById('v_manager').value,
         username: document.getElementById('v_user').value,
         password: document.getElementById('v_pass').value,
-        member_expires_at: document.getElementById('v_exp').value,
+        security_code: document.getElementById('v_sec').value,
+        member_expires_at: dateInputToExpiry(document.getElementById('v_exp').value),
         contact_phone: document.getElementById('v_phone').value,
       }});
       closeModal();
@@ -1056,28 +1740,54 @@
       const v = list.find(x => x.id === id);
       if (!v) return;
       document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modalContent').className = 'modal-box';
       document.getElementById('modalContent').innerHTML =
         '<h3>编辑球房: ' + escapeHtml(v.name) + '</h3>' +
-        '<input id="v_name" value="' + escapeHtml(v.name) + '">' +
-        '<input id="v_user" value="' + escapeHtml(v.username) + '">' +
-        '<input id="v_pass" type="password" placeholder="新密码(不修改留空)">' +
-        '<input id="v_exp" value="' + escapeHtml(v.member_expires_at || '') + '">' +
-        '<input id="v_phone" value="' + escapeHtml(v.contact_phone || '') + '">' +
-        '<button onclick="updateVenue(\'' + id + '\')">保存</button> <button class="secondary" onclick="closeModal()">取消</button>';
+        buildVenueFormHtml(v, true) +
+        (v.has_security_code ? '<p style="font-size:12px;color:#666">已设置安全码；留空表示不修改</p>' : '<p style="font-size:12px;color:#c62828">尚未设置安全码，请填写以便球房忘记密码</p>') +
+        '<button type="button" onclick="updateVenue(\'' + id + '\')">保存</button> <button type="button" class="secondary" onclick="closeModal()">取消</button>';
     }
 
     async function updateVenue(id) {
       const body = {
         name: document.getElementById('v_name').value,
+        manager_name: document.getElementById('v_manager').value,
         username: document.getElementById('v_user').value,
-        member_expires_at: document.getElementById('v_exp').value,
+        member_expires_at: dateInputToExpiry(document.getElementById('v_exp').value),
         contact_phone: document.getElementById('v_phone').value,
       };
       const pw = document.getElementById('v_pass').value;
+      const sec = document.getElementById('v_sec').value;
       if (pw) body.password = pw;
+      if (sec) body.security_code = sec;
       await api('/api/admin/venue/' + id, { method: 'PUT', body });
       closeModal();
       loadVenues();
+    }
+
+    async function showVenueDetail(id) {
+      const d = await api('/api/admin/venues/' + encodeURIComponent(id) + '/detail');
+      const v = d.venue;
+      const tables = d.tables || [];
+      const members = d.members || [];
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modalContent').className = 'modal-box wide';
+      var tableRows = tables.map(function(t) {
+        return '<tr><td>' + escapeHtml(t.number || t.id) + '</td><td>' + escapeHtml(t.name) +
+          '</td><td>' + (t.opened ? '已开台' : '未开台') + '</td></tr>';
+      }).join('') || '<tr><td colspan="3">暂无桌台</td></tr>';
+      var memberRows = members.slice(0, 50).map(function(m) {
+        return '<tr><td>' + escapeHtml(m.nickname) + '</td><td>' + m.score + '</td><td>' +
+          escapeHtml(m.tier_name) + '</td><td>' + m.wins + '/' + m.losses + '</td></tr>';
+      }).join('') || '<tr><td colspan="4">暂无关联会员</td></tr>';
+      document.getElementById('modalContent').innerHTML =
+        '<h3>球房详情：' + escapeHtml(v.name) + '</h3>' +
+        '<p><strong>管理人员：</strong>' + escapeHtml(v.manager_name || '-') + '</p>' +
+        '<p><strong>台桌数：</strong>' + v.table_count + ' &nbsp; <strong>会员数：</strong>' + v.member_count +
+        ' &nbsp; <strong>会员总积分：</strong>' + d.total_member_score + '</p>' +
+        '<h4 style="margin-top:12px">桌台</h4><table><thead><tr><th>编号</th><th>名称</th><th>状态</th></tr></thead><tbody>' + tableRows + '</tbody></table>' +
+        '<h4 style="margin-top:12px">会员积分（前50）</h4><table><thead><tr><th>昵称</th><th>积分</th><th>段位</th><th>胜/负</th></tr></thead><tbody>' + memberRows + '</tbody></table>' +
+        '<button class="secondary" style="margin-top:12px" onclick="closeModal()">关闭</button>';
     }
 
     async function deleteVenue(id) {

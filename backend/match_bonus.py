@@ -1,9 +1,16 @@
-"""对局内炸清/接清：双方确认后加分"""
+"""对局内炸清/接清：双方确认后加分，申报方胜一局"""
 from typing import Dict, List, Optional, Tuple
 
-from db import find_by_id, load, mutate, new_id, now_iso, save
-from ladder_settings import get_ladder_rules
+from db import find_by_id, load, mutate, new_id, now_iso
+from ladder_settings import get_effective_ladder_rules, get_ladder_rules
 from rating import daily_bonus
+from venue_service import DEFAULT_VENUE_ID
+
+
+def _match_ladder_rules(m: Dict) -> Dict:
+    t = find_by_id(load("tables"), m.get("table_id"))
+    vid = t.get("venue_id", DEFAULT_VENUE_ID) if t else DEFAULT_VENUE_ID
+    return get_effective_ladder_rules(vid)
 
 BONUS_TYPES = {"break_run", "clearance"}
 BONUS_LABELS = {"break_run": "炸清", "clearance": "接清"}
@@ -35,6 +42,11 @@ def request_bonus(match_id: str, user_id: str, bonus_type: str) -> Dict:
         if user_id not in _players(m):
             raise ValueError("非本局玩家")
 
+        from services import _check_match_action_cooldown, _touch_match_action_cooldown
+
+        label = BONUS_LABELS.get(bonus_type, bonus_type)
+        _check_match_action_cooldown(m, user_id, f"申报{label}")
+
         pending = m.setdefault("bonus_pending", [])
         for p in pending:
             if p.get("status") == "pending" and p.get("type") == bonus_type and p.get("claimer_id") == user_id:
@@ -49,6 +61,7 @@ def request_bonus(match_id: str, user_id: str, bonus_type: str) -> Dict:
             "created_at": now_iso(),
         }
         pending.append(item)
+        _touch_match_action_cooldown(m, user_id)
         item_holder["item"] = item
         return ms
 
@@ -56,8 +69,27 @@ def request_bonus(match_id: str, user_id: str, bonus_type: str) -> Dict:
     return item_holder["item"]
 
 
+def _award_frame_for_claimer(m: Dict, claimer_id: str) -> Optional[str]:
+    """申报方胜一局；若达到抢分局数则返回胜者 id"""
+    p1, p2 = _players(m)
+    if claimer_id == p1:
+        m["score1"] = m.get("score1", 0) + 1
+    elif claimer_id == p2:
+        m["score2"] = m.get("score2", 0) + 1
+    else:
+        return None
+    race = m.get("race_to", 5)
+    if m.get("score1", 0) >= race:
+        return p1
+    if m.get("score2", 0) >= race:
+        return p2
+    return None
+
+
 def confirm_bonus(match_id: str, user_id: str, bonus_id: str = None) -> Dict:
     result_holder: Dict = {}
+    finish_holder: Dict = {}
+    score_pending: List = []
 
     def _fn(ms):
         m = find_by_id(ms, match_id)
@@ -77,24 +109,47 @@ def confirm_bonus(match_id: str, user_id: str, bonus_id: str = None) -> Dict:
                     break
         if not item:
             raise ValueError("没有待确认的申报")
+        claimer = item.get("claimer_id")
+        if user_id == claimer:
+            raise ValueError("申报已提交，请等待对方确认")
         if user_id in item.get("confirmed_by", []):
             raise ValueError("您已确认过")
 
         item.setdefault("confirmed_by", []).append(user_id)
-        p1, p2 = _players(m)
-        if p1 in item["confirmed_by"] and p2 in item["confirmed_by"]:
-            _apply_bonus(m, item)
-            if item.get("status") == "applied":
-                item["applied_at"] = now_iso()
-            elif item.get("status") == "pending_review":
-                item["awaiting_admin_review"] = True
+        # 仅需对方（非申报方）确认一次即生效
+        winner = _apply_bonus(m, item, score_pending)
+        if winner:
+            finish_holder["winner_id"] = winner
+        if item.get("status") == "applied":
+            item["applied_at"] = now_iso()
+        elif item.get("status") == "pending_review":
+            item["awaiting_admin_review"] = True
 
         result_holder["item"] = item
         result_holder["match"] = m
         return ms
 
     mutate("matches", _fn)
-    return {"item": result_holder["item"], "match": result_holder["match"]}
+
+    if score_pending:
+        from services import adjust_user_score
+
+        for uid, pts, reason, mid in score_pending:
+            adjust_user_score(uid, pts, reason, mid)
+
+    if finish_holder.get("winner_id"):
+        from services import finalize_match
+
+        m = finalize_match(match_id, finish_holder["winner_id"], completed=True)
+    else:
+        m = result_holder.get("match") or find_by_id(load("matches"), match_id)
+
+    return {
+        "item": result_holder.get("item"),
+        "match": m,
+        "frame_awarded": bool(result_holder.get("item") and result_holder["item"].get("frame_awarded")),
+        "match_finished": bool(finish_holder.get("winner_id")),
+    }
 
 
 def reject_bonus(match_id: str, user_id: str, bonus_id: str) -> Dict:
@@ -143,7 +198,7 @@ def get_bonus_points_by_player(m: Dict) -> Dict[str, int]:
             continue
         uid = b.get("user_id")
         if uid in pts:
-            pts[uid] += daily_bonus(b.get("type"))
+            pts[uid] += daily_bonus(b.get("type"), rules=_match_ladder_rules(m))
     return pts
 
 
@@ -164,12 +219,14 @@ def get_bonus_breakdown_by_player(m: Dict) -> Dict[str, Dict[str, int]]:
     return breakdown
 
 
-def enrich_match_display(m: Dict) -> Dict:
+def enrich_match_display(m: Dict, user_id: str = None) -> Dict:
     """小程序对局页：附带炸清/接清加分显示"""
+    from services import get_match_action_cooldown_remaining
+
     p1_id, p2_id = _players(m)
     bp = get_bonus_points_by_player(m)
     bd = get_bonus_breakdown_by_player(m)
-    return {
+    out = {
         "p1_bonus_pts": bp.get(p1_id, 0),
         "p2_bonus_pts": bp.get(p2_id, 0),
         "p1_break_pts": bd[p1_id]["break_run"],
@@ -177,16 +234,21 @@ def enrich_match_display(m: Dict) -> Dict:
         "p2_break_pts": bd[p2_id]["break_run"],
         "p2_clear_pts": bd[p2_id]["clearance"],
     }
+    if user_id:
+        out["action_cooldown_remaining"] = get_match_action_cooldown_remaining(m, user_id)
+    return out
 
 
-def _apply_bonus(m: Dict, item: Dict):
-    from services import adjust_user_score
-
-    rules = get_ladder_rules()
+def _apply_bonus(
+    m: Dict, item: Dict, score_pending: Optional[List] = None
+) -> Optional[str]:
+    """双方确认后：加分（或进审核）+ 申报方胜一局。返回达到局数时的胜者 id。
+    积分调整写入 score_pending，由调用方在 mutate 之后统一 apply，避免嵌套写 users。"""
+    rules = _match_ladder_rules(m)
     threshold = int(rules.get("bonus_review_threshold", 2))
     bonus_type = item["type"]
     claimer = item["claimer_id"]
-    pts = daily_bonus(bonus_type)
+    pts = daily_bonus(bonus_type, rules=rules)
     existing = count_match_bonus_events(m)
     needs_review = existing >= threshold - 1 and threshold >= 2
 
@@ -212,10 +274,21 @@ def _apply_bonus(m: Dict, item: Dict):
         item["status"] = "pending_review"
     else:
         if pts:
-            adjust_user_score(claimer, pts, f"{BONUS_LABELS.get(bonus_type, bonus_type)}(双方确认)", m["id"])
+            reason = f"{BONUS_LABELS.get(bonus_type, bonus_type)}(双方确认)"
+            if score_pending is not None:
+                score_pending.append((claimer, pts, reason, m["id"]))
+            else:
+                from services import adjust_user_score
+
+                adjust_user_score(claimer, pts, reason, m["id"])
         record["status"] = "applied"
         m.setdefault("bonuses", []).append(record)
         item["status"] = "applied"
+
+    winner = _award_frame_for_claimer(m, claimer)
+    item["frame_awarded"] = True
+    record["frame_awarded"] = True
+    return winner
 
 
 def approve_bonus_review(match_id: str, bonus_id: str, note: str = "") -> Dict:
@@ -283,7 +356,8 @@ def punish_bonus_cheat(match_id: str, user_id: str, bonus_id: str, reason: str =
     from anti_cheat import add_violation, publish_cheat_announcement
     from services import adjust_user_score
 
-    rules = get_ladder_rules()
+    m0 = find_by_id(load("matches"), match_id)
+    rules = _match_ladder_rules(m0) if m0 else get_ladder_rules()
     penalty = int(rules.get("cheat_penalty_points", 200))
     scroll_times = int(rules.get("cheat_scroll_times", 3))
     holder: Dict = {}
@@ -314,7 +388,9 @@ def punish_bonus_cheat(match_id: str, user_id: str, bonus_id: str, reason: str =
     msg = reason or f"{nickname} 在本场对局虚报{label}，扣除{penalty}积分"
 
     adjust_user_score(user_id, -penalty, f"炸清/接清作弊处罚(-{penalty})", match_id)
-    add_violation(user_id, msg, "cheat_penalty", True)
+    from anti_cheat import add_violation_and_check_permanent
+
+    add_violation_and_check_permanent(user_id, msg, "cheat_penalty", True)
     publish_cheat_announcement(nickname, msg, scroll_times)
     m = find_by_id(load("matches"), match_id)
     return {"match": m, "penalty": penalty, "scroll_times": scroll_times}
@@ -326,10 +402,13 @@ def get_pending_for_user(m: Dict, user_id: str) -> List[Dict]:
     for p in m.get("bonus_pending", []):
         if p.get("status") != "pending":
             continue
+        claimer_id = p.get("claimer_id")
+        if user_id == claimer_id:
+            continue
         confirmed = p.get("confirmed_by", [])
         if user_id in confirmed:
             continue
-        claimer = find_by_id(users, p.get("claimer_id")) or {}
+        claimer = find_by_id(users, claimer_id) or {}
         p_copy = dict(p)
         p_copy["claimer_name"] = claimer.get("nickname", "球友")
         p_copy["my_role"] = "claimer" if user_id == p.get("claimer_id") else "confirmer"
@@ -371,7 +450,8 @@ def enrich_match_for_admin(m: Dict) -> Dict:
     c2 = count_applied_bonuses(m, p2_id)
     total_bonus = count_match_bonus_events(m)
     review_alert = ""
-    if m.get("needs_bonus_review") or total_bonus >= int(get_ladder_rules().get("bonus_review_threshold", 2)):
+    brules = _match_ladder_rules(m)
+    if m.get("needs_bonus_review") or total_bonus >= int(brules.get("bonus_review_threshold", 2)):
         review_alert = f"⚠ 本场炸清/接清已达{total_bonus}次，待审核加分"
 
     return {

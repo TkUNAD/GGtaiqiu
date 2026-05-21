@@ -1,13 +1,78 @@
 [
   {
     "id": "V001",
-    "name": "默认球房",
+    "name": "GG台球俱乐部",
     "username": "GG台球俱乐部",
-    "password_hash": "scrypt:32768:8:1$LOEiWKpq8EwO4js5$a7e2fe940621e82fef09f19032544fa7092eb0bbb302711b2277718a22314b3225c2c50955446de075d9be7b13869578845f8eecc6ddcdc18c9b53cd89ad7c8b",
+    "password_hash": "scrypt:32768:8:1$JXIZZREkY9TacoRu$a3029f3aa0a98f24ca47cbc72b5481cf40c6258dfcaaa1b44fb577c8b1f456127f03ed9a2927588deff2dd475d7c21f7bb0f6e1b806bda2d4b118295cb88d4f6",
     "member_expires_at": "2099-12-31T23:59:59",
     "contact_phone": "",
     "note": "演示球房（已开通会员）",
     "created_at": "2026-05-18T22:01:30.489259",
-    "updated_at": "2026-05-18T22:08:10.846748"
+    "updated_at": "2026-05-21T19:25:21.459937",
+    "manager_name": "",
+    "ladder_rules": {
+      "challenge_rank_min": 1,
+      "challenge_rank_max": 5,
+      "beyond_rank_daily_bonus_only": true,
+      "daily_ranked_limit": 3,
+      "weekly_ranked_limit": 15,
+      "ranked_over_limit_to_casual": true,
+      "daily_bonus_valid_match": 5,
+      "daily_bonus_break_run": 20,
+      "daily_bonus_clearance": 15,
+      "daily_bonus_hour_open": 8,
+      "bonus_review_threshold": 2,
+      "cheat_penalty_points": 200,
+      "cheat_scroll_times": 5,
+      "tier_definitions": [
+        {
+          "name": "新锐学徒",
+          "min": 1000,
+          "max": 1199
+        },
+        {
+          "name": "业余球手",
+          "min": 1200,
+          "max": 1399
+        },
+        {
+          "name": "资深球友",
+          "min": 1400,
+          "max": 1599
+        },
+        {
+          "name": "赛场好手",
+          "min": 1600,
+          "max": 1799
+        },
+        {
+          "name": "实力战将",
+          "min": 1800,
+          "max": 1999
+        },
+        {
+          "name": "殿堂球王",
+          "min": 2000,
+          "max": 99999
+        }
+      ],
+      "point_rules": {
+        "max_ranked_tier_gap": 1,
+        "same_winner_base": 20,
+        "same_winner_per_frame": 2,
+        "same_loser_base": 15,
+        "same_loser_per_frame": 2,
+        "low_win_winner_base": 25,
+        "low_win_winner_per_frame": 3,
+        "low_win_loser_base": 15,
+        "low_win_loser_per_frame": 3,
+        "high_win_winner_base": 15,
+        "high_win_winner_per_frame": 2,
+        "high_win_loser_base": 10,
+        "high_win_loser_per_frame": 2,
+        "casual_winner_bonus": 0
+      },
+      "rule_description": ""
+    }
   }
 ]

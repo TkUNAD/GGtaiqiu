@@ -1,0 +1,27 @@
+{
+  "description": "台球天梯系统 - 从仓库根目录打开时，小程序代码在 miniprogram 目录",
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "appid": "wxebb32eecf61e4970",
+  "projectname": "billiards-ladder",
+  "libVersion": "3.3.4",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "useIsolateContext": true,
+    "minifyWXML": true,
+    "minifyWXSS": true
+  },
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}
