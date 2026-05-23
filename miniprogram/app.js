@@ -12,6 +12,8 @@ App({
     venueId: VENUE_ID,
     venueStatus: null,
     showAds: true,
+    location: null,
+    version: '2.0.1',
   },
   onLaunch() {
     this.globalData.baseUrl = getApiBaseUrl();
@@ -33,6 +35,7 @@ App({
     }
 
     this.loadVenueStatus();
+    this.initLocation();
 
     api.ping()
       .then(() => { this.globalData.networkOk = true; })
@@ -40,6 +43,20 @@ App({
         this.globalData.networkOk = false;
         console.warn('[API] ping failed', e);
       });
+  },
+  initLocation() {
+    wx.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        this.globalData.location = {
+          latitude: res.latitude,
+          longitude: res.longitude,
+        };
+      },
+      fail: () => {
+        this.globalData.location = null;
+      },
+    });
   },
   loadVenueStatus() {
     const vid = this.globalData.venueId || VENUE_ID;

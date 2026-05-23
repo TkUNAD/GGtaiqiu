@@ -473,9 +473,19 @@ def admin_reset_data(
 
 
 def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone: str = "", ip: str = "") -> Dict:
+    from anti_cheat import check_user_allowed
+
+    ok, msg = check_ip_limit(ip, openid)
+    if not ok:
+        raise ValueError(msg)
+    if phone:
+        ok2, msg2 = check_phone_unique(phone)
+        if not ok2:
+            raise ValueError(msg2)
+
     holder: Dict[str, Any] = {}
 
-    def _update_existing(us):
+    def _upsert(us):
         for u in us:
             if u.get("openid") != openid:
                 continue
@@ -485,9 +495,9 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
             if avatar:
                 u["avatar"] = avatar
             if phone:
-                ok2, msg2 = check_phone_unique(phone, u["id"])
-                if not ok2:
-                    raise ValueError(msg2)
+                okp, msgp = check_phone_unique(phone, u["id"])
+                if not okp:
+                    raise ValueError(msgp)
                 u["phone"] = phone
             if ip:
                 u["last_ip"] = ip
@@ -497,62 +507,37 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
                 log_score(u["id"], -penalty, "长期未对战扣分")
             holder["user"] = u
             return us
+        new_user = {
+            "id": new_id("U"),
+            "openid": openid,
+            "nickname": nickname or f"球友{openid[-4:]}",
+            "avatar": avatar or "",
+            "phone": phone or "",
+            "score": INITIAL_SCORE,
+            "wins": 0,
+            "losses": 0,
+            "status": "active",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+            "last_login_at": now_iso(),
+            "last_battle_at": None,
+            "last_ip": ip,
+            "daily_ranked_count": {},
+            "weekly_ranked_count": {},
+            "open_table_hours": 0,
+        }
+        us.append(new_user)
+        holder["user"] = new_user
         return us
 
-    mutate("users", _update_existing)
-    if holder.get("user"):
-        from anti_cheat import check_user_allowed
-
-        ok, msg = check_user_allowed(holder["user"])
-        if not ok:
-            raise ValueError(msg)
-        return holder["user"]
-
-    ok, msg = check_ip_limit(ip, openid)
+    mutate("users", _upsert)
+    user = holder.get("user")
+    if not user:
+        raise ValueError("用户创建失败，请重试")
+    ok, msg = check_user_allowed(user)
     if not ok:
         raise ValueError(msg)
-
-    if phone:
-        ok2, msg2 = check_phone_unique(phone)
-        if not ok2:
-            raise ValueError(msg2)
-
-    user = {
-        "id": new_id("U"),
-        "openid": openid,
-        "nickname": nickname or f"球友{openid[-4:]}",
-        "avatar": avatar or "",
-        "phone": phone or "",
-        "score": INITIAL_SCORE,
-        "wins": 0,
-        "losses": 0,
-        "status": "active",
-        "created_at": now_iso(),
-        "updated_at": now_iso(),
-        "last_login_at": now_iso(),
-        "last_battle_at": None,
-        "last_ip": ip,
-        "daily_ranked_count": {},
-        "weekly_ranked_count": {},
-        "open_table_hours": 0,
-    }
-
-    def _create(us):
-        for u in us:
-            if u.get("openid") == openid:
-                holder["user"] = u
-                return us
-        us.append(user)
-        holder["user"] = user
-        return us
-
-    mutate("users", _create)
-    if not holder.get("user"):
-        users = load("users")
-        holder["user"] = next((u for u in users if u.get("openid") == openid), None)
-    if not holder.get("user"):
-        raise ValueError("用户创建失败，请重试")
-    return holder["user"]
+    return user
 
 
 def process_season_and_week():
@@ -735,18 +720,23 @@ def start_match(
                 else:
                     raise ValueError(msg2)
 
-    if is_ranked and challenger_id and target_id:
-        users_list = load("users")
-        cr = get_user_rank(users_list, challenger_id)
-        tr = get_user_rank(users_list, target_id)
-        ok3, msg3 = can_challenge_rank(cr, tr, rules=rules)
-        if not ok3:
-            if "超出" in msg3 and "日常加分" in msg3:
-                is_ranked = False
-                ranked_valid = False
-                ranked_reason = msg3
-            else:
-                raise ValueError(msg3)
+    if challenger_id and target_id:
+        ids = {player1_id, player2_id}
+        if challenger_id not in ids or target_id not in ids or challenger_id == target_id:
+            challenger_id = None
+            target_id = None
+        elif is_ranked:
+            users_list = load("users")
+            cr = get_user_rank(users_list, challenger_id)
+            tr = get_user_rank(users_list, target_id)
+            ok3, msg3 = can_challenge_rank(cr, tr, rules=rules)
+            if not ok3:
+                if "超出" in msg3 and "日常加分" in msg3:
+                    is_ranked = False
+                    ranked_valid = False
+                    ranked_reason = msg3
+                else:
+                    raise ValueError(msg3)
 
     match = {
         "id": new_id("M"),
@@ -774,61 +764,48 @@ def start_match(
         "bonus_pending": [],
     }
 
-    def _matches(ms):
-        for m in ms:
-            if (
-                m.get("table_id") == table_id
-                and m.get("status") == "playing"
-            ):
+    from db import mutate_multi
+
+    def _start_atomic(matches, tables):
+        for m in matches:
+            if m.get("table_id") == table_id and m.get("status") == "playing":
                 raise ValueError("该桌台已有进行中的对局")
-        ms.append(match)
-        return ms
+        t = find_by_id(tables, table_id)
+        if not t:
+            raise ValueError("桌台不存在")
+        if t.get("current_match_id"):
+            existing = find_by_id(matches, t["current_match_id"])
+            if existing and existing.get("status") == "playing":
+                raise ValueError("该桌台已有进行中的对局")
+        matches.append(match)
+        t["current_match_id"] = match["id"]
+        t["waiting_players"] = []
+        return match
 
-    try:
-        mutate("matches", _matches)
-
-        def _tables(ts):
-            t = find_by_id(ts, table_id)
-            if not t:
-                raise ValueError("桌台不存在")
-            if t.get("current_match_id"):
-                mid = t["current_match_id"]
-                existing = find_by_id(load("matches"), mid)
-                if existing and existing.get("status") == "playing":
-                    raise ValueError("该桌台已有进行中的对局")
-            t["current_match_id"] = match["id"]
-            t["waiting_players"] = []
-            return ts
-
-        mutate("tables", _tables)
-    except ValueError:
-        def _rollback(ms):
-            return [m for m in ms if m.get("id") != match["id"]]
-
-        mutate("matches", _rollback)
-        raise
-
-    return match
+    return mutate_multi(["matches", "tables"], _start_atomic)
 
 
-def get_match_action_cooldown_remaining(m: Dict, user_id: str) -> int:
-    """距下次可操作剩余秒数（炸清/接清/胜局/负局共用）"""
-    last = m.get("last_action_at") or {}
-    now = datetime.now()
+def _latest_match_action_time(last: Dict) -> Optional[datetime]:
+    """取对局内最近一次操作时间（双方任一方操作均触发共用冷却）"""
     latest = None
-    prefix = f"{user_id}_"
-    for k, v in last.items():
-        if not k.startswith(prefix):
-            continue
+    for v in (last or {}).values():
         try:
-            t = datetime.fromisoformat(v)
+            t = datetime.fromisoformat(str(v).replace("Z", ""))
             if latest is None or t > latest:
                 latest = t
         except ValueError:
             continue
+    return latest
+
+
+def get_match_action_cooldown_remaining(m: Dict, user_id: str = None) -> int:
+    """距下次可操作剩余秒数（双方共用：任一方炸清/接清/胜/负后双方均冷却）"""
+    del user_id  # 双方同一倒计时，与操作者无关
+    last = m.get("last_action_at") or {}
+    latest = _latest_match_action_time(last)
     if latest is None:
         return 0
-    elapsed = (now - latest).total_seconds()
+    elapsed = (datetime.now() - latest).total_seconds()
     if elapsed >= MATCH_ACTION_COOLDOWN:
         return 0
     return max(1, int(MATCH_ACTION_COOLDOWN - elapsed))
@@ -842,7 +819,9 @@ def _check_match_action_cooldown(m: Dict, user_id: str, action_label: str = "操
 
 def _touch_match_action_cooldown(m: Dict, user_id: str) -> None:
     last = m.setdefault("last_action_at", {})
-    last[f"{user_id}_action"] = now_iso()
+    ts = now_iso()
+    last["match"] = ts
+    last[f"{user_id}_action"] = ts
     from match_idle import touch_match_activity
 
     touch_match_activity(m)
@@ -1082,26 +1061,27 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
 
     mutate("matches", _finish_matches)
     m = outcome["m"]
-
-    if outcome.get("release_table"):
-        _release_table(outcome["release_table"])
+    table_to_release = outcome.get("release_table")
 
     if outcome.get("skip"):
+        if table_to_release and m.get("status") in ("finished", "invalid"):
+            _release_table(table_to_release)
         return m
+
+    def _write_summary(ms):
+        mm = find_by_id(ms, match_id)
+        if mm:
+            mm["summary"] = build_match_summary(mm)
+        return ms
 
     if outcome.get("is_draw"):
         m0 = outcome["m"]
         _apply_finish_user_updates(
             m0["player1_id"], m0["player2_id"], match_id, False, 0, 0, 0, True
         )
-
-        def _summary(ms):
-            mm = find_by_id(ms, match_id)
-            if mm:
-                mm["summary"] = build_match_summary(mm)
-            return ms
-
-        mutate("matches", _summary)
+        mutate("matches", _write_summary)
+        if table_to_release:
+            _release_table(table_to_release)
         return find_by_id(load("matches"), match_id) or m
 
     try:
@@ -1127,13 +1107,9 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
         mutate("matches", _rollback)
         raise ValueError(f"结算失败: {e}") from e
 
-    def _summary(ms):
-        mm = find_by_id(ms, match_id)
-        if mm:
-            mm["summary"] = build_match_summary(mm)
-        return ms
-
-    mutate("matches", _summary)
+    mutate("matches", _write_summary)
+    if table_to_release:
+        _release_table(table_to_release)
     return find_by_id(load("matches"), match_id) or m
 
 
@@ -1252,89 +1228,54 @@ def exchange_rules_for_user(user_id: str, user_score: int) -> Dict:
 
 
 def exchange_product(user_id: str, product_id: str) -> Dict:
-    record_holder: Dict[str, Any] = {}
+    from db import mutate_multi
 
-    def _products(ps):
-        prod = find_by_id(ps, product_id)
+    def _exchange_atomic(products, users, exchanges):
+        prod = find_by_id(products, product_id)
         if not prod or not prod.get("enabled"):
             raise ValueError("商品不存在或已下架")
         if prod.get("stock", 0) <= 0:
             raise ValueError("库存不足")
-        prod["stock"] -= 1
-        record_holder["points"] = prod["points"]
-        record_holder["name"] = prod["name"]
-        return ps
-
-    mutate("products", _products)
-
-    try:
-        def _users(us):
-            u = find_by_id(us, user_id)
-            if not u:
-                raise ValueError("用户不存在")
-            score = u.get("score", INITIAL_SCORE)
-            if score < EXCHANGE_MIN_SCORE:
-                raise ValueError(
-                    f"积分需达到{EXCHANGE_MIN_SCORE}分方可兑换（当前{score}分）"
-                )
-            pts = record_holder["points"]
-            if score < pts:
-                raise ValueError("积分不足")
-            u["score"] = max(0, score - pts)
-            u["updated_at"] = now_iso()
-            record_holder["record"] = {
-                "id": new_id("E"),
-                "user_id": user_id,
-                "product_id": product_id,
-                "product_name": record_holder["name"],
-                "points": pts,
-                "status": "pending",
-                "created_at": now_iso(),
-                "reviewed_at": None,
-                "review_note": "",
-            }
-            return us
-
-        mutate("users", _users)
-
-        def _ex(exs):
-            today = datetime.now().strftime("%Y-%m-%d")
-            count = sum(
-                1
-                for e in exs
-                if e.get("user_id") == user_id
-                and (e.get("created_at") or "").startswith(today)
+        u = find_by_id(users, user_id)
+        if not u:
+            raise ValueError("用户不存在")
+        score = u.get("score", INITIAL_SCORE)
+        if score < EXCHANGE_MIN_SCORE:
+            raise ValueError(
+                f"积分需达到{EXCHANGE_MIN_SCORE}分方可兑换（当前{score}分）"
             )
-            if count >= EXCHANGE_DAILY_LIMIT:
-                raise ValueError(
-                    f"今日兑换次数已达上限（每日{EXCHANGE_DAILY_LIMIT}次）"
-                )
-            exs.append(record_holder["record"])
-            return exs
+        today = datetime.now().strftime("%Y-%m-%d")
+        count = sum(
+            1
+            for e in exchanges
+            if e.get("user_id") == user_id
+            and (e.get("created_at") or "").startswith(today)
+        )
+        if count >= EXCHANGE_DAILY_LIMIT:
+            raise ValueError(f"今日兑换次数已达上限（每日{EXCHANGE_DAILY_LIMIT}次）")
+        pts = prod["points"]
+        if score < pts:
+            raise ValueError("积分不足")
+        prod["stock"] -= 1
+        u["score"] = max(0, score - pts)
+        u["updated_at"] = now_iso()
+        record = {
+            "id": new_id("E"),
+            "user_id": user_id,
+            "product_id": product_id,
+            "product_name": prod["name"],
+            "points": pts,
+            "status": "pending",
+            "created_at": now_iso(),
+            "reviewed_at": None,
+            "review_note": "",
+        }
+        exchanges.append(record)
+        return record
 
-        mutate("exchanges", _ex)
-    except ValueError:
-        def _restore_stock(ps):
-            prod = find_by_id(ps, product_id)
-            if prod:
-                prod["stock"] = prod.get("stock", 0) + 1
-            return ps
-
-        mutate("products", _restore_stock)
-
-        def _restore_user(us):
-            u = find_by_id(us, user_id)
-            if u and record_holder.get("points"):
-                u["score"] = u.get("score", INITIAL_SCORE) + record_holder["points"]
-                u["updated_at"] = now_iso()
-            return us
-
-        if record_holder.get("record"):
-            mutate("users", _restore_user)
-        raise
-
-    log_score(user_id, -record_holder["points"], f"兑换:{record_holder['name']}")
-    return record_holder["record"]
+    record = mutate_multi(["products", "users", "exchanges"], _exchange_atomic)
+    log_score(user_id, -record["points"], f"兑换:{record['product_name']}")
+    return record
 
 
 def refund_exchange(ex_id: str, note: str = "") -> Dict:

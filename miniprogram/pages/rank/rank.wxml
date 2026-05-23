@@ -1,13 +1,49 @@
 <view class="container">
-  <view class="header">天梯排行榜</view>
-  <view class="rank-item {{item.rank <= 5 ? 'top' : ''}}" wx:for="{{list}}" wx:key="id" wx:for-index="index">
-    <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
-    <text class="rank-num" wx:else>{{item.rank}}</text>
+  <view class="float-bar tabs">
+    <view class="tab {{tab === 'club' ? 'active' : ''}}" data-tab="club" bindtap="switchTab">俱乐部天梯</view>
+    <view class="tab {{tab === 'global' ? 'active' : ''}}" data-tab="global" bindtap="switchTab">总天梯排行</view>
+  </view>
+
+  <view
+    class="float-row {{item.club_rank === 1 || item.rank === 1 ? 'float-row-highlight rank-first' : ''}} {{item.rank <= 5 ? 'top' : ''}}"
+    wx:for="{{list}}"
+    wx:key="id"
+    bindtap="showPlayer"
+    data-id="{{item.id}}"
+  >
+    <text class="rank-num {{item.club_rank === 1 || item.rank === 1 ? 'num-first' : ''}}">
+      {{tab === 'club' ? (item.club_rank || item.rank) : item.rank}}
+    </text>
+    <image class="avatar-sm" src="{{item.avatar || '/assets/default-avatar.png'}}" mode="aspectFill" />
     <view class="info">
-      <text class="name">{{item.nickname}}</text>
-      <text class="tier">{{item.tier_name}} {{item.star}}星</text>
+      <view class="name-line">
+        <image class="tier-img tier-img-sm" src="{{item.tierImage}}" mode="aspectFit" />
+        <text class="name">{{item.nickname}}</text>
+      </view>
+      <text class="tier">{{item.tier_name}} {{item.star}}星 · {{item.score}}分</text>
+      <text class="sub-rank" wx:if="{{tab === 'club'}}">
+        总{{item.rank >= 9999 ? '—' : item.rank}} · 周{{item.week_rank >= 9999 ? '—' : item.week_rank}} · 月{{item.month_rank >= 9999 ? '—' : item.month_rank}}
+      </text>
+      <text class="sub-rank" wx:else>胜率 {{item.win_rate}}% · {{item.total_games}}场</text>
     </view>
-    <text class="score">{{item.score}}</text>
+    <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
   </view>
   <view wx:if="{{!loading && !list.length}}" class="empty">暂无数据</view>
+</view>
+
+<view class="player-mask" wx:if="{{playerDetail}}" bindtap="closePlayer">
+  <view class="player-panel card" catchtap="noop">
+    <image class="player-avatar" src="{{playerDetail.avatar || '/assets/default-avatar.png'}}" mode="aspectFill" />
+    <view class="player-name">{{playerDetail.nickname}}</view>
+    <view class="tier-line" wx:if="{{playerDetail.tierClass}}">
+      <image class="tier-img tier-img-lg" src="{{playerDetail.tierImage}}" mode="aspectFit" />
+      <text class="player-tier-text">{{playerDetail.tier_name}} {{playerDetail.star}}星</text>
+    </view>
+    <view class="player-stats">
+      <text>场次 {{playerDetail.total_games}}</text>
+      <text>胜率 {{playerDetail.win_rate}}%</text>
+      <text>胜 {{playerDetail.wins}} / 负 {{playerDetail.losses}}</text>
+    </view>
+    <view class="btn-secondary" bindtap="closePlayer">关闭</view>
+  </view>
 </view>

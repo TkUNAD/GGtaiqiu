@@ -1,129 +1,128 @@
-<view class="container">
+<view class="table-page">
+  <block wx:if="{{table}}">
 
-  <view class="card" wx:if="{{table}}">
+  <!-- ========== 开台前：桌号 + 局数 + VS 对阵 + 开始 ========== -->
+  <view class="lobby-shell" wx:if="{{!match || match.status !== 'playing'}}">
+    <view class="lobby-top">
+      <text class="lobby-table-name">{{table.name}}</text>
+      <text class="lobby-table-sub" wx:if="{{table.opened}}">已开台 · 到场 {{table.waiting_count || 0}}/2</text>
+      <text class="lobby-table-sub" wx:else>扫码签到 · 到场 {{table.waiting_count || 0}}/2</text>
+    </view>
 
-    <view class="title">{{table.name}}</view>
+    <view class="race-panel" wx:if="{{table.waiting_count >= 1 || table.i_am_waiting}}">
+      <text class="race-panel-label">选择对局数</text>
+      <view class="race-picker" bindtap="openRacePicker">
+        <text class="race-picker-text">抢{{raceTo}}</text>
+        <text class="race-picker-arrow">{{racePickerOpen ? '▲' : '▼'}}</text>
+      </view>
+      <view class="race-dropdown-mask" wx:if="{{racePickerOpen}}" bindtap="closeRacePicker">
+        <view class="race-dropdown" catchtap="noop">
+          <view
+            wx:for="{{raceLabels}}"
+            wx:key="*this"
+            class="race-dropdown-item {{racePickerIndex === index ? 'race-dropdown-item-active' : ''}}"
+            bindtap="onRaceOptionTap"
+            data-index="{{index}}"
+          >{{item}}</view>
+        </view>
+      </view>
+      <text class="race-sync" wx:if="{{table.race_picker}}">{{table.race_picker.nickname}} 选择了抢{{table.race_to}}（双方已同步）</text>
+    </view>
 
-    <text>状态: {{table.current_match_id ? '对局进行中' : (table.players_ready ? '两名选手已到齐，点击「开始对战」开台' : (table.opened ? '已开台，等待选手' : '等候扫码签到（满2人后可开始对战）'))}}</text>
-
-  </view>
-
-
-
-  <view class="card" wx:if="{{!match || match.status !== 'playing'}}">
-
-    <view class="title">扫码签到</view>
-
-    <text class="hint">请两名选手均扫描本桌二维码，到场后可开始对战</text>
-
-    <view class="waiting-box">
-
-      <text class="waiting-count">已到场 {{table.waiting_count || 0}} / 2</text>
-
-      <view class="waiting-item" wx:for="{{table.waiting_players}}" wx:key="user_id">
-
-        <text>{{item.nickname}}{{item.is_me ? '（我）' : ''}}</text>
-
+    <view class="vs-arena">
+      <view class="fighter-slot">
+        <image class="fighter-avatar" src="{{lobbyP1.avatar}}" mode="aspectFill" />
+        <text class="fighter-name">{{lobbyP1.nickname}}</text>
+        <view class="fighter-tier">
+          <image class="tier-img tier-img-sm" src="{{lobbyP1.tierImage}}" mode="aspectFit" />
+          <text class="fighter-tier-text">{{lobbyP1.tierName}}</text>
+        </view>
       </view>
 
-      <text wx:if="{{!table.waiting_count}}" class="wait-tip">等待选手扫码…</text>
+      <view class="vs-epic">
+        <view class="vs-epic-ring vs-epic-ring-1"></view>
+        <view class="vs-epic-ring vs-epic-ring-2"></view>
+        <view class="vs-epic-flash vs-epic-flash-l"></view>
+        <view class="vs-epic-flash vs-epic-flash-r"></view>
+        <view class="vs-epic-strike"></view>
+        <text class="vs-epic-text">VS</text>
+      </view>
 
+      <view class="fighter-slot">
+        <image class="fighter-avatar" src="{{lobbyP2.avatar}}" mode="aspectFill" />
+        <text class="fighter-name">{{lobbyP2.nickname}}</text>
+        <view class="fighter-tier">
+          <image class="tier-img tier-img-sm" src="{{lobbyP2.tierImage}}" mode="aspectFit" />
+          <text class="fighter-tier-text">{{lobbyP2.tierName}}</text>
+        </view>
+      </view>
     </view>
 
-
-
-    <block wx:if="{{table.waiting_count >= 1 || table.i_am_waiting}}">
-
-      <picker mode="selector" range="{{['抢5','抢7']}}" value="{{racePickerIndex}}" bindchange="onRaceChange">
-
-        <view class="picker">局数: 抢{{raceTo}}</view>
-
-      </picker>
-
-      <text class="hint sync-race" wx:if="{{table.race_picker}}">{{table.race_picker.nickname}} 选择了抢{{table.race_to}}（双方已同步）</text>
-
-      <text class="hint" wx:if="{{table.can_start}}">系统将按天梯规则自动判定排位赛或休闲局</text>
-
-    </block>
-
-    <view class="btn-primary" wx:if="{{table.can_start}}" bindtap="startMatch">开始对战</view>
-
-    <view wx:elif="{{table.waiting_count < 2}}" class="btn-disabled">等待另一名选手扫码</view>
-
-    <view class="btn-secondary" bindtap="refreshMatch">刷新状态</view>
-
+    <view class="lobby-foot">
+      <text class="lobby-hint" wx:if="{{table.can_start}}">两名选手已到齐，系统将按天梯规则判定排位赛或休闲局</text>
+      <text class="lobby-hint" wx:elif="{{table.waiting_count < 2}}">请两名选手扫描本桌二维码到场</text>
+      <view class="btn-start-battle" wx:if="{{table.can_start}}" bindtap="startMatch">对战开始</view>
+      <view class="btn-start-disabled" wx:elif="{{table.waiting_count < 2}}">等待另一名选手扫码</view>
+      <view class="btn-refresh-lite" bindtap="refreshMatch">刷新状态</view>
+    </view>
   </view>
 
-
-
-  <view class="card" wx:if="{{match && match.status === 'playing'}}">
-
-    <view class="title">进行中 - 抢{{match.race_to}}</view>
-
-    <view class="score-board">
-
-      <text class="big">{{match.score1}}</text>
-
-      <text class="vs">VS</text>
-
-      <text class="big">{{match.score2}}</text>
-
+  <!-- ========== 对局进行中 ========== -->
+  <view class="play-shell" wx:if="{{match && match.status === 'playing'}}">
+    <view class="play-head">
+      <text class="play-race">抢{{match.race_to}}</text>
+      <text class="play-type">{{match.match_type === 'ranked' ? '排位赛' : '休闲局'}}</text>
     </view>
 
-    <view class="names">
-
-      <text>{{match.p1.nickname}}</text>
-
-      <text>{{match.p2.nickname}}</text>
-
+    <view class="play-scoreboard">
+      <view class="play-side">
+        <text class="play-score-num">{{match.score1}}</text>
+        <text class="play-side-name">{{match.p1.nickname}}</text>
+      </view>
+      <view class="play-vs-core">
+        <view class="play-vs-glow"></view>
+        <text class="play-vs-text">VS</text>
+      </view>
+      <view class="play-side">
+        <text class="play-score-num">{{match.score2}}</text>
+        <text class="play-side-name">{{match.p2.nickname}}</text>
+      </view>
     </view>
 
-    <view class="type-tag">{{match.match_type === 'ranked' ? '排位赛' : '休闲局'}}</view>
-
-
+    <view class="play-fighters">
+      <view class="play-fighter">
+        <image class="play-avatar" src="{{match.p1.avatarUrl}}" mode="aspectFill" />
+        <image class="tier-img tier-img-sm" src="{{match.p1.tierImage}}" mode="aspectFit" />
+        <text class="play-tier">{{match.p1.tierName}}</text>
+      </view>
+      <view class="play-fighter">
+        <image class="play-avatar" src="{{match.p2.avatarUrl}}" mode="aspectFill" />
+        <image class="tier-img tier-img-sm" src="{{match.p2.tierImage}}" mode="aspectFit" />
+        <text class="play-tier">{{match.p2.tierName}}</text>
+      </view>
+    </view>
 
     <view class="bonus-section bonus-section-center">
-
       <text class="bonus-title">炸清/接清（对方确认后加分，申报方胜1局）</text>
-
       <view class="bonus-row">
-
-        <view class="bonus-btn" bindtap="requestBonus" data-type="break_run">申报炸清+20</view>
-
-        <view class="bonus-btn" bindtap="requestBonus" data-type="clearance">申报接清+15</view>
-
+        <view class="bonus-btn {{cooldown > 0 ? 'btn-action-disabled' : ''}}" bindtap="requestBonus" data-type="break_run">申报炸清+20</view>
+        <view class="bonus-btn {{cooldown > 0 ? 'btn-action-disabled' : ''}}" bindtap="requestBonus" data-type="clearance">申报接清+15</view>
       </view>
-
       <view class="pending-list" wx:if="{{pendingBonuses.length}}">
-
         <view class="pending-item" wx:for="{{pendingBonuses}}" wx:key="id">
-
           <text>{{item.label}}（待您确认）</text>
-
           <button size="mini" bindtap="confirmBonus" data-id="{{item.id}}">同意</button>
-
         </view>
-
       </view>
-
     </view>
-
-
 
     <view class="btn-row">
-
-      <view class="btn-win" bindtap="onWin">本局胜利</view>
-
-      <view class="btn-lose" bindtap="onLose">本局失败</view>
-
+      <view class="btn-win {{cooldown > 0 ? 'btn-action-disabled' : ''}}" bindtap="onWin">本局胜利</view>
+      <view class="btn-lose {{cooldown > 0 ? 'btn-action-disabled' : ''}}" bindtap="onLose">本局失败</view>
     </view>
-
     <text class="cooldown" wx:if="{{cooldown > 0}}">炸清/接清/胜局/负局 操作冷却: {{cooldown}}秒</text>
 
-
-
     <view class="btn-secondary" bindtap="endEarly">提前结束(积分减半)</view>
-
     <view class="btn-secondary" bindtap="refreshMatch">刷新比分</view>
 
     <view class="idle-mask" wx:if="{{idleUi.active}}">
@@ -158,44 +157,26 @@
     </view>
 
     <view class="bonus-summary-bar">
-
       <text class="bonus-summary-title">本场炸清 / 接清加分</text>
-
       <view class="bonus-summary-row">
-
         <view class="bonus-summary-col">
-
           <text class="bonus-summary-name">{{match.p1.nickname}}</text>
-
           <view class="bonus-summary-tags">
-
             <text class="bonus-tag break">炸清 +{{match.p1_break_pts || 0}}</text>
-
             <text class="bonus-tag clear">接清 +{{match.p1_clear_pts || 0}}</text>
-
           </view>
-
         </view>
-
         <view class="bonus-summary-col">
-
           <text class="bonus-summary-name">{{match.p2.nickname}}</text>
-
           <view class="bonus-summary-tags">
-
             <text class="bonus-tag break">炸清 +{{match.p2_break_pts || 0}}</text>
-
             <text class="bonus-tag clear">接清 +{{match.p2_clear_pts || 0}}</text>
-
           </view>
-
         </view>
-
       </view>
-
     </view>
-
   </view>
+  </block>
 
   <view class="card" wx:if="{{loadError}}">
     <text class="hint" style="color:#F9A8D4">{{loadError}}</text>
@@ -207,7 +188,6 @@
     <view class="btn-secondary" bindtap="refreshMatch">刷新</view>
   </view>
 
-  <!-- 对手炸清/接清确认卡片 -->
   <view class="bonus-overlay" wx:if="{{opponentBonusCard}}" catchtouchmove="noop">
     <view class="bonus-card">
       <view class="bonus-card-title">炸清 / 接清申报</view>
@@ -220,6 +200,4 @@
       </view>
     </view>
   </view>
-
 </view>
-

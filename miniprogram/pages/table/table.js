@@ -1,11 +1,59 @@
 const api = require('../../utils/api');
+const { getTierStyle } = require('../../utils/tierIcons');
 
 const app = getApp();
 
-
-
 const BONUS_LABEL = { break_run: '炸清+20', clearance: '接清+15' };
 const ACTION_COOLDOWN_SEC = 60;
+/** 切到微信聊天等后台：仍占坑时长（毫秒） */
+const LOBBY_BACKGROUND_LEAVE_MS = 60000;
+const RACE_OPTIONS = [5, 7, 9, 11, 13];
+const RACE_LABELS = RACE_OPTIONS.map((n) => `抢${n}`);
+
+function raceToPickerIndex(raceTo) {
+  const n = normalizeRaceTo(raceTo);
+  const idx = RACE_OPTIONS.indexOf(n);
+  return idx >= 0 ? idx : 0;
+}
+const DEFAULT_AVATAR = '/assets/default-avatar.png';
+
+function normalizeRaceTo(v) {
+  const n = parseInt(v, 10);
+  return RACE_OPTIONS.indexOf(n) >= 0 ? n : 5;
+}
+
+function decorateLobbyPlayer(p, fallbackName) {
+  if (!p || !p.user_id) {
+    return {
+      nickname: fallbackName,
+      avatar: DEFAULT_AVATAR,
+      tierImage: getTierStyle(1).tierImage,
+      tierName: '等待选手',
+    };
+  }
+  const tier = getTierStyle(p.tier_index || 1);
+  return {
+    nickname: (p.nickname || fallbackName) + (p.is_me ? '（我）' : ''),
+    avatar: p.avatar || DEFAULT_AVATAR,
+    tierImage: tier.tierImage,
+    tierName: p.tier_name ? `${p.tier_name} ${p.star || 1}星` : tier.tierName,
+  };
+}
+
+function decorateMatchPlayer(u, fallback) {
+  const raw = u || {};
+  const tier = getTierStyle(raw.tier_index || 1);
+  const tierLabel = raw.tier_name
+    ? `${raw.tier_name}${raw.star ? ` ${raw.star}星` : ''}`
+    : tier.tierName;
+  return {
+    ...raw,
+    nickname: raw.nickname || fallback,
+    avatarUrl: raw.avatar || DEFAULT_AVATAR,
+    tierImage: tier.tierImage,
+    tierName: tierLabel,
+  };
+}
 
 
 
@@ -22,9 +70,11 @@ Page({
     match: null,
 
     raceTo: 5,
-
+    raceLabels: RACE_LABELS,
     racePickerIndex: 0,
-
+    racePickerOpen: false,
+    lobbyP1: decorateLobbyPlayer(null, '选手1'),
+    lobbyP2: decorateLobbyPlayer(null, '选手2'),
     matchType: 'casual',
 
     cooldown: 0,
@@ -64,6 +114,8 @@ Page({
 
     this._leaveToken = '';
 
+    this._lobbyLeaveTimer = null;
+
     const tableId = options.table_id || '';
     const qrToken = options.qr_token || '';
 
@@ -84,6 +136,8 @@ Page({
 
 
   async onShow() {
+
+    this._cancelLobbyLeaveTimer();
 
     if (this.data._initDone && this.data.tableId && this.data.qrToken && app.globalData.token) {
 
@@ -131,10 +185,41 @@ Page({
 
 
 
+  isInLobby() {
+    const playing = this.data.match && this.data.match.status === 'playing';
+    return !playing && this.data.tableId && this.data.table && this.data.table.i_am_waiting;
+  },
+
+  _cancelLobbyLeaveTimer() {
+    if (this._lobbyLeaveTimer) {
+      clearTimeout(this._lobbyLeaveTimer);
+      this._lobbyLeaveTimer = null;
+    }
+  },
+
+  leaveLobbySilent() {
+    if (!this.isInLobby()) return;
+    const tid = this._leaveTableId || this.data.tableId;
+    const token = app.globalData.accessToken || app.globalData.token || wx.getStorageSync('access_token');
+    if (!tid || !token) return;
+    const prev = app.globalData.token;
+    const prevAccess = app.globalData.accessToken;
+    app.globalData.token = token;
+    app.globalData.accessToken = token;
+    api.request(`/api/table/${tid}/leave`, 'POST', {}).catch(() => {});
+    app.globalData.token = prev;
+    app.globalData.accessToken = prevAccess;
+  },
+
+  /** 切到后台：60 秒内仍占坑；超时或真正关闭后再离场 */
   onHide() {
-
     this.stopPoll();
-
+    this._cancelLobbyLeaveTimer();
+    if (!this.isInLobby()) return;
+    this._lobbyLeaveTimer = setTimeout(() => {
+      this._lobbyLeaveTimer = null;
+      this.leaveLobbySilent();
+    }, LOBBY_BACKGROUND_LEAVE_MS);
   },
 
 
@@ -170,33 +255,16 @@ Page({
   },
 
   onUnload() {
-
     this._destroyed = true;
-
+    this._cancelLobbyLeaveTimer();
     if (this.data.cooldownTimer) clearInterval(this.data.cooldownTimer);
-
     if (this.data.idleCountdownTimer) clearInterval(this.data.idleCountdownTimer);
 
     this.stopPoll();
 
     wx.removeStorageSync('challenge_target');
 
-    const tid = this._leaveTableId || this.data.tableId;
-
-    const token = this._leaveToken;
-
-    if (tid && token) {
-
-      const prev = app.globalData.token;
-
-      app.globalData.token = token;
-
-      api.request(`/api/table/${tid}/leave`, 'POST', {}).catch(() => {});
-
-      app.globalData.token = prev;
-
-    }
-
+    this.leaveLobbySilent();
   },
 
 
@@ -366,9 +434,14 @@ Page({
 
     this.stopPoll();
 
-    this._pollTimer = setInterval(() => {
+    const pollOnce = () => {
 
-      if (this._destroyed || this._pollBusy) return;
+      if (this._destroyed) return;
+
+      if (this._pollBusy) {
+        this._pollRetry = true;
+        return;
+      }
 
       if (!app.globalData.token) {
 
@@ -378,7 +451,9 @@ Page({
 
       }
 
-      if (!this.data.match || this.data.match.status !== 'playing') {
+      const playing = this.data.match && this.data.match.status === 'playing';
+
+      if (!playing) {
 
         this.joinTable();
 
@@ -388,7 +463,11 @@ Page({
 
       }
 
-    }, 3000);
+    };
+
+    pollOnce();
+
+    this._pollTimer = setInterval(pollOnce, 2000);
 
     this.setData({ pollTimer: this._pollTimer });
 
@@ -412,23 +491,27 @@ Page({
 
       });
 
-      const raceTo = table.race_to || 5;
+      const raceTo = normalizeRaceTo(table.race_to || 5);
 
       this.setData({
-
         table,
-
         loadError: '',
-
         raceTo,
-
-        racePickerIndex: raceTo === 7 ? 1 : 0,
-
+        racePickerIndex: raceToPickerIndex(raceTo),
+        ...this.buildLobbyPlayers(table),
       });
 
       if (table.current_match_id) {
 
-        await this.refreshMatchData(table.current_match_id);
+        const wasPlaying = this.data.match && this.data.match.status === 'playing';
+
+        await this.refreshMatchData(table.current_match_id, true);
+
+        if (!wasPlaying && this.data.match && this.data.match.status === 'playing') {
+
+          wx.showToast({ title: '对局已开始', icon: 'success' });
+
+        }
 
       } else {
 
@@ -460,30 +543,46 @@ Page({
 
       this._pollBusy = false;
 
+      if (this._pollRetry && !this._destroyed) {
+        this._pollRetry = false;
+        if (this.data.match && this.data.match.status === 'playing') {
+          this.refreshMatchData(this.data.match.id);
+        } else if (this.data.tableId) {
+          this.joinTable();
+        }
+      }
+
     }
 
   },
 
 
 
-  async refreshMatchData(matchId) {
+  async refreshMatchData(matchId, fromJoin) {
 
-    if (this._destroyed || this._pollBusy) return;
+    if (this._destroyed) return;
+
+    if (!fromJoin && this._pollBusy) {
+      this._pollRetry = true;
+      return;
+    }
 
     this._pollBusy = true;
 
     try {
 
-      const match = await api.request(`/api/match/${matchId || this.data.match.id}`);
+      const id = matchId || this.data.match.id;
+
+      const playing = this.data.match && this.data.match.status === 'playing';
+
+      const match = playing
+        ? await api.request(`/api/match/${id}/sync`, 'POST', {})
+        : await api.request(`/api/match/${id}`);
 
       const enriched = {
-
         ...match,
-
-        p1: match.p1 || { nickname: '选手1' },
-
-        p2: match.p2 || { nickname: '选手2' },
-
+        p1: decorateMatchPlayer(match.p1, '选手1'),
+        p2: decorateMatchPlayer(match.p2, '选手2'),
       };
 
       const pending = this.mapPending(match.bonus_pending_list);
@@ -545,6 +644,16 @@ Page({
 
       this._pollBusy = false;
 
+      if (this._pollRetry) {
+        this._pollRetry = false;
+        const playing = this.data.match && this.data.match.status === 'playing';
+        if (playing) {
+          this.refreshMatchData(this.data.match.id);
+        } else if (this.data.tableId) {
+          this.joinTable();
+        }
+      }
+
     }
 
   },
@@ -552,6 +661,10 @@ Page({
 
 
   goResult(matchId) {
+
+    if (this._resultNavigated) return;
+
+    this._resultNavigated = true;
 
     this.stopPoll();
 
@@ -583,7 +696,7 @@ Page({
 
     } catch (e) {
 
-      this.setData({ loadError: '请先在首页完成微信授权登录' });
+      this.setData({ loadError: '请先在「我的」完成微信授权登录' });
 
       wx.showToast({ title: String(e), icon: 'none' });
 
@@ -597,36 +710,51 @@ Page({
 
 
 
-  async onRaceChange(e) {
+  buildLobbyPlayers(table) {
+    const waiting = (table && table.waiting_players) || [];
+    return {
+      lobbyP1: decorateLobbyPlayer(waiting[0], '选手1'),
+      lobbyP2: decorateLobbyPlayer(waiting[1], '选手2'),
+    };
+  },
 
-    const raceTo = parseInt(e.detail.value, 10) === 1 ? 7 : 5;
+  openRacePicker() {
+    this.setData({ racePickerOpen: true });
+  },
 
-    this.setData({ raceTo, racePickerIndex: raceTo === 7 ? 1 : 0 });
+  closeRacePicker() {
+    this.setData({ racePickerOpen: false });
+  },
 
+  onRaceOptionTap(e) {
+    const idx = parseInt(e.currentTarget.dataset.index, 10);
+    this.closeRacePicker();
+    this.applyRaceSelection(idx);
+  },
+
+  async applyRaceSelection(idx) {
+    const raceTo = RACE_OPTIONS[idx] || 5;
+    if (raceTo === this.data.raceTo) return;
+    const prevRace = this.data.raceTo;
+    const prevIdx = this.data.racePickerIndex;
+    this.setData({ raceTo, racePickerIndex: idx });
     if (!this.data.tableId) return;
-
     try {
-
       const table = await api.request(`/api/table/${this.data.tableId}/race`, 'POST', { race_to: raceTo });
-
-      const synced = table.race_to || raceTo;
-
+      const synced = normalizeRaceTo(table.race_to || raceTo);
       this.setData({
-
         table,
-
         raceTo: synced,
-
-        racePickerIndex: synced === 7 ? 1 : 0,
-
+        racePickerIndex: raceToPickerIndex(synced),
+        ...this.buildLobbyPlayers(table),
       });
-
     } catch (err) {
-
       wx.showToast({ title: String(err), icon: 'none' });
-
+      this.setData({
+        raceTo: prevRace,
+        racePickerIndex: prevIdx,
+      });
     }
-
   },
 
 
@@ -684,7 +812,27 @@ Page({
 
       this._shownRejected = {};
 
-      this.setData({ match: enriched, pendingBonuses: [], opponentBonusCard: null });
+      const table = this.data.table || {};
+
+      this.setData({
+        match: {
+          ...enriched,
+          p1: decorateMatchPlayer(enriched.p1, '选手1'),
+          p2: decorateMatchPlayer(enriched.p2, '选手2'),
+        },
+        pendingBonuses: [],
+        opponentBonusCard: null,
+        table: {
+          ...table,
+          current_match_id: match.id,
+          can_start: false,
+          waiting_count: 0,
+          waiting_players: [],
+          players_ready: false,
+        },
+      });
+
+      if (!this._pollTimer) this.startPoll();
 
       const typeTip = match.match_type === 'ranked' ? '排位赛' : '休闲局';
 
@@ -716,51 +864,55 @@ Page({
     return this.data.cooldown > 0;
   },
 
+  clearCooldown() {
+    if (this.data.cooldownTimer) {
+      clearInterval(this.data.cooldownTimer);
+      this.setData({ cooldownTimer: null });
+    }
+    this.setData({ cooldown: 0 });
+  },
+
   syncCooldownFromMatch(match) {
-    const sec = (match && match.action_cooldown_remaining) || 0;
+    const serverSec = (match && match.action_cooldown_remaining) || 0;
+    if (serverSec > 0) {
+      this.startCooldown(serverSec);
+    } else {
+      this.clearCooldown();
+    }
+  },
+
+  applyCooldownFromResponse(payload) {
+    const sec = (payload && payload.action_cooldown_remaining) || 0;
     if (sec > 0) {
       this.startCooldown(sec);
     }
   },
 
   async reportFrame(action) {
-
     if (this.isCooldownActive()) {
-
       wx.showToast({ title: `请等待 ${this.data.cooldown} 秒后再操作`, icon: 'none' });
-
       return;
-
     }
-
     try {
-
       const match = await api.request(`/api/match/${this.data.match.id}/frame`, 'POST', { action });
-
-      this.startCooldown();
-
+      this.applyCooldownFromResponse(match);
       if (match.status === 'finished' || match.status === 'invalid') {
-
         this.goResult(match.id);
-
         return;
-
       }
-
+      const merged = {
+        ...this.data.match,
+        ...match,
+        p1: decorateMatchPlayer(match.p1 || this.data.match.p1, '选手1'),
+        p2: decorateMatchPlayer(match.p2 || this.data.match.p2, '选手2'),
+      };
       this.setData({
-
-        match: { ...this.data.match, ...match },
-
+        match: merged,
         pendingBonuses: this.mapPending(match.bonus_pending_list),
-
       });
-
     } catch (e) {
-
       wx.showToast({ title: String(e), icon: 'none' });
-
     }
-
   },
 
 
@@ -933,7 +1085,11 @@ Page({
         )
           .then((data) => {
             wx.showToast({ title: '已通知对方确认', icon: 'none' });
-            this.startCooldown();
+            if (data.action_cooldown_remaining > 0) {
+              this.startCooldown(data.action_cooldown_remaining);
+            } else {
+              this.startCooldown(ACTION_COOLDOWN_SEC);
+            }
             this.setData({ pendingBonuses: this.mapPending(data.pending) });
             this.refreshMatchData(this.data.match.id);
           })
@@ -977,12 +1133,17 @@ Page({
       }
       wx.showToast({ title: tip, icon: 'none', duration: data.match_finished ? 2500 : 1500 });
 
+      if (data.match && data.match.action_cooldown_remaining > 0) {
+        this.startCooldown(data.match.action_cooldown_remaining);
+      } else if (!data.match_finished) {
+        this.startCooldown(ACTION_COOLDOWN_SEC);
+      }
+
       this.setData({ pendingBonuses: this.mapPending(data.pending) });
 
-      if (data.match_finished && data.match) {
-        const enriched = await api.request(`/api/match/${this.data.match.id}`);
-        this.setData({ match: enriched, pendingBonuses: [], opponentBonusCard: null });
+      if (data.match_finished) {
         this.stopPoll();
+        this.goResult(this.data.match.id);
         return;
       }
 

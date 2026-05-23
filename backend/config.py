@@ -112,6 +112,10 @@ PERMANENT_BAN_VIOLATION_COUNT = 3  # 恶意刷分/作弊达此次数永久封禁
 # 炸清/接清申报、本局胜/负 共用操作冷却（秒）
 MATCH_ACTION_COOLDOWN = 60
 WIN_LOSE_COOLDOWN = MATCH_ACTION_COOLDOWN
+# 备战区心跳超时：停留在备战页时轮询续期；断线/关小程序后最长保留（秒）
+TABLE_WAITING_PRESENCE_SEC = 120
+# 切到后台后客户端延迟离场（与占坑时长一致，秒）
+TABLE_WAITING_BACKGROUND_SEC = 60
 # SAME_IP_MAX_ACCOUNTS 已停用，见 anti_cheat.check_ip_limit
 SAME_IP_MAX_ACCOUNTS = 0
 DAILY_SCORE_ALERT = 200

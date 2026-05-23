@@ -1,38 +1,224 @@
+/**
+ * 主题色板
+ * 背景 #0A0F1A | 金 #D4AF37 | 模块底 #141b2d ~ #1a2236
+ */
+
 page {
-  background: linear-gradient(180deg, #6B21A8 0%, #4F46E5 35%, #2563EB 70%, #1E3A8A 100%);
-  background-attachment: fixed;
+  background-color: #0A0F1A;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -18%, rgba(212, 175, 55, 0.07) 0%, transparent 58%),
+    radial-gradient(ellipse 45% 35% at 0% 100%, rgba(20, 27, 45, 0.6) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 100% 80%, rgba(212, 175, 55, 0.04) 0%, transparent 50%),
+    linear-gradient(180deg, #0A0F1A 0%, #0b1018 45%, #0A0F1A 100%);
   min-height: 100vh;
-  color: #E8EAF6;
-  font-size: 28rpx;
+  color: #e8eaf0;
+  font-size: 29rpx;
 }
-.btn-primary {
-  background: linear-gradient(180deg, #9333EA, #3B82F6);
-  color: #fff;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  text-align: center;
-  margin: 16rpx 0;
-  box-shadow: 0 8rpx 24rpx rgba(99, 102, 241, 0.35);
+
+.container {
+  padding-bottom: 56rpx;
 }
-.btn-secondary {
-  background: linear-gradient(180deg, #5B21B6, #3730A3);
-  color: #fff;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  text-align: center;
-  margin: 16rpx 0;
-}
+
+/* ========== 悬浮模块（标准） ========== */
 .card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin: 20rpx;
-  border: 1rpx solid rgba(167, 139, 250, 0.4);
-  backdrop-filter: blur(8px);
+  position: relative;
+  margin: 32rpx 28rpx 0;
+  padding: 30rpx;
+  border-radius: 28rpx;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 40%, transparent 58%),
+    linear-gradient(168deg, #1a2236 0%, #151c2e 48%, #101624 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.28);
+  border-top-color: rgba(240, 216, 128, 0.42);
+  box-shadow:
+    0 2rpx 4rpx rgba(0, 0, 0, 0.35),
+    0 10rpx 28rpx rgba(0, 0, 0, 0.38),
+    0 22rpx 52rpx rgba(0, 0, 0, 0.28),
+    0 0 40rpx rgba(212, 175, 55, 0.05);
 }
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 2rpx;
+  background: linear-gradient(90deg, transparent, #D4AF37, #f5e6b8, #D4AF37, transparent);
+  opacity: 0.85;
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80rpx;
+  background: linear-gradient(0deg, rgba(10, 15, 26, 0.35) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* 强调悬浮模块（VS 区等） */
+.card-hero {
+  margin: 40rpx 28rpx 12rpx;
+  padding: 44rpx 28rpx 36rpx;
+  background:
+    linear-gradient(158deg, rgba(212, 175, 55, 0.32) 0%, rgba(212, 175, 55, 0.1) 42%, transparent 55%),
+    linear-gradient(168deg, #222b45 0%, #161f33 50%, #0f1524 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.42);
+  border-top-color: rgba(245, 230, 163, 0.55);
+  box-shadow:
+    0 4rpx 8rpx rgba(0, 0, 0, 0.4),
+    0 14rpx 36rpx rgba(0, 0, 0, 0.42),
+    0 28rpx 64rpx rgba(0, 0, 0, 0.32),
+    0 0 56rpx rgba(212, 175, 55, 0.12);
+}
+
+/* Tab / 列表条悬浮 */
+.float-bar {
+  margin: 24rpx 28rpx 0;
+  padding: 8rpx;
+  border-radius: 22rpx;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.12) 0%, transparent 50%),
+    linear-gradient(168deg, #181f32 0%, #12182a 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.25);
+  box-shadow:
+    0 8rpx 24rpx rgba(0, 0, 0, 0.35),
+    0 18rpx 40rpx rgba(0, 0, 0, 0.22);
+}
+
+.float-row {
+  margin: 24rpx 28rpx 0;
+  padding: 24rpx 26rpx;
+  border-radius: 22rpx;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.14) 0%, transparent 45%),
+    linear-gradient(168deg, #1a2236 0%, #12182a 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.22);
+  box-shadow:
+    0 6rpx 20rpx rgba(0, 0, 0, 0.32),
+    0 14rpx 36rpx rgba(0, 0, 0, 0.2);
+}
+
+.float-row-highlight {
+  background:
+    linear-gradient(145deg, rgba(240, 216, 128, 0.22) 0%, rgba(212, 175, 55, 0.08) 45%, transparent 55%),
+    linear-gradient(168deg, #222b45 0%, #161f33 100%);
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow:
+    0 8rpx 24rpx rgba(0, 0, 0, 0.36),
+    0 20rpx 48rpx rgba(0, 0, 0, 0.24),
+    0 0 32rpx rgba(212, 175, 55, 0.1);
+}
+
 .title {
-  font-size: 36rpx;
-  color: #C4B5FD;
+  font-size: 33rpx;
+  color: #f5f0e1;
   font-weight: bold;
   margin-bottom: 16rpx;
+  letter-spacing: 1rpx;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #f5e6b8 0%, #D4AF37 48%, #a88625 100%);
+  color: #0A0F1A;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  text-align: center;
+  margin: 16rpx 0;
+  font-weight: 600;
+  box-shadow:
+    0 4rpx 12rpx rgba(0, 0, 0, 0.3),
+    0 10rpx 28rpx rgba(212, 175, 55, 0.35);
+}
+
+.btn-secondary {
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.15) 0%, transparent 50%),
+    linear-gradient(168deg, #161d2e 0%, #101624 100%);
+  color: #e8eaf0;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  text-align: center;
+  margin: 16rpx 0;
+  border: 1rpx solid rgba(212, 175, 55, 0.28);
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.28);
+}
+
+/* 段位图标（PNG 透明底） */
+.tier-img {
+  flex-shrink: 0;
+}
+.tier-img-sm {
+  width: 52rpx;
+  height: 52rpx;
+}
+.tier-img-md {
+  width: 68rpx;
+  height: 68rpx;
+}
+.tier-img-lg {
+  width: 96rpx;
+  height: 96rpx;
+}
+
+/* 段位徽章（文字兜底） */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.35);
+}
+
+.tier-badge-lg {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+}
+
+.tier-badge-inner {
+  font-size: 25rpx;
+  font-weight: 800;
+  color: #0A0F1A;
+  line-height: 1;
+}
+
+.tier-badge-lg .tier-badge-inner { font-size: 31rpx; }
+
+.tier-1 {
+  background: linear-gradient(145deg, #9ca3af, #6b7280);
+  border: 1rpx solid rgba(229, 231, 235, 0.25);
+}
+.tier-1 .tier-badge-inner { color: #fff; }
+
+.tier-2 { background: linear-gradient(145deg, #d4bc6a, #9a7b22); border: 1rpx solid rgba(212, 175, 55, 0.35); }
+.tier-3 { background: linear-gradient(145deg, #e8c96a, #D4AF37); border: 1rpx solid rgba(245, 230, 163, 0.45); }
+.tier-4 {
+  background: linear-gradient(145deg, #f5e6b8, #D4AF37);
+  border: 1rpx solid rgba(255, 245, 210, 0.5);
+  box-shadow: 0 4rpx 14rpx rgba(212, 175, 55, 0.3);
+}
+.tier-5 {
+  background: linear-gradient(145deg, #fff5d6, #f0d878 35%, #D4AF37);
+  border: 1rpx solid rgba(255, 250, 230, 0.55);
+  box-shadow: 0 4rpx 16rpx rgba(212, 175, 55, 0.4);
+}
+.tier-6 {
+  background: linear-gradient(145deg, #fffbeb 0%, #f5e6b8 25%, #D4AF37 60%, #a88625);
+  border: 1rpx solid rgba(255, 252, 235, 0.65);
+  box-shadow: 0 0 20rpx rgba(212, 175, 55, 0.45);
+}
+
+.tier-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
 }

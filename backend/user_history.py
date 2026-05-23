@@ -1,4 +1,5 @@
 """用户/后台：对局与积分明细格式化"""
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from db import find_by_id, load
@@ -85,6 +86,48 @@ def get_user_matches_list(user_id: str, limit: int = 20) -> List[Dict]:
     matches = [m for m in load("matches") if user_id in (m.get("player1_id"), m.get("player2_id"))]
     matches.sort(key=lambda x: x.get("ended_at") or x.get("started_at") or "", reverse=True)
     return [format_user_match(m, user_id, users, tables) for m in matches[:limit]]
+
+
+def count_user_matches(user_id: str) -> int:
+    return sum(
+        1
+        for m in load("matches")
+        if user_id in (m.get("player1_id"), m.get("player2_id"))
+    )
+
+
+def count_user_score_logs(user_id: str) -> int:
+    return sum(1 for l in load("score_logs") if l.get("user_id") == user_id)
+
+
+def count_user_exchanges(user_id: str) -> int:
+    return sum(1 for e in load("exchanges") if e.get("user_id") == user_id)
+
+
+def get_user_exchanges_list(user_id: str, limit: int = 20) -> List[Dict]:
+    exs = [e for e in load("exchanges") if e.get("user_id") == user_id]
+    exs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    result = []
+    for e in exs[:limit]:
+        result.append({
+            **e,
+            "created_at_short": (e.get("created_at") or "")[:19].replace("T", " "),
+        })
+    return result
+
+
+def today_score_gain(user_id: str) -> int:
+    today = datetime.now().strftime("%Y-%m-%d")
+    total = 0
+    for log in load("score_logs"):
+        if log.get("user_id") != user_id:
+            continue
+        if not (log.get("created_at") or "").startswith(today):
+            continue
+        delta = int(log.get("delta") or 0)
+        if delta > 0:
+            total += delta
+    return total
 
 
 def get_user_score_logs_list(user_id: str, limit: int = 20) -> List[Dict]:

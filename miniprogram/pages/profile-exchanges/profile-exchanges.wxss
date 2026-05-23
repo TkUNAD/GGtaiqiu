@@ -1,0 +1,4 @@
+.minus { color: #f0a8a8; }
+.status { color: #86efac; }
+.time, .hint, .empty { color: #8b92a8; }
+.row-top { color: #f5f0e1; }

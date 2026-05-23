@@ -1,3 +1,10 @@
+<game-fx
+  type="{{fxType}}"
+  old-tier="{{fxOldTier}}"
+  new-tier="{{fxNewTier}}"
+  bind:done="onFxDone"
+/>
+
 <view class="container" wx:if="{{summary}}">
   <view class="header card">
     <view class="title">对局结束</view>

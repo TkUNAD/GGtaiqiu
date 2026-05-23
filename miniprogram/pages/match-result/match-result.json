@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "对局结算",
-  "navigationBarBackgroundColor": "#4C1D95"
+  "navigationBarBackgroundColor": "#0A0F1A",
+  "usingComponents": {
+    "game-fx": "/components/game-fx/game-fx"
+  }
 }

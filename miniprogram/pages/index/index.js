@@ -1,197 +1,84 @@
 const api = require('../../utils/api');
-const { getApiBaseUrl } = require('../../utils/config');
-const { withRankIcons } = require('../../utils/rank');
+const { getApiBaseUrl, VENUE_ID } = require('../../utils/config');
+const { decorateList } = require('../../utils/rank');
+const { getTierStyle } = require('../../utils/tierIcons');
+const app = getApp();
 
 Page({
   data: {
-    user: null,
+    loggedIn: false,
     topRank: [],
     tables: [],
     challengeTargets: [],
+    challengeHint: '',
+    todayScore: 0,
+    rankedRemainingDaily: 0,
     netError: '',
     apiUrl: '',
-    logging: false,
-    showAuthFallback: false,
-    pendingNickname: '',
-    pendingAvatar: '',
+    playerDetail: null,
   },
 
   onShow() {
-    const app = getApp();
+    const loggedIn = !!app.globalData.token;
     this.setData({
-      user: app.globalData.user,
+      loggedIn,
       apiUrl: app.globalData.baseUrl || getApiBaseUrl(),
     });
     this.loadData();
   },
 
   retryNetwork() {
-    const app = getApp();
     app.globalData.baseUrl = getApiBaseUrl();
     this.setData({ apiUrl: app.globalData.baseUrl, netError: '' });
     this.loadData();
   },
 
-  ensureLogin() {
-    if (!getApp().globalData.token) {
-      wx.showToast({ title: '请先点击下方「微信授权登录」', icon: 'none', duration: 2500 });
-      return Promise.resolve(false);
-    }
-    return Promise.resolve(true);
+  goProfile() {
+    wx.switchTab({ url: '/pages/profile/profile' });
   },
 
   loadData() {
     const self = this;
+    const reqId = (this._loadSeq || 0) + 1;
+    this._loadSeq = reqId;
+    const venueQ = VENUE_ID ? `?venue_id=${VENUE_ID}` : '';
     return api.ping()
       .then(() => {
+        if (self._loadSeq !== reqId) return null;
         self.setData({ netError: '' });
-        const { VENUE_ID } = require('../../utils/config');
-        return api.request('/api/rank/list?limit=5')
-          .then((list) => {
-            const topRank = withRankIcons(list);
-            const tablesUrl = '/api/tables' + (VENUE_ID ? `?venue_id=${VENUE_ID}` : '');
-            return api.request(tablesUrl).then((tables) => {
-              self.setData({ topRank, tables });
-            });
-          })
-          .catch((e) => {
-            console.error('[loadData] rank/tables', e);
-            wx.showToast({ title: '排行或桌台加载失败', icon: 'none' });
-          });
+        return api.request(`/api/home/summary${venueQ}`);
+      })
+      .then((data) => {
+        if (!data || self._loadSeq !== reqId) return;
+        const topRank = decorateList(data.top_rank || []);
+        const targets = decorateList(data.challenge_targets || []);
+        let challengeHint = '';
+        if (self.data.loggedIn && !targets.length) {
+          challengeHint = data.my_rank >= 9999
+            ? '您暂无天梯排名，暂无可挑战玩家'
+            : '当前没有符合规则的可挑战玩家';
+        }
+        self.setData({
+          topRank,
+          tables: data.tables || [],
+          challengeTargets: targets,
+          challengeHint,
+          todayScore: data.today_score || 0,
+          rankedRemainingDaily: data.ranked_remaining_daily ?? 0,
+        });
       })
       .catch((e) => {
         const msg = typeof e === 'string' ? e : '网络连接失败';
         self.setData({ netError: msg });
-      })
-      .then(() => self.loadChallengeTargets());
-  },
-
-  loadChallengeTargets() {
-    const app = getApp();
-    const token = app.globalData.token || wx.getStorageSync('token');
-    if (!token) {
-      this.setData({ challengeTargets: [] });
-      return Promise.resolve();
-    }
-    return api.request('/api/rank/challenge-targets')
-      .then((ch) => {
-        this.setData({ challengeTargets: (ch && ch.targets) || [] });
-      })
-      .catch((e) => {
-        const msg = String(e || '');
-        console.error('[loadData] challenge', e);
-        this.setData({ challengeTargets: [] });
-        if (msg.indexOf('登录') >= 0 || msg.indexOf('401') >= 0) {
-          return;
-        }
-        wx.showToast({ title: '挑战列表加载失败', icon: 'none' });
       });
   },
 
-  onLogout() {
-    api.logout();
-    this.setData({
-      user: null,
-      challengeTargets: [],
-      showAuthFallback: false,
-      pendingNickname: '',
-      pendingAvatar: '',
-    });
-    wx.showToast({ title: '已退出', icon: 'none' });
-  },
-
-  onLogin() {
-    if (this.data.logging) return;
-    this.setData({ logging: true, showAuthFallback: false });
-
-    const onSuccess = () => {
-      const app = getApp();
-      this.setData({
-        user: app.globalData.user,
-        netError: '',
-        logging: false,
-        showAuthFallback: false,
-        pendingNickname: '',
-        pendingAvatar: '',
-      });
-      wx.showToast({ title: '登录成功', icon: 'success' });
-      return this.loadData();
-    };
-
-    const onFail = (e) => {
-      const msg = typeof e === 'string' ? e : '登录失败';
-      const useFallback = msg.indexOf('getUserProfile') >= 0
-        || msg.indexOf('不支持') >= 0
-        || msg.indexOf('隐私') >= 0;
-      this.setData({
-        logging: false,
-        showAuthFallback: useFallback,
-      });
-      if (!useFallback) {
-        const secretHint = msg.indexOf('AppSecret') >= 0 || msg.indexOf('Secret') >= 0
-          ? '\n\n请双击运行项目根目录 setup-wechat.bat，在 wechat.secret.txt 粘贴 AppSecret 后重启 run.bat。'
-          : '\n\n请确认后端已启动（run.bat）。';
-        wx.showModal({
-          title: '登录失败',
-          content: msg + secretHint,
-          showCancel: false,
-        });
-      } else {
-        wx.showToast({ title: '请在下方面板选择头像并填写昵称', icon: 'none', duration: 2500 });
-      }
-    };
-
-    // 有 token：直接恢复会话
-    if (wx.getStorageSync('token')) {
-      api.login().then(onSuccess).catch(onFail);
-      return;
+  ensureLogin() {
+    if (!app.globalData.token) {
+      wx.showToast({ title: '请先在「我的」完成微信授权登录', icon: 'none', duration: 2500 });
+      return Promise.resolve(false);
     }
-    // 本机已授权过：静默登录，不再弹授权窗
-    if (api.hasWxProfileAuthorized()) {
-      api.wechatLoginSilent().then(onSuccess).catch(onFail);
-      return;
-    }
-    // 首次：弹出微信授权窗
-    api.wechatLogin().then(onSuccess).catch(onFail);
-  },
-
-  onChooseAvatar(e) {
-    const url = e.detail && e.detail.avatarUrl;
-    if (url) this.setData({ pendingAvatar: url });
-  },
-
-  onNicknameInput(e) {
-    this.setData({ pendingNickname: (e.detail && e.detail.value) || '' });
-  },
-
-  onConfirmProfileLogin() {
-    const nickname = (this.data.pendingNickname || '').trim();
-    const avatar = (this.data.pendingAvatar || '').trim();
-    if (!nickname) {
-      wx.showToast({ title: '请先填写微信昵称', icon: 'none' });
-      return;
-    }
-    if (this.data.logging) return;
-    this.setData({ logging: true });
-    api.loginWithProfile(nickname, avatar)
-      .then(() => {
-        const app = getApp();
-        this.setData({
-          user: app.globalData.user,
-          logging: false,
-          showAuthFallback: false,
-        });
-        wx.showToast({ title: '登录成功', icon: 'success' });
-        return this.loadData();
-      })
-      .catch((e) => {
-        this.setData({ logging: false });
-        wx.showModal({
-          title: '登录失败',
-          content: String(e),
-          showCancel: false,
-        });
-      });
+    return Promise.resolve(true);
   },
 
   scanTable() {
@@ -221,6 +108,7 @@ Page({
           });
         },
         fail: () => {
+          wx.removeStorageSync('challenge_target');
           wx.showToast({ title: '扫码已取消', icon: 'none' });
         },
       });
@@ -230,6 +118,24 @@ Page({
   goRank() {
     wx.switchTab({ url: '/pages/rank/rank' });
   },
+
+  showPlayer(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    api.request(`/api/rank/player/${id}`)
+      .then((p) => {
+        this.setData({
+          playerDetail: { ...p, ...getTierStyle(p.tier_index) },
+        });
+      })
+      .catch((err) => wx.showToast({ title: err, icon: 'none' }));
+  },
+
+  closePlayer() {
+    this.setData({ playerDetail: null });
+  },
+
+  noop() {},
 
   challenge(e) {
     this.ensureLogin().then((ok) => {

@@ -1,69 +1,70 @@
 <view class="container">
-  <view class="net-tip" wx:if="{{netError}}">
+  <view class="card net-tip" wx:if="{{netError}}">
     <text class="net-title">网络未连接</text>
     <text class="net-msg">{{netError}}</text>
     <text class="net-url">当前接口：{{apiUrl}}</text>
     <view class="btn-primary" bindtap="retryNetwork">重新检测</view>
   </view>
 
-  <view class="hero card">
-    <view class="title">台球天梯系统</view>
-    <view wx:if="{{user}}" class="user-info">
-      <image wx:if="{{user.avatar}}" class="user-avatar" src="{{user.avatar}}" mode="aspectFill" />
-      <view class="user-meta">
-        <text class="user-name">{{user.nickname}}</text>
-        <text wx:if="{{user.tier}}" class="user-detail">{{user.tier.tier_name}} {{user.tier.star}}星</text>
-        <text class="user-detail">{{user.score}}分</text>
-        <text wx:if="{{user.rank}}" class="user-detail">第{{user.rank}}名</text>
+  <view class="card hero" wx:if="{{loggedIn}}">
+    <view class="today-stats">
+      <view class="today-item">
+        <text class="today-val">+{{todayScore}}</text>
+        <text class="today-label">今日获得积分</text>
+      </view>
+      <view class="today-divider"></view>
+      <view class="today-item">
+        <text class="today-val">{{rankedRemainingDaily}}</text>
+        <text class="today-label">今日剩余排位</text>
       </view>
     </view>
-    <view wx:else>
-      <!-- 须用 button 才能在点击时同步弹出微信授权窗（头像+昵称） -->
-      <button
-        class="btn-primary btn-wx-login"
-        bindtap="onLogin"
-        disabled="{{logging}}"
-        hover-class="btn-wx-login-hover"
-      >
-        {{logging ? '授权登录中...' : '微信授权登录'}}
-      </button>
-      <view class="login-hint">首次登录需微信授权；授权过后再次登录无需重复授权</view>
-      <!-- 新版基础库 getUserProfile 不可用时的备用 -->
-      <view class="auth-fallback" wx:if="{{showAuthFallback}}">
-        <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-          <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />
-          <view wx:else class="avatar-placeholder">+</view>
-          <text class="avatar-tip">点击选择头像</text>
-        </button>
-        <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{pendingNickname}}" bind:change="onNicknameInput" />
-        <button class="btn-primary btn-wx-login" bindtap="onConfirmProfileLogin" disabled="{{logging}}">确认授权并登录</button>
-      </view>
-    </view>
-    <view wx:if="{{user}}" class="btn-logout" bindtap="onLogout">退出当前账号</view>
+  </view>
+  <view class="card hero guest-hint" wx:else>
+    <text class="guest-text">登录后查看今日积分与排位次数</text>
+    <view class="btn-secondary" bindtap="goProfile">去「我的」登录</view>
   </view>
 
-  <view class="card">
-    <view class="title">扫码开台对战</view>
-    <view class="btn-primary" bindtap="scanTable">扫描桌台二维码</view>
-    <text class="tip">支持抢5、抢7，两名选手到场后点击「开始对战」开台（开台后可打排位）</text>
+  <!-- 炫酷 VS 扫码开台 -->
+  <view class="card card-hero scan-float">
+    <view class="scan-arena" bindtap="scanTable">
+      <view class="scan-ring scan-ring-outer"></view>
+      <view class="scan-ring scan-ring-inner"></view>
+      <view class="scan-spark scan-spark-l"></view>
+      <view class="scan-spark scan-spark-r"></view>
+      <view class="scan-core">
+        <text class="vs-text">VS</text>
+        <view class="vs-shine"></view>
+      </view>
+    </view>
+    <text class="scan-label">扫码开台对战</text>
+    <text class="scan-tip">抢5/7/9/11/13 · 两名选手到场后点击「对战开始」</text>
   </view>
 
   <view class="card" wx:if="{{challengeTargets.length}}">
-    <view class="title">可挑战玩家 (高1~5名)</view>
+    <view class="title">可挑战玩家（高1~5名）</view>
     <view class="challenge-item" wx:for="{{challengeTargets}}" wx:key="id" bindtap="challenge" data-target="{{item}}">
-      <text>第{{item.rank}}名 {{item.nickname}} - {{item.score}}分</text>
+      <image class="tier-img tier-img-sm" src="{{item.tierImage}}" mode="aspectFit" />
+      <text class="challenge-text">第{{item.rank}}名 {{item.nickname}} · {{item.score}}分</text>
     </view>
+  </view>
+  <view class="card" wx:elif="{{loggedIn && challengeHint}}">
+    <view class="title">可挑战玩家</view>
+    <text class="tip">{{challengeHint}}</text>
   </view>
 
   <view class="card">
-    <view class="title">天梯 TOP5</view>
-    <view class="rank-row" wx:for="{{topRank}}" wx:key="id">
+    <view class="title-row">
+      <text class="title">本俱乐部 TOP10</text>
+      <text class="more" bindtap="goRank">完整榜单 ›</text>
+    </view>
+    <view class="rank-row" wx:for="{{topRank}}" wx:key="id" bindtap="showPlayer" data-id="{{item.id}}">
       <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
-      <text class="num" wx:else>{{item.rank}}</text>
+      <text class="num" wx:else>{{item.club_rank || item.rank}}</text>
+      <image class="tier-img tier-img-sm" src="{{item.tierImage}}" mode="aspectFit" />
       <text class="name">{{item.nickname}}</text>
       <text class="score">{{item.score}}</text>
     </view>
-    <view class="btn-secondary" bindtap="goRank">查看完整榜单</view>
+    <view wx:if="{{!topRank.length}}" class="empty-hint">暂无排行</view>
   </view>
 
   <view class="card">
@@ -72,5 +73,23 @@
       <text>{{item.name}}</text>
       <text class="{{item.opened ? 'open' : 'closed'}}">{{item.opened ? '已开台' : '未开台'}}</text>
     </view>
+    <view wx:if="{{!tables.length}}" class="empty-hint">暂无桌台</view>
+  </view>
+</view>
+
+<view class="player-mask" wx:if="{{playerDetail}}" bindtap="closePlayer">
+  <view class="player-panel card" catchtap="noop">
+    <image class="player-avatar" src="{{playerDetail.avatar || '/assets/default-avatar.png'}}" mode="aspectFill" />
+    <view class="player-name">{{playerDetail.nickname}}</view>
+    <view class="tier-line">
+      <image class="tier-img tier-img-lg" src="{{playerDetail.tierImage}}" mode="aspectFit" />
+      <text class="player-tier">{{playerDetail.tier_name}} {{playerDetail.star}}星</text>
+    </view>
+    <view class="player-stats">
+      <text>场次 {{playerDetail.total_games}}</text>
+      <text>胜率 {{playerDetail.win_rate}}%</text>
+      <text>胜{{playerDetail.wins}} 负{{playerDetail.losses}}</text>
+    </view>
+    <view class="btn-secondary" bindtap="closePlayer">关闭</view>
   </view>
 </view>

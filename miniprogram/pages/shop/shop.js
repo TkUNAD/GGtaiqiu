@@ -54,7 +54,7 @@ Page({
   },
 
   goLogin() {
-    wx.switchTab({ url: '/pages/index/index' });
+    wx.switchTab({ url: '/pages/profile/profile' });
   },
 
   exchange(e) {

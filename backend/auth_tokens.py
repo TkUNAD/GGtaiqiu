@@ -106,19 +106,49 @@ def refresh_access_token(refresh_raw: str) -> Tuple[Optional[Dict], Optional[str
     if exp < datetime.now():
         return None, "刷新令牌已过期"
 
-    def _revoke_old(us):
+    bundle_holder: Dict = {}
+
+    def _rotate_refresh(us):
         u = find_by_id(us, user["id"])
         if not u:
             return us
         rt = list(u.get("refresh_tokens") or [])
         if 0 <= matched_idx < len(rt):
             rt.pop(matched_idx)
+        now = datetime.utcnow()
+        access_exp = now + timedelta(seconds=config.JWT_ACCESS_EXPIRE_SECONDS)
+        payload = {
+            "sub": user["id"],
+            "typ": "access",
+            "iat": now,
+            "exp": access_exp,
+        }
+        access_token = jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
+        if isinstance(access_token, bytes):
+            access_token = access_token.decode("utf-8")
+        refresh_raw = secrets.token_urlsafe(32)
+        refresh_hash = _hash_refresh(refresh_raw)
+        refresh_exp = (
+            datetime.now() + timedelta(seconds=config.JWT_REFRESH_EXPIRE_SECONDS)
+        ).isoformat()
+        rt = [t for t in rt if t.get("expires_at", "") > now_iso()][-20:]
+        rt.append({
+            "token_hash": refresh_hash,
+            "expires_at": refresh_exp,
+            "created_at": now_iso(),
+        })
         u["refresh_tokens"] = rt
+        u["updated_at"] = now_iso()
+        bundle_holder["bundle"] = {
+            "access_token": access_token,
+            "refresh_token": refresh_raw,
+            "expires_in": config.JWT_ACCESS_EXPIRE_SECONDS,
+            "token_type": "Bearer",
+        }
         return us
 
-    mutate("users", _revoke_old)
-    bundle = issue_tokens(user)
-    return bundle, None
+    mutate("users", _rotate_refresh)
+    return bundle_holder.get("bundle"), None
 
 
 def revoke_all_refresh_tokens(user_id: str) -> None:

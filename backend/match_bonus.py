@@ -117,7 +117,12 @@ def confirm_bonus(match_id: str, user_id: str, bonus_id: str = None) -> Dict:
 
         item.setdefault("confirmed_by", []).append(user_id)
         # 仅需对方（非申报方）确认一次即生效
+        from services import _touch_match_action_cooldown
+
         winner = _apply_bonus(m, item, score_pending)
+        _touch_match_action_cooldown(m, user_id)
+        if item.get("frame_awarded") and claimer:
+            _touch_match_action_cooldown(m, claimer)
         if winner:
             finish_holder["winner_id"] = winner
         if item.get("status") == "applied":
@@ -215,7 +220,7 @@ def get_bonus_breakdown_by_player(m: Dict) -> Dict[str, Dict[str, int]]:
         uid = b.get("user_id")
         t = b.get("type")
         if uid in breakdown and t in BONUS_TYPES:
-            breakdown[uid][t] += daily_bonus(t)
+            breakdown[uid][t] += daily_bonus(t, rules=_match_ladder_rules(m))
     return breakdown
 
 
@@ -272,18 +277,20 @@ def _apply_bonus(
             "created_at": now_iso(),
         })
         item["status"] = "pending_review"
-    else:
-        if pts:
-            reason = f"{BONUS_LABELS.get(bonus_type, bonus_type)}(双方确认)"
-            if score_pending is not None:
-                score_pending.append((claimer, pts, reason, m["id"]))
-            else:
-                from services import adjust_user_score
+        item["frame_awarded"] = False
+        record["frame_awarded"] = False
+        return None
+    if pts:
+        reason = f"{BONUS_LABELS.get(bonus_type, bonus_type)}(双方确认)"
+        if score_pending is not None:
+            score_pending.append((claimer, pts, reason, m["id"]))
+        else:
+            from services import adjust_user_score
 
-                adjust_user_score(claimer, pts, reason, m["id"])
-        record["status"] = "applied"
-        m.setdefault("bonuses", []).append(record)
-        item["status"] = "applied"
+            adjust_user_score(claimer, pts, reason, m["id"])
+    record["status"] = "applied"
+    m.setdefault("bonuses", []).append(record)
+    item["status"] = "applied"
 
     winner = _award_frame_for_claimer(m, claimer)
     item["frame_awarded"] = True
@@ -472,6 +479,8 @@ def enrich_match_for_admin(m: Dict) -> Dict:
 
 
 def build_match_summary(m: Dict) -> Dict:
+    from rating import get_tier
+
     users = load("users")
     p1 = find_by_id(users, m["player1_id"]) or {}
     p2 = find_by_id(users, m["player2_id"]) or {}
@@ -490,20 +499,38 @@ def build_match_summary(m: Dict) -> Dict:
 
     def player_summary(u, uid):
         c = count_applied_bonuses(m, uid)
+        score_after = int(u.get("score", 1000))
+        delta = delta_for(uid)
+        score_before = score_after - delta
+        tier_after = get_tier(score_after)
+        tier_before = get_tier(score_before)
+        ti_after = tier_after["tier_index"]
+        ti_before = tier_before["tier_index"]
         return {
             "id": uid,
             "nickname": u.get("nickname", "球友"),
             "avatar": u.get("avatar", ""),
-            "score": u.get("score", 1000),
+            "score": score_after,
             "frames_won": m["score1"] if uid == p1_id else m["score2"],
-            "point_delta": delta_for(uid),
+            "point_delta": delta,
             "break_run": c["break_run"],
             "clearance": c["clearance"],
             "is_winner": uid == w_id,
+            "tier_index": ti_after,
+            "tier_before_index": ti_before,
+            "tier_name": tier_after["tier_name"],
+            "tier_promoted": ti_after > ti_before and m.get("status") != "invalid",
         }
 
+    is_draw = (
+        m.get("status") == "finished"
+        and not w_id
+        and m.get("score1", 0) == m.get("score2", 0)
+    )
     return {
         "match_id": m["id"],
+        "winner_id": w_id,
+        "is_draw": is_draw,
         "table_id": m.get("table_id"),
         "race_to": m.get("race_to"),
         "match_type": m.get("match_type"),

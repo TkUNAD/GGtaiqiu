@@ -2,35 +2,44 @@
   <view class="card profile-card">
     <image class="avatar" src="{{profile.user.avatar || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
     <view class="name">{{profile.user.nickname}}</view>
-    <view class="tier" wx:if="{{profile.tier}}">{{profile.tier.tier_name}} {{profile.tier.star}}星</view>
-    <view class="score">{{profile.user.score}} 积分 | {{profile.rank >= 9999 ? '未上榜' : '排名第 ' + profile.rank}}</view>
-    <view class="stats">
-      胜 {{profile.user.wins}} / 负 {{profile.user.losses}} | 胜率 {{profile.win_rate}}%
+    <view class="tier-line">
+      <image class="tier-img tier-img-lg" src="{{profile.tierImage}}" mode="aspectFit" />
+      <text class="tier" wx:if="{{profile.tier}}">{{profile.tier.tier_name}} {{profile.tier.star}}星</text>
+    </view>
+    <view class="score">{{profile.user.score}} 积分</view>
+  </view>
+
+  <view class="card stats-grid">
+    <view class="stat-item highlight">
+      <text class="stat-val">{{profile.rank >= 9999 ? '—' : profile.rank}}</text>
+      <text class="stat-label">总排名</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val">{{profile.user.score}}</text>
+      <text class="stat-label">当前积分</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val">{{profile.exchange_rules.exchanges_today}}/{{profile.exchange_rules.daily_limit}}</text>
+      <text class="stat-label">今日兑换</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val">{{profile.ranked_remaining_daily}}</text>
+      <text class="stat-label">今日排位余</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val">{{profile.wins}}/{{profile.losses}}</text>
+      <text class="stat-label">胜/负</text>
+    </view>
+    <view class="stat-item highlight">
+      <text class="stat-val">{{profile.win_rate}}%</text>
+      <text class="stat-label">胜率</text>
     </view>
   </view>
 
   <view class="card">
-    <view class="title">修改昵称</view>
-    <input
-      class="nickname-input"
-      placeholder="请输入新昵称（1-20字）"
-      maxlength="20"
-      bindinput="onNicknameInput"
-      value="{{editNickname}}"
-    />
-    <view class="btn-primary" bindtap="saveNickname">保存昵称</view>
-  </view>
-
-  <view class="card">
-    <view class="title">绑定手机 (1手机1账号)</view>
-    <input placeholder="请输入手机号" type="number" maxlength="11" bindinput="onPhoneInput" value="{{phone}}" />
-    <view class="btn-primary" bindtap="bindPhone">绑定</view>
-  </view>
-
-  <view class="card tappable" bindtap="goMatches">
     <view class="title-row">
       <text class="title">最近对局</text>
-      <text class="more">查看近20局 ›</text>
+      <text class="more" bindtap="goMatches">全部 {{profile.match_total}} 局 ›</text>
     </view>
     <view class="match-row" wx:for="{{profile.recent_matches}}" wx:key="id" catchtap="openMatch" data-id="{{item.id}}">
       <view class="match-main">
@@ -42,10 +51,10 @@
     <view wx:if="{{!profile.recent_matches.length}}" class="empty-hint">暂无对局</view>
   </view>
 
-  <view class="card tappable" bindtap="goScoreLogs">
+  <view class="card">
     <view class="title-row">
       <text class="title">积分记录</text>
-      <text class="more">查看近20条 ›</text>
+      <text class="more" bindtap="goScoreLogs">全部 {{profile.log_total}} 条 ›</text>
     </view>
     <view class="log-row" wx:for="{{profile.score_logs}}" wx:key="id">
       <text>{{item.reason}}</text>
@@ -54,9 +63,54 @@
     <view wx:if="{{!profile.score_logs.length}}" class="empty-hint">暂无记录</view>
   </view>
 
-  <view class="btn-secondary" bindtap="goShop">我的兑换记录</view>
+  <view class="card">
+    <view class="title-row">
+      <text class="title">兑换记录</text>
+      <text class="more" bindtap="goExchanges">全部 {{profile.exchange_total}} 条 ›</text>
+    </view>
+    <view class="log-row" wx:for="{{profile.recent_exchanges}}" wx:key="id">
+      <text>{{item.product_name}} -{{item.points}}</text>
+      <text class="status-tag">{{item.status}}</text>
+    </view>
+    <view wx:if="{{!profile.recent_exchanges.length}}" class="empty-hint">暂无兑换</view>
+  </view>
+
+  <view class="btn-secondary" bindtap="goShop">积分商城</view>
+  <view class="btn-logout" bindtap="onLogout">退出登录</view>
 </view>
-<view wx:else class="empty card">
-  <text class="hint">请先在首页完成微信授权登录</text>
-  <view class="btn-primary" bindtap="goLogin">去首页登录</view>
+
+<view wx:else class="container login-wrap">
+  <view class="card login-card">
+    <view class="login-title">登录后查看我的数据</view>
+    <view class="login-sub">v2.0.0 · 微信授权登录</view>
+    <view class="agree-row" bindtap="onToggleAgree">
+      <view class="agree-check {{agreedToTerms ? 'agree-check-on' : ''}}">
+        <text class="agree-check-icon" wx:if="{{agreedToTerms}}">✓</text>
+      </view>
+      <view class="agree-text">
+        <text class="agree-plain">我已阅读并同意</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="user">《用户服务协议》</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="privacy">《隐私政策协议》</text>
+      </view>
+    </view>
+    <button
+      class="btn-primary btn-wx-login {{agreedToTerms ? '' : 'btn-wx-login-disabled'}}"
+      bindtap="onLogin"
+      disabled="{{logging || !agreedToTerms}}"
+    >{{logging ? '授权登录中...' : '微信授权登录'}}</button>
+    <view class="login-hint">首次登录需微信授权；授权过后再次登录无需重复授权</view>
+    <view class="auth-fallback" wx:if="{{showAuthFallback}}">
+      <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />
+        <view wx:else class="avatar-placeholder">+</view>
+        <text class="avatar-tip">点击选择头像</text>
+      </button>
+      <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{pendingNickname}}" bind:change="onNicknameInput" />
+      <button
+        class="btn-primary btn-wx-login {{agreedToTerms ? '' : 'btn-wx-login-disabled'}}"
+        bindtap="onConfirmProfileLogin"
+        disabled="{{logging || !agreedToTerms}}"
+      >确认授权并登录</button>
+    </view>
+  </view>
 </view>

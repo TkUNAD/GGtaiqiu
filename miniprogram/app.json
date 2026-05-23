@@ -1,5 +1,11 @@
 {
   "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于匹配附近球房与桌台服务"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"],
   "pages": [
     "pages/index/index",
     "pages/table/table",
@@ -8,18 +14,20 @@
     "pages/profile/profile",
     "pages/profile-matches/profile-matches",
     "pages/profile-logs/profile-logs",
-    "pages/shop/shop"
+    "pages/profile-exchanges/profile-exchanges",
+    "pages/shop/shop",
+    "pages/agreement/agreement"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#6B21A8",
-    "navigationBarTitleText": "台球天梯",
+    "navigationBarBackgroundColor": "#0A0F1A",
+    "navigationBarTitleText": "台球天梯 v2.0.1",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#2563EB"
+    "backgroundColor": "#0A0F1A"
   },
   "tabBar": {
-    "color": "#C4B5FD",
-    "selectedColor": "#FFFFFF",
-    "backgroundColor": "#4C1D95",
+    "color": "#6b7280",
+    "selectedColor": "#D4AF37",
+    "backgroundColor": "#0A0F1A",
     "borderStyle": "black",
     "list": [
       {

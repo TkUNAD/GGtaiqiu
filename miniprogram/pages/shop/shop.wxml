@@ -1,11 +1,11 @@
-<view class="tabs">
+<view class="float-bar tabs">
   <view class="tab {{tab === 'shop' ? 'active' : ''}}" data-tab="shop" bindtap="switchTab">积分商城</view>
   <view class="tab {{tab === 'records' ? 'active' : ''}}" data-tab="records" bindtap="switchTab">兑换记录</view>
 </view>
 
 <view wx:if="{{!loggedIn}}" class="card login-hint">
   <text>登录后可查看积分与兑换记录</text>
-  <view class="btn-primary" bindtap="goLogin">去登录</view>
+  <view class="btn-primary" bindtap="goLogin">去「我的」登录</view>
 </view>
 
 <view wx:if="{{tab === 'shop'}}">

@@ -1,12 +1,74 @@
 """桌台扫码签到：两名选手均到场后才能开赛"""
+from datetime import datetime
 from typing import Dict, List, Optional  # noqa: F401 - Dict used in view_holder
 
+from config import INITIAL_SCORE, TABLE_WAITING_PRESENCE_SEC
 from db import find_by_id, load, mutate, now_iso
+from rating import get_tier
 from services import reconcile_table_matches, start_match, table_has_active_match
+
+ALLOWED_RACE_TO = (5, 7, 9, 11, 13)
+
+
+def normalize_race_to(race_to) -> int:
+    v = int(race_to)
+    return v if v in ALLOWED_RACE_TO else 5
 
 
 def _waiting_list(table: Dict) -> List[Dict]:
     return table.setdefault("waiting_players", [])
+
+
+def _waiting_last_seen(w: Dict) -> Optional[datetime]:
+    for key in ("last_seen_at", "joined_at"):
+        v = w.get(key)
+        if not v:
+            continue
+        try:
+            return datetime.fromisoformat(str(v).replace("Z", ""))
+        except ValueError:
+            continue
+    return None
+
+
+def prune_stale_waiting_players(table: Dict, now: Optional[datetime] = None) -> bool:
+    """备战区无心跳超时则移出等候，空出位置。对局进行中不清理。"""
+    if table.get("current_match_id"):
+        return False
+    waiting = table.get("waiting_players") or []
+    if not waiting:
+        return False
+    now = now or datetime.now()
+    kept = []
+    for w in waiting:
+        seen = _waiting_last_seen(w)
+        if seen is None:
+            kept.append(w)
+            continue
+        if (now - seen).total_seconds() <= TABLE_WAITING_PRESENCE_SEC:
+            kept.append(w)
+    if len(kept) == len(waiting):
+        return False
+    table["waiting_players"] = kept
+    return True
+
+
+def prune_all_stale_waiting_players() -> None:
+    """任意桌台签到时顺带清理全场备战超时选手"""
+
+    def _fn(ts):
+        for t in ts:
+            prune_stale_waiting_players(t)
+        return ts
+
+    mutate("tables", _fn)
+
+
+def touch_waiting_presence(table: Dict, user_id: str) -> None:
+    for w in _waiting_list(table):
+        if w.get("user_id") == user_id:
+            w["last_seen_at"] = now_iso()
+            break
 
 
 def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
@@ -23,6 +85,8 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
     view_holder: Dict = {}
 
     def _join(ts):
+        for tbl in ts:
+            prune_stale_waiting_players(tbl)
         t = find_by_id(ts, table_id)
         if not t:
             raise ValueError("桌台不存在")
@@ -47,11 +111,15 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
                 raise ValueError("本桌已有两名选手等候，请换桌或稍后再试")
             users = load("users")
             u = find_by_id(users, user_id) or {}
+            ts_now = now_iso()
             waiting.append({
                 "user_id": user_id,
                 "nickname": u.get("nickname", "球友"),
-                "joined_at": now_iso(),
+                "joined_at": ts_now,
+                "last_seen_at": ts_now,
             })
+        else:
+            touch_waiting_presence(t, user_id)
 
         view_holder["view"] = build_table_view(t, user_id)
         return ts
@@ -85,9 +153,7 @@ def _synced_race_to(waiting: List[Dict]) -> int:
     race = 5
     latest_at = ""
     for w in waiting:
-        rt = w.get("race_to")
-        if rt not in (5, 7):
-            continue
+        rt = normalize_race_to(w.get("race_to", 5))
         at = w.get("race_updated_at", "")
         if at >= latest_at:
             race = rt
@@ -97,7 +163,7 @@ def _synced_race_to(waiting: List[Dict]) -> int:
 
 def set_waiting_race(table_id: str, user_id: str, race_to: int) -> Dict:
     view_holder: Dict = {}
-    race_val = 7 if int(race_to) == 7 else 5
+    race_val = normalize_race_to(race_to)
 
     def _set(ts):
         table = find_by_id(ts, table_id)
@@ -116,6 +182,7 @@ def set_waiting_race(table_id: str, user_id: str, race_to: int) -> Dict:
                 break
         if not found:
             raise ValueError("请先在本桌扫码签到")
+        touch_waiting_presence(table, user_id)
         view_holder["view"] = build_table_view(table, user_id)
         return ts
 
@@ -194,9 +261,14 @@ def build_table_view(table: Dict, user_id: str = None) -> Dict:
     players = []
     for w in waiting:
         u = find_by_id(users, w.get("user_id")) or {}
+        tier = get_tier(u.get("score", INITIAL_SCORE))
         players.append({
             "user_id": w.get("user_id"),
             "nickname": w.get("nickname") or u.get("nickname", "球友"),
+            "avatar": u.get("avatar") or "",
+            "tier_index": tier.get("tier_index", 1),
+            "tier_name": tier.get("tier_name", ""),
+            "star": tier.get("star", 1),
             "joined_at": w.get("joined_at"),
             "is_me": w.get("user_id") == user_id,
         })

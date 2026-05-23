@@ -1,0 +1,67 @@
+<view class="fx-mask" wx:if="{{visible}}" catchtouchmove="noop">
+  <!-- 胜：4秒 下落→双弹跳→烈焰 -->
+  <view class="fx-scene fx-win" wx:if="{{type === 'win'}}">
+    <view class="fx-win-flames">
+      <view class="fx-flame fx-flame-1"></view>
+      <view class="fx-flame fx-flame-2"></view>
+      <view class="fx-flame fx-flame-3"></view>
+      <view
+        class="fx-ember"
+        wx:for="{{embers}}"
+        wx:key="id"
+        style="left: {{item.left}}%; --delay: {{item.delay}}s;"
+      ></view>
+    </view>
+    <text class="fx-art-win">胜</text>
+  </view>
+
+  <!-- 平局：4秒 巨大「和」下落→银色行书→上下抖动3次 -->
+  <view class="fx-scene fx-draw" wx:if="{{type === 'draw'}}">
+    <view class="fx-draw-glow"></view>
+    <text class="fx-art-draw">和</text>
+  </view>
+
+  <!-- 负：4秒 下落→裂纹→碎裂 -->
+  <view class="fx-scene fx-lose" wx:if="{{type === 'lose'}}">
+    <view class="fx-lose-glass">
+      <text class="fx-art-lose">负</text>
+      <view class="fx-crack fx-crack-1"></view>
+      <view class="fx-crack fx-crack-2"></view>
+      <view class="fx-crack fx-crack-3"></view>
+      <view class="fx-crack fx-crack-4"></view>
+      <view class="fx-crack fx-crack-5"></view>
+    </view>
+    <view
+      class="fx-lose-shard"
+      wx:for="{{shards}}"
+      wx:key="id"
+      style="left: {{item.left}}%; --rot: {{item.rot}}deg; --dist: {{item.dist}}rpx; --delay: {{item.delay}}s; --sz: {{item.size}}rpx;"
+    ></view>
+  </view>
+
+  <!-- 升段 -->
+  <view class="fx-scene fx-tier" wx:if="{{type === 'tierUp'}}">
+    <text class="fx-char-tier">段位晋升</text>
+    <view class="fx-stage tier-stage">
+      <image
+        class="tier-img tier-old {{tierPhase === 'smash' ? 'tier-old-break' : ''}}"
+        src="{{oldSrc}}"
+        mode="aspectFit"
+      />
+      <view class="tier-smash-flash" wx:if="{{tierPhase === 'smash'}}"></view>
+      <view class="tier-crack" wx:if="{{tierPhase === 'smash'}}"></view>
+      <image
+        class="tier-img tier-new {{tierPhase === 'smash' ? 'tier-new-drop' : 'tier-new-hide'}}"
+        src="{{newSrc}}"
+        mode="aspectFit"
+      />
+      <view
+        class="tier-fragment"
+        wx:if="{{tierPhase === 'smash'}}"
+        wx:for="{{shards}}"
+        wx:key="id"
+        style="--rot: {{item.rot}}deg; --delay: {{item.delay}}s;"
+      ></view>
+    </view>
+  </view>
+</view>

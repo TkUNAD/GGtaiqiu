@@ -339,6 +339,7 @@ def auth_refresh():
 
 
 def _user_from_token():
+    from anti_cheat import check_user_allowed
     from auth_tokens import verify_access_token
 
     auth = request.headers.get("Authorization", "")
@@ -347,7 +348,13 @@ def _user_from_token():
     if not user_id:
         return None
     users = load("users")
-    return find_by_id(users, user_id)
+    user = find_by_id(users, user_id)
+    if not user:
+        return None
+    ok, _msg = check_user_allowed(user)
+    if not ok:
+        return None
+    return user
 
 
 # ---------- 天梯榜 ----------
@@ -360,12 +367,109 @@ def rank_list():
     return _ok(board)
 
 
+@app.route("/api/rank/club")
+def rank_club():
+    process_season_and_week()
+    from rank_board import build_club_leaderboard
+
+    venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
+    limit = safe_int(request.args.get("limit"), 50, 1, 100)
+    return _ok(build_club_leaderboard(venue_id, limit))
+
+
+@app.route("/api/rank/global")
+def rank_global():
+    process_season_and_week()
+    from rank_board import build_global_leaderboard
+
+    limit = safe_int(request.args.get("limit"), 50, 1, 100)
+    return _ok(build_global_leaderboard(limit))
+
+
+@app.route("/api/rank/player/<user_id>")
+def rank_player(user_id):
+    from rank_board import player_public_info
+
+    info = player_public_info(user_id)
+    if not info:
+        return _err("选手不存在", 404, 404)
+    return _ok(info)
+
+
+@app.route("/api/home/summary")
+def home_summary():
+    process_season_and_week()
+    from rank_board import build_club_leaderboard
+    from user_history import today_score_gain
+    from ladder_settings import get_effective_ladder_rules
+    from rating import ranked_quota_ok
+
+    venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
+    user = _user_from_token()
+    tables = [
+        t for t in load("tables")
+        if t.get("venue_id", DEFAULT_VENUE_ID) == venue_id
+    ]
+    enriched = enrich_tables(tables)
+    top10 = build_club_leaderboard(venue_id, 10)
+
+    payload = {
+        "top_rank": top10,
+        "tables": enriched,
+        "challenge_targets": [],
+        "today_score": 0,
+        "ranked_remaining_daily": 0,
+        "ranked_remaining_weekly": 0,
+        "daily_ranked_limit": 2,
+        "weekly_ranked_limit": 9,
+    }
+    if user:
+        rules = get_effective_ladder_rules(venue_id)
+        payload["daily_ranked_limit"] = rules.get("daily_ranked_limit", 2)
+        payload["weekly_ranked_limit"] = rules.get("weekly_ranked_limit", 9)
+        payload["today_score"] = today_score_gain(user["id"])
+        today = datetime.now().strftime("%Y-%m-%d")
+        week = datetime.now().strftime("%Y-W%W")
+        daily = user.get("daily_ranked_count") or {}
+        weekly = user.get("weekly_ranked_count") or {}
+        d_used = daily.get("count", 0) if daily.get("date") == today else 0
+        w_used = weekly.get("count", 0) if weekly.get("week") == week else 0
+        payload["ranked_remaining_daily"] = max(
+            0, payload["daily_ranked_limit"] - d_used
+        )
+        payload["ranked_remaining_weekly"] = max(
+            0, payload["weekly_ranked_limit"] - w_used
+        )
+        users_all = load("users")
+        my_rank = get_user_rank(users_all, user["id"])
+        rmin = int(rules.get("challenge_rank_min", 1))
+        rmax = int(rules.get("challenge_rank_max", 5))
+        board = build_leaderboard(users_all, limit=min(my_rank, 500))
+        targets = []
+        if my_rank < 9999:
+            for item in board:
+                if item["id"] == user["id"]:
+                    continue
+                gap = my_rank - item["rank"]
+                if rmin <= gap <= rmax:
+                    targets.append(item)
+        payload["challenge_targets"] = targets
+        payload["my_rank"] = my_rank
+        ok, msg = ranked_quota_ok(user, rules)
+        payload["ranked_quota_ok"] = ok
+        payload["ranked_quota_msg"] = msg
+    return _ok(payload)
+
+
 @app.route("/api/rank/challenge-targets")
 def challenge_targets():
     user = _user_from_token()
     if not user:
         return _err("请先登录", 401, 401)
-    rules = get_ladder_rules()
+    from venue_service import DEFAULT_VENUE_ID
+
+    venue_id = request.args.get("venue_id") or user.get("venue_id") or DEFAULT_VENUE_ID
+    rules = get_effective_ladder_rules(venue_id)
     rmin = int(rules.get("challenge_rank_min", 1))
     rmax = int(rules.get("challenge_rank_max", 5))
     users = load("users")
@@ -450,9 +554,10 @@ def tables_list():
 
 @app.route("/api/table/<table_id>")
 def table_detail(table_id):
-    from table_queue import build_table_view
+    from table_queue import build_table_view, prune_all_stale_waiting_players
 
     token = request.args.get("qr_token", "")
+    prune_all_stale_waiting_players()
     tables = load("tables")
     t = find_by_id(tables, table_id)
     if not t:
@@ -490,7 +595,15 @@ def table_set_race(table_id):
         return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
     try:
-        view = set_waiting_race(table_id, user["id"], int(data.get("race_to", 5)))
+        race_raw = int(data.get("race_to", 5))
+    except (TypeError, ValueError):
+        return _err("局数格式无效", 400)
+    from table_queue import ALLOWED_RACE_TO, normalize_race_to
+
+    if race_raw not in ALLOWED_RACE_TO:
+        return _err("局数仅支持 5/7/9/11/13", 400)
+    try:
+        view = set_waiting_race(table_id, user["id"], normalize_race_to(race_raw))
         _broadcast()
         return _ok(view)
     except ValueError as e:
@@ -563,14 +676,37 @@ def match_start():
     return _err("请两名选手扫码到场后再开始（需 table_id）")
 
 
-def _match_api_payload(m: Dict, user_id: str) -> Dict:
+def _match_player_card(u: Dict) -> Dict:
+    from config import INITIAL_SCORE
+    from rating import get_tier
+
+    if not u:
+        return {}
+    tier = get_tier(u.get("score", INITIAL_SCORE))
+    return {
+        "id": u.get("id"),
+        "nickname": u.get("nickname", "球友"),
+        "avatar": u.get("avatar") or "",
+        "score": u.get("score", INITIAL_SCORE),
+        "tier_index": tier.get("tier_index", 1),
+        "tier_name": tier.get("tier_name", ""),
+        "star": tier.get("star", 1),
+    }
+
+
+def _match_api_payload(m: Dict, user_id: str, run_idle: bool = False) -> Dict:
     from match_bonus import enrich_match_display, get_pending_for_user
     from match_idle import build_idle_ui, process_idle_match
 
-    m = process_idle_match(m["id"])
+    if run_idle:
+        m = process_idle_match(m["id"])
+    else:
+        fresh = find_by_id(load("matches"), m.get("id"))
+        if fresh:
+            m = fresh
     users = load("users")
-    p1 = find_by_id(users, m.get("player1_id"))
-    p2 = find_by_id(users, m.get("player2_id"))
+    p1 = _match_player_card(find_by_id(users, m.get("player1_id")))
+    p2 = _match_player_card(find_by_id(users, m.get("player2_id")))
     pending = get_pending_for_user(m, user_id)
     display = enrich_match_display(m, user_id)
     idle_ui = build_idle_ui(m, user_id)
@@ -588,7 +724,23 @@ def match_detail(match_id):
         return _err("对局不存在")
     if user["id"] not in (m.get("player1_id"), m.get("player2_id")):
         return _err("无权查看该对局", 403, 403)
-    return _ok(_match_api_payload(m, user["id"]))
+    return _ok(_match_api_payload(m, user["id"], run_idle=False))
+
+
+@app.route("/api/match/<match_id>/sync", methods=["POST"])
+def match_sync(match_id):
+    """轮询同步：推进闲置检测并返回最新对局（GET 不再写库）"""
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    matches = load("matches")
+    m0 = find_by_id(matches, match_id)
+    if not m0:
+        return _err("对局不存在")
+    if user["id"] not in (m0.get("player1_id"), m0.get("player2_id")):
+        return _err("无权查看该对局", 403, 403)
+    m = _match_api_payload(m0, user["id"], run_idle=True)
+    return _ok(m)
 
 
 @app.route("/api/match/<match_id>/frame", methods=["POST"])
@@ -601,7 +753,7 @@ def match_frame(match_id):
     try:
         m = record_frame(match_id, user["id"], action)
         _broadcast()
-        return _ok(_match_api_payload(m, user["id"]))
+        return _ok(_match_api_payload(m, user["id"], run_idle=True))
     except ValueError as e:
         return _err(str(e))
 
@@ -632,7 +784,9 @@ def match_finish(match_id):
     try:
         m = finish_match(match_id, winner_id, completed=completed)
         _broadcast()
-        return _ok(m)
+        if m.get("status") in ("finished", "invalid"):
+            return _ok(m)
+        return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
         return _err(str(e))
 
@@ -647,7 +801,10 @@ def match_idle_continue(match_id):
 
         result = idle_confirm_continue(match_id, user["id"])
         _broadcast()
-        return _ok(_match_api_payload(result["match"], user["id"]))
+        m = result["match"]
+        if m.get("status") in ("finished", "invalid"):
+            return _ok(m)
+        return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
         return _err(str(e))
 
@@ -662,7 +819,10 @@ def match_idle_end(match_id):
 
         result = idle_request_end(match_id, user["id"])
         _broadcast()
-        return _ok(_match_api_payload(result["match"], user["id"]))
+        m = result["match"]
+        if m.get("status") in ("finished", "invalid"):
+            return _ok(m)
+        return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
         return _err(str(e))
 
@@ -682,7 +842,7 @@ def match_idle_end_response(match_id):
         m = result["match"]
         if m.get("status") in ("finished", "invalid"):
             return _ok(m)
-        return _ok(_match_api_payload(m, user["id"]))
+        return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
         return _err(str(e))
 
@@ -703,7 +863,12 @@ def match_bonus_request(match_id):
         claimer = find_by_id(users, user["id"]) or {}
         item_out = dict(item)
         item_out["claimer_name"] = claimer.get("nickname", "球友")
-        return _ok({"item": item_out, "pending": get_pending_for_user(m, user["id"])})
+        payload = _match_api_payload(m, user["id"], run_idle=True)
+        return _ok({
+            "item": item_out,
+            "pending": get_pending_for_user(m, user["id"]),
+            "action_cooldown_remaining": payload.get("action_cooldown_remaining", 0),
+        })
     except ValueError as e:
         return _err(str(e))
 
@@ -720,13 +885,16 @@ def match_bonus_confirm(match_id):
         result = confirm_bonus(match_id, user["id"], data.get("bonus_id"))
         m = result["match"]
         _broadcast()
+        payload = _match_api_payload(m, user["id"]) if m.get("status") == "playing" else m
+        cd = payload.get("action_cooldown_remaining", 0) if isinstance(payload, dict) else 0
         return _ok({
             "item": result["item"],
-            "pending": get_pending_for_user(m, user["id"]),
+            "pending": get_pending_for_user(m, user["id"]) if m.get("status") == "playing" else [],
             "applied": result["item"].get("status") == "applied",
             "frame_awarded": result.get("frame_awarded", False),
             "match_finished": result.get("match_finished", False),
-            "match": m,
+            "match": payload,
+            "action_cooldown_remaining": cd,
         })
     except ValueError as e:
         return _err(str(e))
@@ -816,17 +984,47 @@ def user_profile():
     rank = get_user_rank(users, user["id"])
     total = user.get("wins", 0) + user.get("losses", 0)
     win_rate = round(user.get("wins", 0) / total * 100, 1) if total else 0
-    from user_history import get_user_matches_list, get_user_score_logs_list
+    from services import exchange_rules_for_user
+    from user_history import (
+        count_user_exchanges,
+        count_user_matches,
+        count_user_score_logs,
+        get_user_exchanges_list,
+        get_user_matches_list,
+        get_user_score_logs_list,
+        today_score_gain,
+    )
+    from ladder_settings import get_effective_ladder_rules
 
     recent_matches = get_user_matches_list(user["id"], 5)
     score_logs = get_user_score_logs_list(user["id"], 5)
+    recent_exchanges = get_user_exchanges_list(user["id"], 5)
+    rules = get_effective_ladder_rules(user.get("venue_id") or DEFAULT_VENUE_ID)
+    today = datetime.now().strftime("%Y-%m-%d")
+    week = datetime.now().strftime("%Y-W%W")
+    daily = user.get("daily_ranked_count") or {}
+    weekly = user.get("weekly_ranked_count") or {}
+    d_used = daily.get("count", 0) if daily.get("date") == today else 0
+    w_used = weekly.get("count", 0) if weekly.get("week") == week else 0
+    exchange_rules = exchange_rules_for_user(user["id"], user.get("score", 1000))
     return _ok({
         "user": user,
         "tier": tier,
         "rank": rank,
         "win_rate": win_rate,
+        "wins": user.get("wins", 0),
+        "losses": user.get("losses", 0),
+        "total_games": total,
         "recent_matches": recent_matches,
         "score_logs": score_logs,
+        "recent_exchanges": recent_exchanges,
+        "match_total": count_user_matches(user["id"]),
+        "log_total": count_user_score_logs(user["id"]),
+        "exchange_total": count_user_exchanges(user["id"]),
+        "today_score": today_score_gain(user["id"]),
+        "ranked_remaining_daily": max(0, rules.get("daily_ranked_limit", 2) - d_used),
+        "ranked_remaining_weekly": max(0, rules.get("weekly_ranked_limit", 9) - w_used),
+        "exchange_rules": exchange_rules,
     })
 
 
@@ -848,8 +1046,19 @@ def user_score_logs():
         return _err("请先登录", 401, 401)
     from user_history import get_user_score_logs_list
 
-    limit = min(int(request.args.get("limit", 20)), 50)
+    limit = safe_int(request.args.get("limit"), 20, 1, 50)
     return _ok(get_user_score_logs_list(user["id"], limit))
+
+
+@app.route("/api/user/exchanges")
+def user_exchanges():
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    from user_history import get_user_exchanges_list
+
+    limit = safe_int(request.args.get("limit"), 20, 1, 50)
+    return _ok(get_user_exchanges_list(user["id"], limit))
 
 
 @app.route("/api/user/nickname", methods=["POST"])

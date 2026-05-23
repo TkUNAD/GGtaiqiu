@@ -111,6 +111,17 @@ def mutate(name: str, fn: Callable[[Any], Any]) -> Any:
         return result
 
 
+def mutate_multi(names: List[str], fn: Callable[..., Any]) -> Any:
+    """在全局锁下加载多个 JSON 集合，fn 接收各集合后统一写回（复合业务原子写）。"""
+    with _lock:
+        bundles = {n: load(n) for n in names}
+        result = fn(**bundles)
+        for n in names:
+            if n in bundles:
+                save(n, bundles[n])
+        return result
+
+
 def new_id(prefix: str = "") -> str:
     return f"{prefix}{uuid.uuid4().hex[:12]}"
 
