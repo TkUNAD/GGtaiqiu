@@ -1,4 +1,4 @@
-"""对局闲置检测：10 分钟无操作提醒，继续需双方确认，结束需对方同意或超时自动结算"""
+"""对局闲置检测：无操作提醒，继续需双方确认，结束需对方同意或超时自动结算"""
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
@@ -8,6 +8,7 @@ from config import (
     MATCH_IDLE_PROMPT_SECONDS,
 )
 from db import find_by_id, load, mutate, now_iso
+from venue_service import DEFAULT_VENUE_ID
 
 
 def _parse_iso(s: str) -> Optional[datetime]:
@@ -24,6 +25,20 @@ def seconds_until(deadline_iso: str) -> int:
     if not end:
         return 0
     return max(0, int((end - datetime.now()).total_seconds()))
+
+
+def _idle_config_for_match(m: Dict) -> Dict[str, int]:
+    """按球房天梯规则读取闲置阈值，无配置时用 config 默认值"""
+    from ladder_settings import get_effective_ladder_rules
+
+    table = find_by_id(load("tables"), m.get("table_id"))
+    venue_id = table.get("venue_id", DEFAULT_VENUE_ID) if table else DEFAULT_VENUE_ID
+    rules = get_effective_ladder_rules(venue_id)
+    return {
+        "alert": int(rules.get("match_idle_alert_seconds", MATCH_IDLE_ALERT_SECONDS)),
+        "prompt": int(rules.get("match_idle_prompt_seconds", MATCH_IDLE_PROMPT_SECONDS)),
+        "end_request": int(rules.get("match_end_request_seconds", MATCH_END_REQUEST_SECONDS)),
+    }
 
 
 def touch_match_activity(m: Dict) -> None:
@@ -52,6 +67,7 @@ def _mark_auto_finish(m: Dict, reason: str) -> None:
 def _process_idle_on_match(m: Dict) -> bool:
     """在对局对象上推进闲置状态，返回是否有字段变更"""
     now = datetime.now()
+    cfg = _idle_config_for_match(m)
     state = m.get("idle_state")
     changed = False
 
@@ -86,11 +102,11 @@ def _process_idle_on_match(m: Dict) -> bool:
         m["last_activity_at"] = now_iso()
         return True
     idle_sec = (now - last_dt).total_seconds()
-    if idle_sec >= MATCH_IDLE_ALERT_SECONDS:
+    if idle_sec >= cfg["alert"]:
         m["idle_state"] = {
             "phase": "prompt",
             "started_at": now_iso(),
-            "deadline_at": (now + timedelta(seconds=MATCH_IDLE_PROMPT_SECONDS)).isoformat(),
+            "deadline_at": (now + timedelta(seconds=cfg["prompt"])).isoformat(),
             "continue_confirm": {},
             "end_request": None,
         }
@@ -211,12 +227,13 @@ def idle_request_end(match_id: str, user_id: str) -> Dict:
         state = m.get("idle_state")
         if not state or state.get("phase") != "prompt":
             raise ValueError("请先等待系统闲置提醒后再选择结束比赛")
+        cfg = _idle_config_for_match(m)
         now = datetime.now()
         state["phase"] = "end_pending"
         state["end_request"] = {
             "user_id": user_id,
             "requested_at": now_iso(),
-            "deadline_at": (now + timedelta(seconds=MATCH_END_REQUEST_SECONDS)).isoformat(),
+            "deadline_at": (now + timedelta(seconds=cfg["end_request"])).isoformat(),
             "opponent_response": None,
         }
         m["idle_state"] = state

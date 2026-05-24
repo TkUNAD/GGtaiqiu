@@ -4,7 +4,7 @@
     <text class="err">{{loadError}}</text>
     <view class="btn-primary" bindtap="load">重试</view>
   </view>
-  <view wx:elif="{{!list.length}}" class="empty card">暂无兑换记录</view>
+  <view wx:elif="{{!list.length}}" class="float-empty">暂无兑换记录</view>
   <view wx:else>
     <view class="card item" wx:for="{{list}}" wx:key="id">
       <view class="row-top">

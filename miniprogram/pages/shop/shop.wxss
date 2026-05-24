@@ -3,22 +3,6 @@
 .rules-hint { font-size: 27rpx; color: #e8eaf0; line-height: 1.5; }
 .rules-sub { display: block; margin-top: 12rpx; font-size: 25rpx; color: #8b92a8; }
 
-.tabs {
-  display: flex;
-}
-.tab {
-  flex: 1;
-  text-align: center;
-  padding: 22rpx;
-  color: #8b92a8;
-  border-radius: 14rpx;
-}
-.tab.active {
-  background: linear-gradient(135deg, rgba(245, 230, 163, 0.28), rgba(212, 175, 55, 0.18));
-  color: #D4AF37;
-  font-weight: bold;
-}
-
 .pname { font-size: 33rpx; font-weight: bold; color: #f5f0e1; }
 .ptype { font-size: 25rpx; color: #8b92a8; margin: 8rpx 0; }
 .prow { display: flex; align-items: center; justify-content: space-between; }
@@ -36,4 +20,3 @@
 .record { display: flex; flex-direction: column; gap: 8rpx; }
 .status { color: #86efac; }
 .time { font-size: 23rpx; color: #8b92a8; }
-.empty { text-align: center; padding: 60rpx; color: #8b92a8; }

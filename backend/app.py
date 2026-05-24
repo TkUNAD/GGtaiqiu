@@ -276,6 +276,28 @@ def venue_status_api():
     return _ok(mobile_venue_status(venue_id))
 
 
+@app.route("/api/venues/list")
+def venues_list_mobile():
+    from venue_service import VENUE_DISTANCE_WARN_METERS, list_mobile_venues
+
+    lat_raw = request.args.get("latitude")
+    lng_raw = request.args.get("longitude")
+    lat = lng = None
+    if lat_raw not in (None, "") and lng_raw not in (None, ""):
+        try:
+            lat = float(lat_raw)
+            lng = float(lng_raw)
+        except ValueError:
+            return _err("坐标格式无效", 400)
+    venues = list_mobile_venues(lat, lng)
+    return _ok(
+        {
+            "venues": venues,
+            "distance_warn_meters": VENUE_DISTANCE_WARN_METERS,
+        }
+    )
+
+
 @app.route("/api/settings/ladder")
 def public_ladder_rules():
     venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
@@ -374,7 +396,10 @@ def rank_club():
 
     venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
     limit = safe_int(request.args.get("limit"), 50, 1, 100)
-    return _ok(build_club_leaderboard(venue_id, limit))
+    board = (request.args.get("board") or "total").lower()
+    if board not in ("week", "month", "total"):
+        board = "total"
+    return _ok(build_club_leaderboard(venue_id, limit, board))
 
 
 @app.route("/api/rank/global")
@@ -454,6 +479,8 @@ def home_summary():
                 if rmin <= gap <= rmax:
                     targets.append(item)
         payload["challenge_targets"] = targets
+        payload["challenge_rank_min"] = rmin
+        payload["challenge_rank_max"] = rmax
         payload["my_rank"] = my_rank
         ok, msg = ranked_quota_ok(user, rules)
         payload["ranked_quota_ok"] = ok
@@ -509,16 +536,22 @@ def challenge_targets():
 # ---------- 玩家列表（选对手） ----------
 @app.route("/api/users/active")
 def active_users():
+    from admin_scope import users_linked_to_venue
+    from user_public import sanitize_user_list
+
     user = _user_from_token()
     if not user:
         return _err("请先登录", 401, 401)
+    venue_id = request.args.get("venue_id") or DEFAULT_VENUE_ID
+    limit = safe_int(request.args.get("limit"), 30, 1, 100)
+    linked = users_linked_to_venue(venue_id)
     users = load("users")
-    result = [
-        {"id": u["id"], "nickname": u.get("nickname", "球友"), "score": u.get("score", 1000)}
-        for u in users
-        if u.get("status") != "banned"
+    club = [
+        u for u in users
+        if u.get("id") in linked and u.get("status") != "banned" and not u.get("deleted")
     ]
-    return _ok(result)
+    club.sort(key=lambda x: (-x.get("score", 1000), x.get("created_at", "")))
+    return _ok(sanitize_user_list(club, limit))
 
 
 # ---------- 桌台 ----------
@@ -562,24 +595,47 @@ def table_detail(table_id):
     t = find_by_id(tables, table_id)
     if not t:
         return _err("桌台不存在")
-    expected = t.get("qr_token") or ""
-    if expected and expected != (token or ""):
-        return _err("二维码无效")
+    from table_queue import _require_qr_token_match
+
+    try:
+        _require_qr_token_match(t, token)
+    except ValueError as e:
+        return _err(str(e))
     user = _user_from_token()
     view = build_table_view(t, user["id"] if user else None)
     return _ok(view)
 
 
+@app.route("/api/table/<table_id>/scan-check")
+def table_scan_check(table_id):
+    from table_queue import check_table_scan
+    from venue_service import DEFAULT_VENUE_ID
+
+    token = request.args.get("qr_token", "")
+    venue_id = request.args.get("venue_id") or DEFAULT_VENUE_ID
+    try:
+        return _ok(check_table_scan(table_id, token, venue_id))
+    except ValueError as e:
+        return _err(str(e))
+
+
 @app.route("/api/table/<table_id>/join", methods=["POST"])
 def table_join(table_id):
-    from table_queue import build_table_view, join_table
+    from table_queue import join_table
+    from venue_service import DEFAULT_VENUE_ID
 
     user = _user_from_token()
     if not user:
         return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
+    venue_id = data.get("venue_id") or request.args.get("venue_id") or DEFAULT_VENUE_ID
     try:
-        view = join_table(table_id, user["id"], data.get("qr_token", ""))
+        view = join_table(
+            table_id,
+            user["id"],
+            data.get("qr_token", ""),
+            venue_id=venue_id,
+        )
         _broadcast()
         return _ok(view)
     except ValueError as e:
@@ -633,6 +689,9 @@ def table_start_match(table_id):
     if not user:
         return _err("请先登录", 401, 401)
     data = request.get_json(silent=True) or {}
+    from venue_service import DEFAULT_VENUE_ID
+
+    venue_id = data.get("venue_id") or request.args.get("venue_id") or DEFAULT_VENUE_ID
     try:
         m = start_from_table(
             table_id,
@@ -641,6 +700,7 @@ def table_start_match(table_id):
             data.get("match_type", "casual"),
             challenger_id=data.get("challenger_id"),
             target_id=data.get("target_id"),
+            venue_id=venue_id,
         )
         _broadcast()
         return _ok(m)
@@ -770,8 +830,11 @@ def match_finish(match_id):
     if user["id"] not in (m0.get("player1_id"), m0.get("player2_id")):
         return _err("非本局玩家", 403, 403)
     data = request.get_json() or {}
-    completed = data.get("completed", True)
     s1, s2 = m0.get("score1", 0), m0.get("score2", 0)
+    race_to = int(m0.get("race_to") or 5)
+    completed = (s1 + s2) >= race_to
+    if m0.get("match_type") != "ranked" or not m0.get("ranked_valid", True):
+        completed = bool(data.get("completed", completed))
     if s1 == s2:
         if data.get("winner_id"):
             return _err("平局时不能指定胜者", 400)
@@ -1007,8 +1070,10 @@ def user_profile():
     d_used = daily.get("count", 0) if daily.get("date") == today else 0
     w_used = weekly.get("count", 0) if weekly.get("week") == week else 0
     exchange_rules = exchange_rules_for_user(user["id"], user.get("score", 1000))
+    from user_public import sanitize_user_public
+
     return _ok({
-        "user": user,
+        "user": sanitize_user_public(user),
         "tier": tier,
         "rank": rank,
         "win_rate": win_rate,
@@ -1300,18 +1365,25 @@ def admin_review_match(match_id):
         return _err("对局不存在")
 
     if action == "approve":
-        winner_id = data.get("winner_id")
-        if not winner_id:
-            s1, s2 = m.get("score1", 0), m.get("score2", 0)
-            if s1 == s2:
-                return _err("比分相同，请指定胜者或改判")
-            winner_id = m["player1_id"] if s1 > s2 else m["player2_id"]
         try:
-            m = finish_match(
-                match_id,
-                winner_id,
-                completed=data.get("completed", True),
-            )
+            if m.get("status") == "pending_review" and m.get("pending_settlement"):
+                from match_score_review import apply_pending_match_settlement
+
+                m = apply_pending_match_settlement(
+                    match_id, data.get("note", "管理员审核通过")
+                )
+            else:
+                winner_id = data.get("winner_id")
+                if not winner_id:
+                    s1, s2 = m.get("score1", 0), m.get("score2", 0)
+                    if s1 == s2:
+                        return _err("比分相同，请指定胜者或改判")
+                    winner_id = m["player1_id"] if s1 > s2 else m["player2_id"]
+                m = finish_match(
+                    match_id,
+                    winner_id,
+                    completed=data.get("completed", True),
+                )
         except ValueError as e:
             return _err(str(e))
     elif action == "reject":
@@ -1332,28 +1404,11 @@ def admin_review_match(match_id):
             _release_table(table_id)
         m = find_by_id(load("matches"), match_id)
     elif action == "modify":
-        def _modify(ms):
-            item = find_by_id(ms, match_id)
-            if not item:
-                raise ValueError("对局不存在")
-            if data.get("winner_id"):
-                item["winner_id"] = data["winner_id"]
-            item["score1"] = data.get("score1", item["score1"])
-            item["score2"] = data.get("score2", item["score2"])
-            item["status"] = "modified"
-            item["review_note"] = data.get("note", "")
-            return ms
-
-        try:
-            mutate("matches", _modify)
-        except ValueError as e:
-            return _err(str(e))
-        m = find_by_id(load("matches"), match_id)
-        table_id = m.get("table_id") if m else None
-        if table_id:
-            t = find_by_id(load("tables"), table_id)
-            if t and t.get("current_match_id") == match_id:
-                _release_table(table_id)
+        return _err(
+            "不支持直接改判比分。请使用「通过」完成结算，或「拒绝」取消对局。",
+            400,
+            400,
+        )
     else:
         return _err("未知操作")
 
@@ -1987,6 +2042,9 @@ if __name__ == "__main__":
     os.makedirs(config.DATA_DIR, exist_ok=True)
     ensure_venues_file()
     ensure_table_venue_ids()
+    from venue_service import ensure_table_qr_tokens
+
+    ensure_table_qr_tokens()
     print(f"台球天梯系统启动: http://{config.HOST}:{config.PORT}")
     print(f"管理后台: http://127.0.0.1:{config.PORT}/admin")
     print(f"投屏大屏: http://127.0.0.1:{config.PORT}/screen")

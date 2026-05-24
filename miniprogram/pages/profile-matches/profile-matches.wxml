@@ -4,7 +4,7 @@
     <text class="err">{{loadError}}</text>
     <view class="btn-primary" bindtap="load">重试</view>
   </view>
-  <view wx:elif="{{!list.length}}" class="empty card">暂无对局记录</view>
+  <view wx:elif="{{!list.length}}" class="float-empty">暂无对局记录</view>
   <view wx:else>
     <view class="card item" wx:for="{{list}}" wx:key="id" bindtap="openMatch" data-id="{{item.id}}">
       <view class="row-top">

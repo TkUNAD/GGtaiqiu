@@ -6,8 +6,28 @@ from config import INITIAL_SCORE, TABLE_WAITING_PRESENCE_SEC
 from db import find_by_id, load, mutate, now_iso
 from rating import get_tier
 from services import reconcile_table_matches, start_match, table_has_active_match
+from venue_service import DEFAULT_VENUE_ID, get_venue
 
 ALLOWED_RACE_TO = (5, 7, 9, 11, 13)
+
+# 弱默认 token，启动时会轮换
+_WEAK_QR_PREFIXES = ("table_", "table_T")
+
+
+def _require_qr_token_match(table: Dict, qr_token: str) -> None:
+    expected = (table.get("qr_token") or "").strip()
+    provided = (qr_token or "").strip()
+    if not expected:
+        raise ValueError("该桌台未配置二维码，请联系球房管理员")
+    if provided != expected:
+        raise ValueError("二维码无效，请重新扫码")
+
+
+def _require_venue_id(venue_id: str) -> str:
+    vid = (venue_id or "").strip()
+    if not vid:
+        raise ValueError("请先选择俱乐部")
+    return vid
 
 
 def normalize_race_to(race_to) -> int:
@@ -71,14 +91,58 @@ def touch_waiting_presence(table: Dict, user_id: str) -> None:
             break
 
 
-def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
+def _table_venue_id(table: Dict) -> str:
+    return table.get("venue_id") or DEFAULT_VENUE_ID
+
+
+def assert_table_belongs_to_venue(table: Dict, venue_id: str) -> None:
+    """校验球桌是否属于用户当前选择的俱乐部"""
+    if not venue_id:
+        return
+    table_vid = _table_venue_id(table)
+    if table_vid != venue_id:
+        cur = get_venue(venue_id)
+        cur_name = cur.get("name", venue_id) if cur else venue_id
+        tbl_v = get_venue(table_vid)
+        tbl_name = tbl_v.get("name", table_vid) if tbl_v else table_vid
+        raise ValueError(
+            f"该球桌属于「{tbl_name}」，不属于您当前选择的「{cur_name}」。"
+            f"请在首页切换俱乐部后再扫描本店球台二维码"
+        )
+
+
+def check_table_scan(table_id: str, qr_token: str, venue_id: str) -> Dict:
+    """扫码前校验：桌台存在、二维码有效、归属当前俱乐部"""
+    venue_id = _require_venue_id(venue_id)
     tables = load("tables")
     table = find_by_id(tables, table_id)
     if not table:
         raise ValueError("桌台不存在")
-    expected = table.get("qr_token") or ""
-    if expected and expected != (qr_token or ""):
-        raise ValueError("二维码无效，请重新扫码")
+    _require_qr_token_match(table, qr_token)
+    assert_table_belongs_to_venue(table, venue_id)
+    v = get_venue(_table_venue_id(table)) or {}
+    return {
+        "table_id": table_id,
+        "table_name": table.get("name", ""),
+        "venue_id": _table_venue_id(table),
+        "venue_name": v.get("name", ""),
+    }
+
+
+def join_table(
+    table_id: str, user_id: str, qr_token: str = "", venue_id: str = None
+) -> Dict:
+    tables = load("tables")
+    table = find_by_id(tables, table_id)
+    if not table:
+        raise ValueError("桌台不存在")
+    venue_id = _require_venue_id(venue_id)
+    _require_qr_token_match(table, qr_token)
+
+    from services import user_has_active_match
+
+    if user_has_active_match(user_id, exclude_table_id=table_id):
+        raise ValueError("您有进行中的对局，请先结束后再签到其他球台")
 
     reconcile_table_matches(table_id)
 
@@ -90,9 +154,7 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
         t = find_by_id(ts, table_id)
         if not t:
             raise ValueError("桌台不存在")
-        exp = t.get("qr_token") or ""
-        if exp and exp != (qr_token or ""):
-            raise ValueError("二维码无效，请重新扫码")
+        _require_qr_token_match(t, qr_token)
 
         if t.get("current_match_id"):
             matches = load("matches")
@@ -103,6 +165,8 @@ def join_table(table_id: str, user_id: str, qr_token: str = "") -> Dict:
                 view_holder["view"] = build_table_view(t, user_id)
                 return ts
             t["current_match_id"] = None
+
+        assert_table_belongs_to_venue(t, venue_id)
 
         waiting = _waiting_list(t)
         ids = [w["user_id"] for w in waiting]
@@ -207,6 +271,7 @@ def start_from_table(
     match_type: str = "auto",
     challenger_id: str = None,
     target_id: str = None,
+    venue_id: str = None,
 ) -> Dict:
     reconcile_table_matches(table_id)
 
@@ -216,6 +281,8 @@ def start_from_table(
         table = find_by_id(ts, table_id)
         if not table:
             raise ValueError("桌台不存在")
+        if venue_id:
+            assert_table_belongs_to_venue(table, venue_id)
         waiting = table.get("waiting_players") or []
         if len(waiting) < 2:
             raise ValueError("需两名选手均扫码到场后才能开始（当前 %d/2）" % len(waiting))
@@ -286,9 +353,13 @@ def build_table_view(table: Dict, user_id: str = None) -> Dict:
                     "race_to": w.get("race_to", synced_race),
                     "at": w.get("race_updated_at", ""),
                 }
+    tv = _table_venue_id(table)
+    ven = get_venue(tv) or {}
     return {
         "id": table.get("id"),
         "name": table.get("name"),
+        "venue_id": tv,
+        "venue_name": ven.get("name", ""),
         "opened": opened,
         "players_ready": ready,
         "race_to": synced_race,

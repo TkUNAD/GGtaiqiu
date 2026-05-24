@@ -110,7 +110,12 @@ MATCH_IDLE_PROMPT_SECONDS = 60  # 提醒框 1 分钟无操作自动结束
 MATCH_END_REQUEST_SECONDS = 60  # 结束请求对方 1 分钟无操作自动结束
 PERMANENT_BAN_VIOLATION_COUNT = 3  # 恶意刷分/作弊达此次数永久封禁
 # 炸清/接清申报、本局胜/负 共用操作冷却（秒）
-MATCH_ACTION_COOLDOWN = 60
+MATCH_ACTION_COOLDOWN = 20
+# 60 秒内达到此次数的炸清/接清/胜/负操作触发积分审核冻结
+SCORE_REVIEW_WINDOW_SEC = 60
+SCORE_REVIEW_ACTION_THRESHOLD = 2
+# 后台审核超时自动通过（小时）
+REVIEW_AUTO_APPROVE_HOURS = 24
 WIN_LOSE_COOLDOWN = MATCH_ACTION_COOLDOWN
 # 备战区心跳超时：停留在备战页时轮询续期；断线/关小程序后最长保留（秒）
 TABLE_WAITING_PRESENCE_SEC = 120
@@ -146,6 +151,24 @@ def validate_production_secrets() -> None:
         raise RuntimeError(msg + " 请配置 .env 或环境变量。")
     if ADMIN_PASS == "admin123":
         print("WARN: ADMIN_PASS 仍为默认 admin123，生产环境建议在后台修改为强密码。")
+    try:
+        from db import load as _load_tables
+        from venue_service import ensure_table_qr_tokens
+
+        tables = _load_tables("tables")
+        weak = [
+            t.get("id")
+            for t in tables
+            if not (t.get("qr_token") or "").strip()
+            or str(t.get("qr_token", "")).startswith(("table_", "table_T"))
+        ]
+        if weak:
+            ensure_table_qr_tokens()
+            print(
+                f"WARN: 已自动轮换 {len(weak)} 张桌台的弱 qr_token，请重新打印球台二维码。"
+            )
+    except Exception as e:
+        print(f"WARN: qr_token 检查跳过: {e}")
 
 
 RANK_TIERS = [

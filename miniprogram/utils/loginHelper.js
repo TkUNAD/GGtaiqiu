@@ -16,6 +16,8 @@ function attachLoginHandlers(page, onSuccessExtra) {
     wx.navigateTo({ url: `/pages/agreement/agreement?type=${type}` });
   };
 
+  page.openLegal = page.openAgreement;
+
   page.onLogin = function onLogin() {
     if (page.data.logging) return;
     if (!requireTermsAgreed(page)) return;

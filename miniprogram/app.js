@@ -1,4 +1,5 @@
 const { getApiBaseUrl, VENUE_ID } = require('./utils/config');
+const { getVenueId } = require('./utils/venueStore');
 const api = require('./utils/api');
 
 App({
@@ -9,7 +10,7 @@ App({
     refreshToken: '',
     user: null,
     networkOk: false,
-    venueId: VENUE_ID,
+    venueId: getVenueId(),
     venueStatus: null,
     showAds: true,
     location: null,
@@ -45,21 +46,16 @@ App({
       });
   },
   initLocation() {
-    wx.getLocation({
-      type: 'gcj02',
-      success: (res) => {
-        this.globalData.location = {
-          latitude: res.latitude,
-          longitude: res.longitude,
-        };
-      },
-      fail: () => {
-        this.globalData.location = null;
-      },
-    });
+    const { ensureLocation } = require('./utils/locationHelper');
+    ensureLocation(this).catch(() => {});
+  },
+  ensureLocation() {
+    const { ensureLocation } = require('./utils/locationHelper');
+    return ensureLocation(this);
   },
   loadVenueStatus() {
-    const vid = this.globalData.venueId || VENUE_ID;
+    const vid = getVenueId();
+    this.globalData.venueId = vid;
     api.request(`/api/venue/status?venue_id=${vid}`)
       .then((st) => {
         this.globalData.venueStatus = st;

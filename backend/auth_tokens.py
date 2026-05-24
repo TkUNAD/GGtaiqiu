@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 import jwt
 
 import config
-from db import find_by_id, load, mutate, now_iso
+from db import find_by_id, mutate, now_iso
 
 
 def _hash_refresh(raw: str) -> str:
@@ -78,43 +78,59 @@ def verify_access_token(token: str) -> Optional[str]:
 
 
 def refresh_access_token(refresh_raw: str) -> Tuple[Optional[Dict], Optional[str]]:
-    """用 refresh token 换取新 access + 新 refresh。返回 (token_bundle, error_msg)"""
+    """用 refresh token 换取新 access + 新 refresh（在 mutate 内原子轮换）"""
     if not refresh_raw:
         return None, "缺少 refresh_token"
     h = _hash_refresh(refresh_raw)
-    users = load("users")
-    user = None
-    matched_idx = -1
-    for u in users:
-        for i, t in enumerate(u.get("refresh_tokens") or []):
-            if t.get("token_hash") == h:
-                user = u
-                matched_idx = i
+    holder: Dict = {}
+    err_holder: Dict = {}
+
+    def _rotate(users):
+        user = None
+        matched_idx = -1
+        for u in users:
+            for i, t in enumerate(u.get("refresh_tokens") or []):
+                if t.get("token_hash") == h:
+                    user = u
+                    matched_idx = i
+                    break
+            if user:
                 break
-        if user:
-            break
-    if not user:
-        return None, "刷新令牌无效"
-    tokens = user.get("refresh_tokens") or []
-    if matched_idx < 0 or matched_idx >= len(tokens):
-        return None, "刷新令牌无效"
-    entry = tokens[matched_idx]
-    try:
-        exp = datetime.fromisoformat(entry.get("expires_at", "").replace("Z", ""))
-    except ValueError:
-        return None, "刷新令牌已过期"
-    if exp < datetime.now():
-        return None, "刷新令牌已过期"
+        if not user:
+            err_holder["err"] = "刷新令牌无效"
+            return users
+        rt = list(user.get("refresh_tokens") or [])
+        if matched_idx < 0 or matched_idx >= len(rt):
+            err_holder["err"] = "刷新令牌无效"
+            return users
+        entry = rt[matched_idx]
+        if entry.get("used_at"):
+            err_holder["err"] = "刷新令牌已使用，请重新登录"
+            return users
+        try:
+            exp = datetime.fromisoformat(entry.get("expires_at", "").replace("Z", ""))
+        except ValueError:
+            err_holder["err"] = "刷新令牌已过期"
+            return users
+        if exp < datetime.now():
+            err_holder["err"] = "刷新令牌已过期"
+            return users
 
-    bundle_holder: Dict = {}
-
-    def _rotate_refresh(us):
-        u = find_by_id(us, user["id"])
+        u = find_by_id(users, user["id"])
         if not u:
-            return us
+            err_holder["err"] = "用户不存在"
+            return users
+
         rt = list(u.get("refresh_tokens") or [])
-        if 0 <= matched_idx < len(rt):
-            rt.pop(matched_idx)
+        idx = next(
+            (i for i, t in enumerate(rt) if t.get("token_hash") == h),
+            -1,
+        )
+        if idx < 0:
+            err_holder["err"] = "刷新令牌无效"
+            return users
+        rt.pop(idx)
+
         now = datetime.utcnow()
         access_exp = now + timedelta(seconds=config.JWT_ACCESS_EXPIRE_SECONDS)
         payload = {
@@ -126,37 +142,28 @@ def refresh_access_token(refresh_raw: str) -> Tuple[Optional[Dict], Optional[str
         access_token = jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
         if isinstance(access_token, bytes):
             access_token = access_token.decode("utf-8")
-        refresh_raw = secrets.token_urlsafe(32)
-        refresh_hash = _hash_refresh(refresh_raw)
+        new_refresh_raw = secrets.token_urlsafe(32)
+        new_hash = _hash_refresh(new_refresh_raw)
         refresh_exp = (
             datetime.now() + timedelta(seconds=config.JWT_REFRESH_EXPIRE_SECONDS)
         ).isoformat()
         rt = [t for t in rt if t.get("expires_at", "") > now_iso()][-20:]
         rt.append({
-            "token_hash": refresh_hash,
+            "token_hash": new_hash,
             "expires_at": refresh_exp,
             "created_at": now_iso(),
         })
         u["refresh_tokens"] = rt
         u["updated_at"] = now_iso()
-        bundle_holder["bundle"] = {
+        holder["bundle"] = {
             "access_token": access_token,
-            "refresh_token": refresh_raw,
+            "refresh_token": new_refresh_raw,
             "expires_in": config.JWT_ACCESS_EXPIRE_SECONDS,
             "token_type": "Bearer",
         }
-        return us
-
-    mutate("users", _rotate_refresh)
-    return bundle_holder.get("bundle"), None
-
-
-def revoke_all_refresh_tokens(user_id: str) -> None:
-    def _fn(users):
-        u = find_by_id(users, user_id)
-        if u:
-            u["refresh_tokens"] = []
-            u["updated_at"] = now_iso()
         return users
 
-    mutate("users", _fn)
+    mutate("users", _rotate)
+    if err_holder.get("err"):
+        return None, err_holder["err"]
+    return holder.get("bundle"), None

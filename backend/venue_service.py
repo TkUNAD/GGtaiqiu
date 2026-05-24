@@ -1,4 +1,5 @@
 """球房（租户）与会员权限"""
+import math
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -14,6 +15,19 @@ PERM_LADDER_SETTINGS = "ladder_settings"
 PERM_AD_BLOCK = "ad_block"
 
 ALL_PERMISSIONS = [PERM_TABLE_MANAGE, PERM_LADDER_SETTINGS, PERM_AD_BLOCK]
+
+# 距球房超过该距离（米）时小程序提示用户确认
+VENUE_DISTANCE_WARN_METERS = 50
+
+
+def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """两点球面距离（米），坐标系 gcj02"""
+    r = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(min(1.0, a)))
 
 
 def _parse_dt(s: str) -> Optional[datetime]:
@@ -59,6 +73,9 @@ def ensure_venues_file():
         "member_expires_at": "2099-12-31T23:59:59",
         "contact_phone": "",
         "note": "演示球房（已开通会员）",
+        "address": "",
+        "latitude": None,
+        "longitude": None,
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
@@ -146,6 +163,55 @@ def venue_public_view(venue: Dict, admin: bool = False) -> Dict:
     return row
 
 
+def list_mobile_venues(latitude: float = None, longitude: float = None) -> List[Dict]:
+    """小程序：球房列表（含与当前位置距离，米）"""
+    ensure_venues_file()
+    rows = []
+    for v in load("venues"):
+        lat_v = v.get("latitude")
+        lng_v = v.get("longitude")
+        dist = None
+        if (
+            latitude is not None
+            and longitude is not None
+            and lat_v is not None
+            and lng_v is not None
+        ):
+            try:
+                dist = int(
+                    round(
+                        haversine_meters(
+                            float(latitude),
+                            float(longitude),
+                            float(lat_v),
+                            float(lng_v),
+                        )
+                    )
+                )
+            except (TypeError, ValueError):
+                dist = None
+        rows.append(
+            {
+                "id": v["id"],
+                "name": v.get("name", ""),
+                "address": v.get("address", ""),
+                "latitude": lat_v,
+                "longitude": lng_v,
+                "distance_m": dist,
+                "is_member_active": is_member_active(v),
+                "has_location": lat_v is not None and lng_v is not None,
+            }
+        )
+
+    def _sort_key(item):
+        if item["distance_m"] is None:
+            return (1, item["name"])
+        return (0, item["distance_m"])
+
+    rows.sort(key=_sort_key)
+    return rows
+
+
 def mobile_venue_status(venue_id: str) -> Dict:
     v = get_venue(venue_id) or get_venue(DEFAULT_VENUE_ID)
     if not v:
@@ -227,6 +293,12 @@ def update_venue(venue_id: str, data: Dict) -> Dict:
             v["contact_phone"] = data.get("contact_phone", "")
         if data.get("note") is not None:
             v["note"] = data.get("note", "")
+        if data.get("address") is not None:
+            v["address"] = (data.get("address") or "").strip()
+        if data.get("latitude") is not None:
+            v["latitude"] = data.get("latitude")
+        if data.get("longitude") is not None:
+            v["longitude"] = data.get("longitude")
         if data.get("member_expires_at") is not None:
             v["member_expires_at"] = _normalize_member_expires(data.get("member_expires_at"))
         if data.get("security_code"):
@@ -333,6 +405,22 @@ def ensure_table_venue_ids():
     for t in tables:
         if not t.get("venue_id"):
             t["venue_id"] = DEFAULT_VENUE_ID
+            changed = True
+    if changed:
+        save("tables", tables)
+
+
+def ensure_table_qr_tokens():
+    """为无 token 或弱默认 token 的桌台生成随机 qr_token"""
+    import secrets
+
+    tables = load("tables")
+    changed = False
+    for t in tables:
+        tok = (t.get("qr_token") or "").strip()
+        weak = not tok or any(tok.startswith(p) for p in ("table_", "table_T"))
+        if weak:
+            t["qr_token"] = secrets.token_urlsafe(16)
             changed = True
     if changed:
         save("tables", tables)

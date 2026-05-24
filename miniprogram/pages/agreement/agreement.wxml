@@ -1,9 +1,9 @@
-<view class="agreement-page">
-  <view class="agreement-head">
+<view class="container agreement-page">
+  <view class="card agreement-head">
     <text class="agreement-title">{{title}}</text>
-    <text class="agreement-update">更新日期：2026年5月</text>
+    <text class="agreement-update">更新日期：{{update}}</text>
   </view>
-  <view class="agreement-section" wx:for="{{sections}}" wx:key="heading">
+  <view class="card agreement-section" wx:for="{{sections}}" wx:key="heading">
     <text class="section-heading">{{item.heading}}</text>
     <text class="section-body">{{item.body}}</text>
   </view>

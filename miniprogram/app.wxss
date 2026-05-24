@@ -88,6 +88,28 @@ page {
   box-shadow:
     0 8rpx 24rpx rgba(0, 0, 0, 0.35),
     0 18rpx 40rpx rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.float-bar.tabs {
+  display: flex;
+  overflow: hidden;
+}
+
+.float-bar .tab {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  font-size: 29rpx;
+  color: #8b92a8;
+  border-radius: 14rpx;
+}
+
+.float-bar .tab.active {
+  background: linear-gradient(135deg, rgba(245, 230, 163, 0.28), rgba(212, 175, 55, 0.18));
+  color: #D4AF37;
+  font-weight: bold;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.2);
 }
 
 .float-row {
@@ -112,6 +134,73 @@ page {
     0 8rpx 24rpx rgba(0, 0, 0, 0.36),
     0 20rpx 48rpx rgba(0, 0, 0, 0.24),
     0 0 32rpx rgba(212, 175, 55, 0.1);
+}
+
+/* 内嵌悬浮面（无外边距，用于桌台等已有水平 padding 的容器） */
+.float-surface {
+  position: relative;
+  border-radius: 22rpx;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.14) 0%, transparent 45%),
+    linear-gradient(168deg, #1a2236 0%, #12182a 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.22);
+  box-shadow:
+    0 6rpx 20rpx rgba(0, 0, 0, 0.32),
+    0 14rpx 36rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 子 Tab 条（与 .float-bar 同宽 28rpx 边距，相对主 Tab 整体下移 3px） */
+.float-bar-sub {
+  margin: 6rpx 28rpx 0;
+  padding: 8rpx;
+  display: flex;
+  gap: 0;
+  box-sizing: border-box;
+  width: auto;
+}
+
+.float-bar-sub .sub-tab {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 26rpx;
+  color: #8b92a8;
+  border-radius: 14rpx;
+}
+
+.float-bar-sub .sub-tab.active {
+  background: linear-gradient(135deg, rgba(245, 230, 163, 0.28), rgba(212, 175, 55, 0.18));
+  color: #D4AF37;
+  font-weight: bold;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 说明文案与悬浮模块同宽 */
+.float-desc {
+  display: block;
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 12rpx 28rpx 16rpx;
+  padding: 0 8rpx;
+  box-sizing: border-box;
+}
+
+/* 空状态悬浮块 */
+.float-empty {
+  margin: 24rpx 28rpx 0;
+  padding: 48rpx 30rpx;
+  text-align: center;
+  color: #8b92a8;
+  font-size: 27rpx;
+  border-radius: 22rpx;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+    linear-gradient(168deg, #181f32 0%, #12182a 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.2);
+  box-shadow:
+    0 6rpx 20rpx rgba(0, 0, 0, 0.28),
+    0 14rpx 36rpx rgba(0, 0, 0, 0.18);
 }
 
 .title {

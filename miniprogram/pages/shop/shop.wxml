@@ -31,5 +31,5 @@
     <text class="status">{{item.statusLabel || item.status}}</text>
     <text class="time">{{item.created_at}}</text>
   </view>
-  <view wx:if="{{!exchanges.length}}" class="empty">暂无兑换记录</view>
+  <view wx:if="{{!exchanges.length}}" class="float-empty">暂无兑换记录</view>
 </view>

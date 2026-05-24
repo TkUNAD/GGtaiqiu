@@ -75,7 +75,16 @@
     <view wx:if="{{!profile.recent_exchanges.length}}" class="empty-hint">暂无兑换</view>
   </view>
 
-  <view class="btn-secondary" bindtap="goShop">积分商城</view>
+  <view class="card btn-shop-card" bindtap="goShop">
+    <text class="btn-shop-text">积分商城 ›</text>
+  </view>
+  <view class="profile-legal">
+    <text class="legal-link" bindtap="openLegal" data-type="user">用户服务协议</text>
+    <text class="legal-dot">·</text>
+    <text class="legal-link" bindtap="openLegal" data-type="privacy">隐私政策</text>
+    <text class="legal-dot">·</text>
+    <text class="legal-link" bindtap="openLegal" data-type="summary">个人信息说明</text>
+  </view>
   <view class="btn-logout" bindtap="onLogout">退出登录</view>
 </view>
 
@@ -90,7 +99,7 @@
       <view class="agree-text">
         <text class="agree-plain">我已阅读并同意</text>
         <text class="agree-link" catchtap="openAgreement" data-type="user">《用户服务协议》</text>
-        <text class="agree-link" catchtap="openAgreement" data-type="privacy">《隐私政策协议》</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="privacy">《隐私政策》</text>
       </view>
     </view>
     <button
@@ -98,7 +107,10 @@
       bindtap="onLogin"
       disabled="{{logging || !agreedToTerms}}"
     >{{logging ? '授权登录中...' : '微信授权登录'}}</button>
-    <view class="login-hint">首次登录需微信授权；授权过后再次登录无需重复授权</view>
+    <view class="login-hint">登录将使用您的微信昵称（必填）与头像（可选）；使用首页功能可能申请位置信息用于匹配俱乐部</view>
+    <view class="login-privacy-links">
+      <text class="agree-link" catchtap="openAgreement" data-type="summary">《个人信息收集说明》</text>
+    </view>
     <view class="auth-fallback" wx:if="{{showAuthFallback}}">
       <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
         <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />

@@ -24,9 +24,9 @@ SOURCES = [
     "c__Users_Administrator_AppData_Roaming_Cursor_User_workspaceStorage_34c2ed0fa449449e5582952b751f60df_images_6_1-943907ed-ec3e-4c22-975c-e0e8ae75c959.png",
 ]
 
-OUTPUT_SIZE = 168
-GIF_FRAMES = 8
-GIF_DURATION_MS = 120
+OUTPUT_SIZE = 128
+GIF_FRAMES = 6
+GIF_DURATION_MS = 130
 SAVE_PNG = False
 
 
@@ -144,8 +144,13 @@ def process_tier(index: int, src_name: str) -> None:
     elif png_path.exists():
         png_path.unlink()
     make_shimmer_gif(base, gif_path, index)
+    import sys
 
-    print(f"tier-{index}: gif {gif_path.stat().st_size // 1024}KB")
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from optimize_tier_gifs import compress_gif
+
+    size = compress_gif(gif_path)
+    print(f"tier-{index}: gif {size // 1024}KB")
 
 
 def main() -> None:

@@ -41,7 +41,9 @@
     </view>
   </view>
 
-  <view class="btn-primary" bindtap="onClose">关闭</view>
+  <view class="card card-actions">
+    <view class="btn-primary" bindtap="onClose">关闭</view>
+  </view>
 </view>
 <view class="container" wx:else>
   <view class="card">

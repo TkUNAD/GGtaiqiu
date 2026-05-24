@@ -61,7 +61,7 @@ def request_bonus(match_id: str, user_id: str, bonus_type: str) -> Dict:
             "created_at": now_iso(),
         }
         pending.append(item)
-        _touch_match_action_cooldown(m, user_id)
+        _touch_match_action_cooldown(m, user_id, action_kind=bonus_type)
         item_holder["item"] = item
         return ms
 
@@ -460,6 +460,9 @@ def enrich_match_for_admin(m: Dict) -> Dict:
     brules = _match_ladder_rules(m)
     if m.get("needs_bonus_review") or total_bonus >= int(brules.get("bonus_review_threshold", 2)):
         review_alert = f"⚠ 本场炸清/接清已达{total_bonus}次，待审核加分"
+    if m.get("score_review_hold") or m.get("status") == "pending_review":
+        reason = m.get("score_review_reason") or "快速操作待审核，积分暂未结算"
+        review_alert = (review_alert + " · " if review_alert else "") + f"⚠ {reason}"
 
     return {
         **m,

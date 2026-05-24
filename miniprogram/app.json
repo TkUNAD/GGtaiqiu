@@ -2,7 +2,7 @@
   "lazyCodeLoading": "requiredComponents",
   "permission": {
     "scope.userLocation": {
-      "desc": "用于匹配附近球房与桌台服务"
+      "desc": "用于匹配您附近的台球俱乐部并展示本俱乐部桌台与排位服务"
     }
   },
   "requiredPrivateInfos": ["getLocation"],

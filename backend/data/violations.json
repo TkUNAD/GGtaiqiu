@@ -270,5 +270,29 @@
     "action": "warn",
     "public": false,
     "created_at": "2026-05-23T14:57:11.521272"
+  },
+  {
+    "id": "V82352eaa2b53",
+    "user_id": "Ue1d3a44d3a0c",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-23T16:10:55.897784"
+  },
+  {
+    "id": "Ved000403fb2d",
+    "user_id": "U6470b37e0059",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-24T22:13:04.158032"
+  },
+  {
+    "id": "V4226e057419c",
+    "user_id": "U7cce95e9c917",
+    "reason": "用户单日积分增长预警: +200",
+    "action": "warn",
+    "public": false,
+    "created_at": "2026-05-24T22:19:45.778334"
   }
 ]

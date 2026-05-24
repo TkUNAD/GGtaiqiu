@@ -19,7 +19,6 @@ from config import (
     EXCHANGE_MIN_SCORE,
     INITIAL_SCORE,
     MATCH_ACTION_COOLDOWN,
-    WIN_LOSE_COOLDOWN,
 )
 from db import find_by_id, load, mutate, new_id, now_iso, save
 from ladder_settings import get_effective_ladder_rules, get_ladder_rules
@@ -99,6 +98,26 @@ def log_score(user_id: str, delta: int, reason: str, match_id: str = None):
 
 
 def adjust_user_score(user_id: str, delta: int, reason: str, match_id: str = None):
+    if match_id:
+        from match_score_review import match_blocks_score_update
+
+        m = find_by_id(load("matches"), match_id)
+        if m and match_blocks_score_update(match_id=match_id, m=m):
+
+            def _stash(ms):
+                mm = find_by_id(ms, match_id)
+                if mm:
+                    mm.setdefault("deferred_scores", []).append({
+                        "user_id": user_id,
+                        "delta": delta,
+                        "reason": reason,
+                        "at": now_iso(),
+                    })
+                return ms
+
+            mutate("matches", _stash)
+            return
+
     users = load("users")
     if not find_by_id(users, user_id):
         return
@@ -541,20 +560,29 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
 
 
 def process_season_and_week():
+    from match_score_review import process_stale_admin_reviews
+
+    process_stale_admin_reviews()
+
     now = datetime.now()
     season_id = f"{now.year}{now.month:02d}"
     week_id = now.strftime("%Y-W%W")
 
-    season = load("season")
-    if season.get("current") != season_id:
-        season["current"] = season_id
-        season["started_at"] = now_iso()
-        save("season", season)
+    def _season(s):
+        if s.get("current") != season_id:
+            s["current"] = season_id
+            s["started_at"] = now_iso()
+        return s
 
-    wr = load("week_rank")
-    if wr.get("week_id") != week_id:
-        wr = {"week_id": week_id, "scores": {}}
-        save("week_rank", wr)
+    mutate("season", _season)
+
+    def _week(wr):
+        if wr.get("week_id") != week_id:
+            wr["week_id"] = week_id
+            wr["scores"] = {}
+        return wr
+
+    mutate("week_rank", _week)
 
 
 def resolve_match_type(
@@ -653,6 +681,21 @@ def table_has_active_match(table: Dict) -> bool:
     return bool(m and m.get("status") == "playing")
 
 
+def user_has_active_match(user_id: str, exclude_table_id: str = None) -> bool:
+    """用户是否已在任意球台有进行中对局"""
+    if not user_id:
+        return False
+    for m in load("matches"):
+        if m.get("status") != "playing":
+            continue
+        if user_id not in (m.get("player1_id"), m.get("player2_id")):
+            continue
+        if exclude_table_id and m.get("table_id") == exclude_table_id:
+            continue
+        return True
+    return False
+
+
 def start_match(
     table_id: str,
     player1_id: str,
@@ -665,6 +708,10 @@ def start_match(
 ) -> Dict:
     if player1_id == player2_id:
         raise ValueError("禁止虚拟对战")
+
+    for uid in (player1_id, player2_id):
+        if user_has_active_match(uid, exclude_table_id=table_id):
+            raise ValueError("选手有进行中的对局，请先结束后再开始新对局")
 
     reconcile_table_matches(table_id)
 
@@ -768,8 +815,14 @@ def start_match(
 
     def _start_atomic(matches, tables):
         for m in matches:
-            if m.get("table_id") == table_id and m.get("status") == "playing":
+            if m.get("status") != "playing":
+                continue
+            if m.get("table_id") == table_id:
                 raise ValueError("该桌台已有进行中的对局")
+            if m.get("player1_id") in (player1_id, player2_id) or m.get(
+                "player2_id"
+            ) in (player1_id, player2_id):
+                raise ValueError("选手有进行中的对局，请先结束后再开始新对局")
         t = find_by_id(tables, table_id)
         if not t:
             raise ValueError("桌台不存在")
@@ -817,11 +870,17 @@ def _check_match_action_cooldown(m: Dict, user_id: str, action_label: str = "操
         raise ValueError(f"请等待{remain}秒后再{action_label}")
 
 
-def _touch_match_action_cooldown(m: Dict, user_id: str) -> None:
+def _touch_match_action_cooldown(
+    m: Dict, user_id: str, action_kind: str = None
+) -> None:
     last = m.setdefault("last_action_at", {})
     ts = now_iso()
     last["match"] = ts
     last[f"{user_id}_action"] = ts
+    if action_kind:
+        from match_score_review import note_match_score_action
+
+        note_match_score_action(m, user_id, action_kind)
     from match_idle import touch_match_activity
 
     touch_match_activity(m)
@@ -882,7 +941,7 @@ def record_frame(match_id: str, user_id: str, action: str) -> Dict:
         else:
             raise ValueError("无效操作")
 
-        _touch_match_action_cooldown(m, user_id)
+        _touch_match_action_cooldown(m, user_id, action_kind=action)
 
         race = m["race_to"]
         if m["score1"] >= race or m["score2"] >= race:
@@ -899,7 +958,47 @@ def record_frame(match_id: str, user_id: str, action: str) -> Dict:
     return find_by_id(load("matches"), match_id) or {}
 
 
-def _apply_finish_user_updates(
+def _append_score_log_inplace(
+    logs: List[Dict], user_id: str, delta: int, reason: str, match_id: str = None
+) -> None:
+    logs.append({
+        "id": new_id("L"),
+        "user_id": user_id,
+        "delta": delta,
+        "reason": reason,
+        "match_id": match_id,
+        "created_at": now_iso(),
+    })
+    if len(logs) > 50000:
+        logs[:] = logs[-40000:]
+
+
+def _update_week_score_inplace(wr: Dict, user_id: str, delta: int) -> None:
+    if delta <= 0:
+        return
+    week_id = datetime.now().strftime("%Y-W%W")
+    if wr.get("week_id") != week_id:
+        wr["week_id"] = week_id
+        wr["scores"] = {}
+    scores = wr.setdefault("scores", {})
+    scores[user_id] = scores.get(user_id, 0) + delta
+
+
+def _release_table_inplace(tables: List[Dict], table_id: str) -> None:
+    t = find_by_id(tables, table_id)
+    if not t:
+        return
+    t["current_match_id"] = None
+    t["waiting_players"] = []
+    t["opened"] = False
+    t["opened_at"] = None
+    t.pop("opened_by_scan", None)
+
+
+def _apply_finish_user_updates_inplace(
+    users: List[Dict],
+    score_logs: List[Dict],
+    week_rank: Dict,
     winner_id: Optional[str],
     loser_id: Optional[str],
     match_id: str,
@@ -908,78 +1007,82 @@ def _apply_finish_user_updates(
     l_delta: int,
     casual_winner_bonus: int,
     is_draw: bool,
-):
-    """单次 mutate 持久化：积分、排位配额、胜/负场"""
-
-    def _users(us):
-        if is_draw:
-            for uid in (winner_id, loser_id):
-                if not uid:
-                    continue
-                u = find_by_id(us, uid)
-                if u:
-                    u["last_battle_at"] = now_iso()
-                    u["updated_at"] = now_iso()
-            return us
-        uw = find_by_id(us, winner_id)
-        ul = find_by_id(us, loser_id)
-        if not uw or not ul:
-            return us
-        if is_ranked:
-            inc_ranked_quota(uw)
-            inc_ranked_quota(ul)
-            uw["score"] = max(0, uw.get("score", INITIAL_SCORE) + w_delta)
-            ul["score"] = max(0, ul.get("score", INITIAL_SCORE) + l_delta)
-        else:
-            uw["score"] = max(0, uw.get("score", INITIAL_SCORE) + casual_winner_bonus)
-        uw["wins"] = uw.get("wins", 0) + 1
-        ul["losses"] = ul.get("losses", 0) + 1
-        battle_at = now_iso()
-        uw["last_battle_at"] = battle_at
-        ul["last_battle_at"] = battle_at
-        uw["updated_at"] = battle_at
-        ul["updated_at"] = battle_at
-        return us
-
-    mutate("users", _users)
+) -> List[Tuple[str, int]]:
+    """内存中更新用户/日志/周榜，返回需事后风控检查的 (user_id, delta) 列表"""
+    alerts: List[Tuple[str, int]] = []
+    battle_at = now_iso()
 
     if is_draw:
-        return
+        for uid in (winner_id, loser_id):
+            if not uid:
+                continue
+            u = find_by_id(users, uid)
+            if u:
+                u["last_battle_at"] = battle_at
+                u["updated_at"] = battle_at
+        return alerts
+
+    uw = find_by_id(users, winner_id)
+    ul = find_by_id(users, loser_id)
+    if not uw or not ul:
+        raise ValueError("玩家数据异常")
+
     if is_ranked:
-        log_score(winner_id, w_delta, "排位胜利", match_id)
+        inc_ranked_quota(uw)
+        inc_ranked_quota(ul)
+        uw["score"] = max(0, uw.get("score", INITIAL_SCORE) + w_delta)
+        ul["score"] = max(0, ul.get("score", INITIAL_SCORE) + l_delta)
+        _append_score_log_inplace(score_logs, winner_id, w_delta, "排位胜利", match_id)
+        alerts.append((winner_id, max(0, w_delta)))
         if l_delta:
-            log_score(loser_id, l_delta, "排位失败", match_id)
-        _update_week_score(winner_id, w_delta)
+            _append_score_log_inplace(score_logs, loser_id, l_delta, "排位失败", match_id)
+            alerts.append((loser_id, max(0, l_delta)))
+        _update_week_score_inplace(week_rank, winner_id, w_delta)
         if l_delta:
-            _update_week_score(loser_id, l_delta)
+            _update_week_score_inplace(week_rank, loser_id, l_delta)
     else:
-        log_score(winner_id, casual_winner_bonus, "休闲对局有效局", match_id)
+        uw["score"] = max(0, uw.get("score", INITIAL_SCORE) + casual_winner_bonus)
+        _append_score_log_inplace(
+            score_logs, winner_id, casual_winner_bonus, "休闲对局有效局", match_id
+        )
+        alerts.append((winner_id, max(0, casual_winner_bonus)))
         if casual_winner_bonus:
-            _update_week_score(winner_id, casual_winner_bonus)
+            _update_week_score_inplace(week_rank, winner_id, casual_winner_bonus)
+
+    uw["wins"] = uw.get("wins", 0) + 1
+    ul["losses"] = ul.get("losses", 0) + 1
+    uw["last_battle_at"] = battle_at
+    ul["last_battle_at"] = battle_at
+    uw["updated_at"] = battle_at
+    ul["updated_at"] = battle_at
+    return alerts
 
 
 def finalize_match(match_id: str, winner_id: str = None, completed: bool = True) -> Dict:
-    """对局结算编排：match 终态、用户积分、日志、周榜、释放桌台（失败时回滚 match 为 playing）"""
+    """对局结算：match、用户积分、日志、周榜、释放桌台单次原子提交"""
     from match_bonus import build_match_summary
+    from db import mutate_multi
 
-    outcome: Dict[str, Any] = {}
+    holder: Dict[str, Any] = {"alerts": []}
 
-    def _finish_matches(ms):
-        m = find_by_id(ms, match_id)
+    def _atomic(matches, users, score_logs, week_rank, tables):
+        m = find_by_id(matches, match_id)
         if not m:
             raise ValueError("对局不存在")
         if m["status"] in ("finished", "invalid", "cancelled"):
-            outcome["m"] = m
-            outcome["skip"] = True
-            return ms
+            holder["m"] = m
+            return m
         if m["status"] != "playing":
             raise ValueError("对局状态不可结算")
 
         p1, p2 = m["player1_id"], m["player2_id"]
+        table_id = m.get("table_id")
+
         if m.get("score1", 0) == m.get("score2", 0):
             if winner_id:
                 raise ValueError("比分相同，无法判定胜负")
             is_draw = True
+            loser_id = None
         else:
             is_draw = False
             if winner_id not in (p1, p2):
@@ -991,33 +1094,65 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
             m["ended_at"] = now_iso()
             m["invalid_reason"] = "对局时长过短，判定无效"
             m["summary"] = build_match_summary(m)
-            outcome["m"] = m
-            outcome["release_table"] = m.get("table_id")
-            outcome["skip"] = True
-            return ms
+            if table_id:
+                _release_table_inplace(tables, table_id)
+            holder["m"] = m
+            return m
 
         m["winner_id"] = winner_id
-        m["status"] = "finished"
         m["ended_at"] = now_iso()
         m["completed"] = completed
         m["half_points"] = not completed
 
+        from match_score_review import (
+            build_pending_settlement,
+            match_should_defer_settlement,
+        )
+
         if is_draw:
             m["score_delta"] = {"winner": 0, "loser": 0}
-            outcome["m"] = m
-            outcome["is_draw"] = True
-            outcome["release_table"] = m.get("table_id")
-            return ms
+            if match_should_defer_settlement(m):
+                m["status"] = "pending_review"
+                m.setdefault("score_review_since", now_iso())
+                m["pending_settlement"] = build_pending_settlement(
+                    m,
+                    winner_id=None,
+                    loser_id=None,
+                    is_draw=True,
+                    is_ranked=False,
+                    w_delta=0,
+                    l_delta=0,
+                    casual_bonus=0,
+                    completed=completed,
+                )
+            else:
+                m["status"] = "finished"
+                holder["alerts"] = _apply_finish_user_updates_inplace(
+                    users,
+                    score_logs,
+                    week_rank,
+                    p1,
+                    p2,
+                    match_id,
+                    False,
+                    0,
+                    0,
+                    0,
+                    True,
+                )
+            m["summary"] = build_match_summary(m)
+            if table_id:
+                _release_table_inplace(tables, table_id)
+            holder["m"] = m
+            return m
 
-        users = load("users")
         w = find_by_id(users, winner_id)
         l = find_by_id(users, loser_id)
         if not w or not l:
             raise ValueError("玩家数据异常")
 
         is_ranked = m.get("match_type") == "ranked" and m.get("ranked_valid", True)
-
-        table_row = find_by_id(load("tables"), m.get("table_id"))
+        table_row = find_by_id(tables, m.get("table_id"))
         match_venue_id = (
             table_row.get("venue_id", DEFAULT_VENUE_ID) if table_row else DEFAULT_VENUE_ID
         )
@@ -1042,75 +1177,57 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
             )
             m["frame_diff"] = abs(m.get("score1", 0) - m.get("score2", 0))
             m["score_delta"] = {"winner": w_delta, "loser": l_delta}
-            outcome["w_delta"] = w_delta
-            outcome["l_delta"] = l_delta
+            casual_bonus = 0
         else:
-            bonus = daily_bonus("valid_match", rules=ladder_rules)
+            w_delta, l_delta = 0, 0
+            casual_bonus = daily_bonus("valid_match", rules=ladder_rules)
             if m.get("half_points"):
-                bonus = bonus // 2
-            m["score_delta"] = {"winner": bonus, "loser": 0}
-            outcome["casual_bonus"] = bonus
+                casual_bonus = casual_bonus // 2
+            m["score_delta"] = {"winner": casual_bonus, "loser": 0}
 
-        outcome["m"] = m
-        outcome["winner_id"] = winner_id
-        outcome["loser_id"] = loser_id
-        outcome["is_ranked"] = is_ranked
-        outcome["is_draw"] = False
-        outcome["release_table"] = m.get("table_id")
-        return ms
-
-    mutate("matches", _finish_matches)
-    m = outcome["m"]
-    table_to_release = outcome.get("release_table")
-
-    if outcome.get("skip"):
-        if table_to_release and m.get("status") in ("finished", "invalid"):
-            _release_table(table_to_release)
+        if match_should_defer_settlement(m):
+            m["status"] = "pending_review"
+            m.setdefault("score_review_since", now_iso())
+            m["pending_settlement"] = build_pending_settlement(
+                m,
+                winner_id=winner_id,
+                loser_id=loser_id,
+                is_draw=False,
+                is_ranked=is_ranked,
+                w_delta=w_delta,
+                l_delta=l_delta,
+                casual_bonus=casual_bonus,
+                completed=completed,
+            )
+        else:
+            m["status"] = "finished"
+            holder["alerts"] = _apply_finish_user_updates_inplace(
+                users,
+                score_logs,
+                week_rank,
+                winner_id,
+                loser_id,
+                match_id,
+                is_ranked,
+                w_delta,
+                l_delta,
+                casual_bonus,
+                False,
+            )
+        m["summary"] = build_match_summary(m)
+        if table_id:
+            _release_table_inplace(tables, table_id)
+        holder["m"] = m
         return m
 
-    def _write_summary(ms):
-        mm = find_by_id(ms, match_id)
-        if mm:
-            mm["summary"] = build_match_summary(mm)
-        return ms
-
-    if outcome.get("is_draw"):
-        m0 = outcome["m"]
-        _apply_finish_user_updates(
-            m0["player1_id"], m0["player2_id"], match_id, False, 0, 0, 0, True
-        )
-        mutate("matches", _write_summary)
-        if table_to_release:
-            _release_table(table_to_release)
-        return find_by_id(load("matches"), match_id) or m
-
-    try:
-        _apply_finish_user_updates(
-            outcome["winner_id"],
-            outcome["loser_id"],
-            match_id,
-            outcome["is_ranked"],
-            outcome.get("w_delta", 0),
-            outcome.get("l_delta", 0),
-            outcome.get("casual_bonus", 0),
-            False,
-        )
-    except Exception as e:
-        def _rollback(ms):
-            mm = find_by_id(ms, match_id)
-            if mm and mm.get("status") == "finished":
-                mm["status"] = "playing"
-                mm.pop("ended_at", None)
-                mm.pop("winner_id", None)
-            return ms
-
-        mutate("matches", _rollback)
-        raise ValueError(f"结算失败: {e}") from e
-
-    mutate("matches", _write_summary)
-    if table_to_release:
-        _release_table(table_to_release)
-    return find_by_id(load("matches"), match_id) or m
+    mutate_multi(
+        ["matches", "users", "score_logs", "week_rank", "tables"], _atomic
+    )
+    for uid, delta in holder.get("alerts") or []:
+        alert = check_daily_score_alert(uid, delta)
+        if alert:
+            add_violation(uid, alert, "warn", False)
+    return holder.get("m") or find_by_id(load("matches"), match_id) or {}
 
 
 def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -> Dict:
@@ -1205,16 +1322,6 @@ def count_user_exchanges_today(user_id: str) -> int:
     )
 
 
-def check_exchange_eligibility(user_id: str, user_score: int) -> None:
-    """校验积分兑换门槛与每日次数"""
-    if user_score < EXCHANGE_MIN_SCORE:
-        raise ValueError(
-            f"积分需达到{EXCHANGE_MIN_SCORE}分方可兑换（当前{user_score}分）"
-        )
-    if count_user_exchanges_today(user_id) >= EXCHANGE_DAILY_LIMIT:
-        raise ValueError(f"今日兑换次数已达上限（每日{EXCHANGE_DAILY_LIMIT}次）")
-
-
 def exchange_rules_for_user(user_id: str, user_score: int) -> Dict:
     today_count = count_user_exchanges_today(user_id)
     return {
@@ -1279,33 +1386,45 @@ def exchange_product(user_id: str, product_id: str) -> Dict:
 
 
 def refund_exchange(ex_id: str, note: str = "") -> Dict:
-    """拒绝兑换：退回积分并恢复库存"""
-    exchanges = load("exchanges")
-    ex = find_by_id(exchanges, ex_id)
-    if not ex:
-        raise ValueError("兑换记录不存在")
-    if ex.get("status") != "pending":
-        raise ValueError("仅待审核记录可拒绝退款")
+    """拒绝兑换：退回积分并恢复库存（原子）"""
+    from db import mutate_multi
 
-    adjust_user_score(ex["user_id"], ex["points"], f"兑换拒绝退回:{ex.get('product_name', '')}")
+    holder: Dict = {}
 
-    def _products(ps):
-        prod = find_by_id(ps, ex.get("product_id"))
+    def _refund_atomic(products, users, exchanges, score_logs, week_rank):
+        item = find_by_id(exchanges, ex_id)
+        if not item:
+            raise ValueError("兑换记录不存在")
+        if item.get("status") != "pending":
+            raise ValueError("仅待审核记录可拒绝退款")
+        uid = item["user_id"]
+        pts = int(item.get("points") or 0)
+        u = find_by_id(users, uid)
+        if not u:
+            raise ValueError("用户不存在")
+        u["score"] = max(0, u.get("score", INITIAL_SCORE) + pts)
+        u["updated_at"] = now_iso()
+        _append_score_log_inplace(
+            score_logs,
+            uid,
+            pts,
+            f"兑换拒绝退回:{item.get('product_name', '')}",
+        )
+        _update_week_score_inplace(week_rank, uid, pts)
+        prod = find_by_id(products, item.get("product_id"))
         if prod:
             prod["stock"] = prod.get("stock", 0) + 1
-        return ps
-
-    mutate("products", _products)
-
-    def _fn(exs):
-        item = find_by_id(exs, ex_id)
         item["status"] = "rejected"
         item["review_note"] = note
         item["reviewed_at"] = now_iso()
-        return exs
+        holder["ex"] = item
+        return item
 
-    mutate("exchanges", _fn)
-    return find_by_id(load("exchanges"), ex_id)
+    mutate_multi(
+        ["products", "users", "exchanges", "score_logs", "week_rank"],
+        _refund_atomic,
+    )
+    return holder.get("ex") or find_by_id(load("exchanges"), ex_id)
 
 
 def get_screen_data() -> Dict:

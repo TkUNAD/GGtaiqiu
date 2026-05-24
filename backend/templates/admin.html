@@ -107,7 +107,7 @@
         <a data-tab="users" class="venue-only-nav" onclick="switchTab('users')">玩家管理</a>
         <a data-tab="tables" id="nav-tables" class="venue-only-nav" onclick="switchTab('tables')">桌台管理</a>
         <a data-tab="review" id="nav-review" class="venue-only-nav member-only-nav" onclick="switchTab('review')">对局审核<span id="reviewNavBadge" class="nav-badge hidden">0</span></a>
-        <a data-tab="ladder" id="nav-ladder" class="venue-only-nav member-only-nav" onclick="switchTab('ladder')">天梯规则</a>
+        <a data-tab="ladder" id="nav-ladder" onclick="switchTab('ladder')">天梯规则</a>
         <a data-tab="venues" id="nav-venues" class="super-only hidden" onclick="switchTab('venues')">球房会员</a>
         <a data-tab="products" class="venue-only-nav member-only-nav" onclick="switchTab('products')">兑换商品</a>
         <a data-tab="exchanges" class="venue-only-nav member-only-nav" onclick="switchTab('exchanges')">兑换记录</a>
@@ -295,6 +295,12 @@
                 <label>炸清/接清审核阈值(次)<input id="lr_bonus_review" type="number" min="2"></label>
                 <label>作弊扣分<input id="lr_cheat_penalty" type="number" min="0"></label>
                 <label>大屏滚动次数<input id="lr_cheat_scroll" type="number" min="1"></label>
+              </div>
+              <h4 style="margin:16px 0 8px">对局闲置与自动结束</h4>
+              <p style="font-size:12px;color:#666;margin-bottom:8px">双方均无炸清/接清/胜/负等操作时：先弹出提醒，若在「提醒后等待时间」内仍无操作则按当前比分自动结束对局。</p>
+              <div class="rules-grid">
+                <label>无操作提醒时间(分钟)<input id="lr_idle_alert_min" type="number" min="1" max="120"></label>
+                <label>提醒后自动结束(分钟)<input id="lr_idle_prompt_min" type="number" min="1" max="30"></label>
               </div>
             </div>
           </div>
@@ -1596,6 +1602,10 @@
       document.getElementById('lr_bonus_review').value = rules.bonus_review_threshold || 2;
       document.getElementById('lr_cheat_penalty').value = rules.cheat_penalty_points || 200;
       document.getElementById('lr_cheat_scroll').value = rules.cheat_scroll_times || 3;
+      var alertSec = rules.match_idle_alert_seconds != null ? rules.match_idle_alert_seconds : 600;
+      var promptSec = rules.match_idle_prompt_seconds != null ? rules.match_idle_prompt_seconds : 60;
+      document.getElementById('lr_idle_alert_min').value = Math.max(1, Math.round(alertSec / 60));
+      document.getElementById('lr_idle_prompt_min').value = Math.max(1, Math.round(promptSec / 60));
       document.getElementById('lr_rule_hint').textContent = rules.challenge_rank_min + '~' + rules.challenge_rank_max;
       document.getElementById('lr_description_preview').value = description || '';
     }
@@ -1622,6 +1632,8 @@
         bonus_review_threshold: parseInt(document.getElementById('lr_bonus_review').value, 10),
         cheat_penalty_points: parseInt(document.getElementById('lr_cheat_penalty').value, 10),
         cheat_scroll_times: parseInt(document.getElementById('lr_cheat_scroll').value, 10),
+        match_idle_alert_seconds: Math.max(60, parseInt(document.getElementById('lr_idle_alert_min').value, 10) * 60),
+        match_idle_prompt_seconds: Math.max(30, parseInt(document.getElementById('lr_idle_prompt_min').value, 10) * 60),
         rule_description: '',
         point_rules: {
           max_ranked_tier_gap: parseInt(document.getElementById('pr_max_tier_gap').value, 10),

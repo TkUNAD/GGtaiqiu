@@ -478,5 +478,213 @@
     "reason": "兑换:限额商品",
     "match_id": null,
     "created_at": "2026-05-23T14:57:11.535816"
+  },
+  {
+    "id": "L20e674ea619f",
+    "user_id": "u87f0bf364bab",
+    "delta": 5,
+    "reason": "休闲对局有效局",
+    "match_id": "M3abf6fe7ed56",
+    "created_at": "2026-05-23T16:10:55.851873"
+  },
+  {
+    "id": "Ldf1e8d59929d",
+    "user_id": "Ue1d3a44d3a0c",
+    "delta": -100,
+    "reason": "兑换:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-23T16:10:55.891654"
+  },
+  {
+    "id": "L9eb7aae7cde2",
+    "user_id": "Ue1d3a44d3a0c",
+    "delta": 100,
+    "reason": "兑换拒绝退回:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-23T16:10:55.896258"
+  },
+  {
+    "id": "L6ac9257afe35",
+    "user_id": "U9ead346b3f63",
+    "delta": -50,
+    "reason": "兑换:限额商品",
+    "match_id": null,
+    "created_at": "2026-05-23T16:10:55.913164"
+  },
+  {
+    "id": "Le6e32f1ce1c7",
+    "user_id": "u2766b8b4d06c",
+    "delta": 5,
+    "reason": "休闲对局有效局",
+    "match_id": "Mf8b79500aa44",
+    "created_at": "2026-05-24T22:13:04.109693"
+  },
+  {
+    "id": "L00c410b4924a",
+    "user_id": "U6470b37e0059",
+    "delta": -100,
+    "reason": "兑换:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T22:13:04.151951"
+  },
+  {
+    "id": "L59b9afbc0123",
+    "user_id": "U6470b37e0059",
+    "delta": 100,
+    "reason": "兑换拒绝退回:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T22:13:04.156547"
+  },
+  {
+    "id": "L1886f0451ac7",
+    "user_id": "Ua34db2c06637",
+    "delta": -50,
+    "reason": "兑换:限额商品",
+    "match_id": null,
+    "created_at": "2026-05-24T22:13:04.173807"
+  },
+  {
+    "id": "Ld078a6dae8b1",
+    "user_id": "ued74ef4de54f",
+    "delta": 5,
+    "reason": "休闲对局有效局",
+    "match_id": "M8fbc7ad14598",
+    "created_at": "2026-05-24T22:19:45.729049"
+  },
+  {
+    "id": "L98c590a4dbc0",
+    "user_id": "U7cce95e9c917",
+    "delta": -100,
+    "reason": "兑换:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T22:19:45.771306"
+  },
+  {
+    "id": "Lc52253c6fbce",
+    "user_id": "U7cce95e9c917",
+    "delta": 100,
+    "reason": "兑换拒绝退回:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T22:19:45.776410"
+  },
+  {
+    "id": "L04370da4e6a6",
+    "user_id": "Ucdfed144c87b",
+    "delta": -50,
+    "reason": "兑换:限额商品",
+    "match_id": null,
+    "created_at": "2026-05-24T22:19:45.795033"
+  },
+  {
+    "id": "L5413b7f043b0",
+    "user_id": "u9fad30ef0380",
+    "delta": 5,
+    "reason": "休闲对局有效局",
+    "match_id": "M31c8a67e956e",
+    "created_at": "2026-05-24T23:02:30.041667"
+  },
+  {
+    "id": "L20570ed45a0a",
+    "user_id": "Udda04c93805b",
+    "delta": -100,
+    "reason": "兑换:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:02:30.096509"
+  },
+  {
+    "id": "Le32f77312897",
+    "user_id": "Udda04c93805b",
+    "delta": 100,
+    "reason": "兑换拒绝退回:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:02:30.099617"
+  },
+  {
+    "id": "Le6c5f9692a76",
+    "user_id": "Ucc77ba6e9dbb",
+    "delta": -50,
+    "reason": "兑换:限额商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:02:30.116704"
+  },
+  {
+    "id": "Lfbc6e39ae369",
+    "user_id": "Uaa9478fe0103",
+    "delta": 20,
+    "reason": "炸清(双方确认)",
+    "match_id": "Ma83362de3041",
+    "created_at": "2026-05-24T23:06:30.535377"
+  },
+  {
+    "id": "Ld135494580b3",
+    "user_id": "Uaa9478fe0103",
+    "delta": 2,
+    "reason": "休闲对局有效局",
+    "match_id": "Ma83362de3041",
+    "created_at": "2026-05-24T23:17:31.331305"
+  },
+  {
+    "id": "La520ffe417a1",
+    "user_id": "ue201844452dc",
+    "delta": 5,
+    "reason": "休闲对局有效局",
+    "match_id": "M5f957a87255c",
+    "created_at": "2026-05-24T23:24:55.422248"
+  },
+  {
+    "id": "Ld7deb052d3fc",
+    "user_id": "U8c397ae7d482",
+    "delta": -100,
+    "reason": "兑换:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:24:55.481760"
+  },
+  {
+    "id": "Lf0ae815e7cfd",
+    "user_id": "U8c397ae7d482",
+    "delta": 100,
+    "reason": "兑换拒绝退回:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:24:55.484834"
+  },
+  {
+    "id": "Lcabb12f6388e",
+    "user_id": "U2a6afe5abbfd",
+    "delta": -50,
+    "reason": "兑换:限额商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:24:55.502715"
+  },
+  {
+    "id": "L1f2fc4460f51",
+    "user_id": "ua97cd02fbc0c",
+    "delta": 5,
+    "reason": "休闲对局有效局",
+    "match_id": "Me37ac624896d",
+    "created_at": "2026-05-24T23:37:27.885814"
+  },
+  {
+    "id": "L4aa3791ed1ca",
+    "user_id": "Ud54a2db2db55",
+    "delta": -100,
+    "reason": "兑换:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:37:27.953737"
+  },
+  {
+    "id": "Ld0f605a19d48",
+    "user_id": "Ud54a2db2db55",
+    "delta": 100,
+    "reason": "兑换拒绝退回:测试商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:37:27.956862"
+  },
+  {
+    "id": "L05754deeeda2",
+    "user_id": "U31e0306932ad",
+    "delta": -50,
+    "reason": "兑换:限额商品",
+    "match_id": null,
+    "created_at": "2026-05-24T23:37:27.974882"
   }
 ]

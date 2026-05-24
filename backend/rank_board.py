@@ -14,6 +14,7 @@ def _month_key() -> str:
 
 
 def _month_score_totals(user_ids: Optional[Set[str]] = None) -> Dict[str, int]:
+    """本月积分增加（仅统计正分变动）"""
     prefix = datetime.now().strftime("%Y-%m")
     totals: Dict[str, int] = {}
     for log in load("score_logs"):
@@ -28,6 +29,18 @@ def _month_score_totals(user_ids: Optional[Set[str]] = None) -> Dict[str, int]:
         delta = int(log.get("delta") or 0)
         totals[uid] = totals.get(uid, 0) + max(0, delta)
     return totals
+
+
+def _week_score_totals(user_ids: Optional[Set[str]] = None) -> Dict[str, int]:
+    """本周积分增加（与 week_rank 一致，仅统计正分变动）"""
+    week_id = datetime.now().strftime("%Y-W%W")
+    wr = load("week_rank")
+    if wr.get("week_id") != week_id:
+        return {}
+    scores = wr.get("scores") or {}
+    if user_ids is None:
+        return dict(scores)
+    return {uid: sc for uid, sc in scores.items() if uid in user_ids}
 
 
 def _rank_positions(scores: Dict[str, int], user_ids: List[str]) -> Dict[str, int]:
@@ -75,24 +88,55 @@ def _enrich_row(u: Dict, total_rank: int, week_rank: int, month_rank: int, rules
     }
 
 
-def build_club_leaderboard(venue_id: str, limit: int = 50) -> List[Dict]:
-    from ladder_settings import get_effective_ladder_rules
-
+def _club_member_users(venue_id: str) -> List[Dict]:
     venue_id = venue_id or DEFAULT_VENUE_ID
-    rules = get_effective_ladder_rules(venue_id)
     linked = users_linked_to_venue(venue_id)
     users = load("users")
-    club_users = [
+    return [
         u for u in users
         if u.get("id") in linked and u.get("status") != "banned" and not u.get("deleted")
     ]
-    club_users.sort(key=lambda x: (-x.get("score", 1000), x.get("created_at", "")))
+
+
+def build_club_leaderboard(
+    venue_id: str, limit: int = 50, board: str = "total"
+) -> List[Dict]:
+    """
+    俱乐部天梯
+    - week: 本周积分增加排名（不考虑段位）
+    - month: 本月积分增加排名（不考虑段位）
+    - total: 当前总积分排名
+    """
+    from ladder_settings import get_effective_ladder_rules
+
+    venue_id = venue_id or DEFAULT_VENUE_ID
+    board = (board or "total").lower()
+    if board not in ("week", "month", "total"):
+        board = "total"
+
+    rules = get_effective_ladder_rules(venue_id)
+    club_users = _club_member_users(venue_id)
+    linked = {u["id"] for u in club_users}
+    users = load("users")
+
+    week_scores = _week_score_totals(linked)
+    month_scores = _month_score_totals(linked)
+
+    if board == "week":
+        period_scores = week_scores
+        sort_key = lambda u: (-period_scores.get(u["id"], 0), u.get("created_at", ""))
+    elif board == "month":
+        period_scores = month_scores
+        sort_key = lambda u: (-period_scores.get(u["id"], 0), u.get("created_at", ""))
+    else:
+        period_scores = {}
+        sort_key = lambda u: (-u.get("score", 1000), u.get("created_at", ""))
+
+    club_users.sort(key=sort_key)
 
     global_board = build_leaderboard(users, limit=10000, include_hidden=True)
     global_rank_map = {item["id"]: item["rank"] for item in global_board}
 
-    week_scores = load("week_rank").get("scores") or {}
-    month_scores = _month_score_totals(linked)
     uids = [u["id"] for u in club_users]
     week_pos = _rank_positions(week_scores, uids)
     month_pos = _rank_positions(month_scores, uids)
@@ -100,27 +144,55 @@ def build_club_leaderboard(venue_id: str, limit: int = 50) -> List[Dict]:
     result = []
     for i, u in enumerate(club_users[:limit], start=1):
         uid = u["id"]
+        global_rank = global_rank_map.get(uid, 9999)
+        if board == "week":
+            display_rank = week_pos.get(uid, 9999)
+        elif board == "month":
+            display_rank = month_pos.get(uid, 9999)
+        else:
+            display_rank = i
         row = _enrich_row(
             u,
-            global_rank_map.get(uid, 9999),
+            display_rank if board in ("week", "month") else global_rank,
             week_pos.get(uid, 9999),
             month_pos.get(uid, 9999),
             rules,
         )
         row["club_rank"] = i
+        row["global_rank"] = global_rank
+        row["board"] = board
+        row["board_score"] = (
+            period_scores.get(uid, 0) if board in ("week", "month") else u.get("score", 1000)
+        )
+        row["week_score"] = week_scores.get(uid, 0)
+        row["month_score"] = month_scores.get(uid, 0)
+        if board in ("week", "month"):
+            row["rank"] = i
         result.append(row)
     return result
 
 
+def _user_venue_label(user_id: str) -> str:
+    """选手主要所属俱乐部（用于全平台榜展示，不参与排名计算）"""
+    names = []
+    for v in load("venues"):
+        vid = v.get("id", DEFAULT_VENUE_ID)
+        if user_id in users_linked_to_venue(vid):
+            names.append(v.get("name") or vid)
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    return f"{names[0]} 等"
+
+
 def build_global_leaderboard(limit: int = 50) -> List[Dict]:
+    """全平台总天梯：所有俱乐部的小程序注册用户按积分统一排名"""
     from ladder_settings import get_ladder_rules
 
     rules = get_ladder_rules()
     users = load("users")
     board = build_leaderboard(users, limit=limit)
-    linked_all: Set[str] = set()
-    for v in load("venues"):
-        linked_all |= users_linked_to_venue(v.get("id", DEFAULT_VENUE_ID))
 
     week_scores = load("week_rank").get("scores") or {}
     month_scores = _month_score_totals()
@@ -131,19 +203,15 @@ def build_global_leaderboard(limit: int = 50) -> List[Dict]:
     result = []
     for item in board:
         u = find_by_id(users, item["id"]) or {}
-        if item["id"] not in linked_all:
-            continue
-        result.append(
-            _enrich_row(
-                u,
-                item["rank"],
-                week_pos.get(item["id"], 9999),
-                month_pos.get(item["id"], 9999),
-                rules,
-            )
+        row = _enrich_row(
+            u,
+            item["rank"],
+            week_pos.get(item["id"], 9999),
+            month_pos.get(item["id"], 9999),
+            rules,
         )
-        if len(result) >= limit:
-            break
+        row["venue_name"] = _user_venue_label(item["id"])
+        result.append(row)
     return result
 
 

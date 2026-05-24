@@ -4,31 +4,66 @@
     <view class="tab {{tab === 'global' ? 'active' : ''}}" data-tab="global" bindtap="switchTab">总天梯排行</view>
   </view>
 
+  <view class="float-bar float-bar-sub" wx:if="{{tab === 'club'}}">
+    <view class="sub-tab {{clubBoard === 'week' ? 'active' : ''}}" data-board="week" bindtap="switchClubBoard">周榜</view>
+    <view class="sub-tab {{clubBoard === 'month' ? 'active' : ''}}" data-board="month" bindtap="switchClubBoard">月榜</view>
+    <view class="sub-tab {{clubBoard === 'total' ? 'active' : ''}}" data-board="total" bindtap="switchClubBoard">总榜</view>
+  </view>
+
+  <text class="float-desc" wx:if="{{tab === 'global'}}">全平台排名：汇总所有俱乐部小程序用户，按积分统一排序</text>
+  <text class="float-desc" wx:if="{{tab === 'club'}}">{{clubBoardDesc}}</text>
+
   <view
-    class="float-row {{item.club_rank === 1 || item.rank === 1 ? 'float-row-highlight rank-first' : ''}} {{item.rank <= 5 ? 'top' : ''}}"
+    class="float-row {{item.empty ? 'float-row-empty' : ''}} {{!item.empty && (item.club_rank === 1 || item.rank === 1) ? 'float-row-highlight rank-first' : ''}} {{!item.empty && (item.club_rank <= 5 || item.rank <= 5) ? 'top' : ''}}"
     wx:for="{{list}}"
-    wx:key="id"
+    wx:key="rowKey"
     bindtap="showPlayer"
     data-id="{{item.id}}"
   >
-    <text class="rank-num {{item.club_rank === 1 || item.rank === 1 ? 'num-first' : ''}}">
-      {{tab === 'club' ? (item.club_rank || item.rank) : item.rank}}
+    <text class="rank-num {{!item.empty && (item.club_rank === 1 || item.rank === 1) ? 'num-first' : ''}}">
+      {{item.displayRank || (tab === 'club' ? (item.club_rank || item.rank) : item.rank)}}
     </text>
-    <image class="avatar-sm" src="{{item.avatar || '/assets/default-avatar.png'}}" mode="aspectFill" />
-    <view class="info">
-      <view class="name-line">
-        <image class="tier-img tier-img-sm" src="{{item.tierImage}}" mode="aspectFit" />
-        <text class="name">{{item.nickname}}</text>
+    <block wx:if="{{!item.empty}}">
+      <image
+        wx:if="{{tab === 'global' || clubBoard === 'total'}}"
+        class="tier-img tier-img-sm tier-rank-slot"
+        src="{{item.tierImage}}"
+        mode="aspectFit"
+      />
+      <image
+        wx:else
+        class="avatar-sm"
+        src="{{item.avatar || '/assets/default-avatar.png'}}"
+        mode="aspectFill"
+      />
+      <view class="info">
+        <view class="name-line">
+          <text class="name">{{item.nickname}}</text>
+        </view>
+        <text class="tier score-main" wx:if="{{tab === 'club' && clubBoard === 'week'}}">本周 +{{item.board_score || item.week_score || 0}} 分</text>
+        <text class="tier score-main" wx:elif="{{tab === 'club' && clubBoard === 'month'}}">本月 +{{item.board_score || item.month_score || 0}} 分</text>
+        <text class="tier score-main" wx:elif="{{tab === 'club' && clubBoard === 'total'}}">{{item.score}} 分</text>
+        <text class="tier" wx:else>{{item.tier_name}} {{item.star}}星 · {{item.score}}分</text>
+        <text class="sub-rank" wx:if="{{tab === 'club' && clubBoard === 'total'}}">
+          本周+{{item.week_score || 0}} · 本月+{{item.month_score || 0}}
+        </text>
+        <text class="sub-rank" wx:elif="{{tab === 'club' && clubBoard === 'week'}}">当前总积分 {{item.score}} 分</text>
+        <text class="sub-rank" wx:elif="{{tab === 'club' && clubBoard === 'month'}}">当前总积分 {{item.score}} 分</text>
+        <text class="sub-rank" wx:else>
+          <text wx:if="{{item.venue_name}}">{{item.venue_name}} · </text>胜率 {{item.win_rate}}% · {{item.total_games}}场
+        </text>
       </view>
-      <text class="tier">{{item.tier_name}} {{item.star}}星 · {{item.score}}分</text>
-      <text class="sub-rank" wx:if="{{tab === 'club'}}">
-        总{{item.rank >= 9999 ? '—' : item.rank}} · 周{{item.week_rank >= 9999 ? '—' : item.week_rank}} · 月{{item.month_rank >= 9999 ? '—' : item.month_rank}}
-      </text>
-      <text class="sub-rank" wx:else>胜率 {{item.win_rate}}% · {{item.total_games}}场</text>
-    </view>
-    <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
+      <text class="rank-icon" wx:if="{{item.rankIcon}}">{{item.rankIcon}}</text>
+    </block>
+    <block wx:else>
+      <view class="avatar-sm avatar-sm-empty"></view>
+      <view class="info">
+        <text class="name name-muted">虚位以待</text>
+        <text class="tier tier-muted">等待选手上榜</text>
+      </view>
+    </block>
   </view>
-  <view wx:if="{{!loading && !list.length}}" class="empty">暂无数据</view>
+  <view wx:if="{{!loading && !list.length}}" class="float-empty">暂无数据</view>
 </view>
 
 <view class="player-mask" wx:if="{{playerDetail}}" bindtap="closePlayer">

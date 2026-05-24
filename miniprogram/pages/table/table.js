@@ -1,10 +1,11 @@
 const api = require('../../utils/api');
+const { getVenueId } = require('../../utils/venueStore');
 const { getTierStyle } = require('../../utils/tierIcons');
 
 const app = getApp();
 
 const BONUS_LABEL = { break_run: '炸清+20', clearance: '接清+15' };
-const ACTION_COOLDOWN_SEC = 60;
+const ACTION_COOLDOWN_SEC = 20;
 /** 切到微信聊天等后台：仍占坑时长（毫秒） */
 const LOBBY_BACKGROUND_LEAVE_MS = 60000;
 const RACE_OPTIONS = [5, 7, 9, 11, 13];
@@ -85,12 +86,12 @@ Page({
 
     opponentBonusCard: null,
 
-    pollTimer: null,
     loadError: '',
     pageReady: false,
     _initDone: false,
     idleUi: { active: false },
     idleCountdownTimer: null,
+    expectedVenueId: '',
 
   },
 
@@ -112,14 +113,13 @@ Page({
 
     this._leaveTableId = '';
 
-    this._leaveToken = '';
-
     this._lobbyLeaveTimer = null;
 
     const tableId = options.table_id || '';
     const qrToken = options.qr_token || '';
+    const expectedVenueId = options.venue_id || getVenueId();
 
-    this.setData({ tableId, qrToken });
+    this.setData({ tableId, qrToken, expectedVenueId });
 
     if (!tableId || !qrToken) {
       this.setData({
@@ -165,12 +165,6 @@ Page({
 
     }
 
-    if (this.data.pollTimer) {
-
-      this.setData({ pollTimer: null });
-
-    }
-
   },
 
 
@@ -198,17 +192,13 @@ Page({
   },
 
   leaveLobbySilent() {
-    if (!this.isInLobby()) return;
+    if (!this.isInLobby()) return Promise.resolve();
     const tid = this._leaveTableId || this.data.tableId;
     const token = app.globalData.accessToken || app.globalData.token || wx.getStorageSync('access_token');
-    if (!tid || !token) return;
-    const prev = app.globalData.token;
-    const prevAccess = app.globalData.accessToken;
-    app.globalData.token = token;
-    app.globalData.accessToken = token;
-    api.request(`/api/table/${tid}/leave`, 'POST', {}).catch(() => {});
-    app.globalData.token = prev;
-    app.globalData.accessToken = prevAccess;
+    if (!tid || !token) return Promise.resolve();
+    return api
+      .request(`/api/table/${encodeURIComponent(tid)}/leave`, 'POST', {})
+      .catch(() => {});
   },
 
   /** 切到后台：60 秒内仍占坑；超时或真正关闭后再离场 */
@@ -434,42 +424,32 @@ Page({
 
     this.stopPoll();
 
-    const pollOnce = () => {
-
+    const pollOnce = async () => {
       if (this._destroyed) return;
-
       if (this._pollBusy) {
         this._pollRetry = true;
         return;
       }
-
       if (!app.globalData.token) {
-
-        this.stopPoll();
-
         return;
-
       }
-
-      const playing = this.data.match && this.data.match.status === 'playing';
-
+      const playing =
+        (this.data.match && this.data.match.status === 'playing') ||
+        (this.data.table && this.data.table.current_match_id);
       if (!playing) {
-
-        this.joinTable();
-
+        await this.joinTable();
       } else {
-
-        this.refreshMatchData(this.data.match.id);
-
+        const mid =
+          (this.data.match && this.data.match.id) ||
+          (this.data.table && this.data.table.current_match_id);
+        if (mid) await this.refreshMatchData(mid);
       }
-
     };
 
     pollOnce();
-
-    this._pollTimer = setInterval(pollOnce, 2000);
-
-    this.setData({ pollTimer: this._pollTimer });
+    this._pollTimer = setInterval(() => {
+      pollOnce();
+    }, 2000);
 
   },
 
@@ -485,10 +465,10 @@ Page({
 
     try {
 
+      const venueId = this.data.expectedVenueId || getVenueId();
       const table = await api.request(`/api/table/${this.data.tableId}/join`, 'POST', {
-
         qr_token: this.data.qrToken,
-
+        venue_id: venueId,
       });
 
       const raceTo = normalizeRaceTo(table.race_to || 5);
@@ -521,28 +501,25 @@ Page({
 
       this._leaveTableId = this.data.tableId;
 
-      this._leaveToken = app.globalData.token || '';
 
       return true;
 
     } catch (e) {
-
-      this.stopPoll();
-
-      if (!this._destroyed) {
-
-        this.setData({ loadError: String(e) });
-
-        wx.showToast({ title: String(e), icon: 'none' });
-
+      if (this.isAuthError(e)) {
+        const refreshed = await api.tryRefreshToken().catch(() => false);
+        if (!refreshed) {
+          this.stopPoll();
+        }
       }
-
+      if (!this._destroyed) {
+        this.setData({ loadError: String(e) });
+        if (!this.isAuthError(e)) {
+          wx.showToast({ title: String(e), icon: 'none' });
+        }
+      }
       return false;
-
     } finally {
-
       this._pollBusy = false;
-
       if (this._pollRetry && !this._destroyed) {
         this._pollRetry = false;
         if (this.data.match && this.data.match.status === 'playing') {
@@ -571,11 +548,17 @@ Page({
 
     try {
 
-      const id = matchId || this.data.match.id;
+      const id =
+        matchId ||
+        (this.data.table && this.data.table.current_match_id) ||
+        (this.data.match && this.data.match.id);
+      if (!id) return;
 
-      const playing = this.data.match && this.data.match.status === 'playing';
+      const shouldSync =
+        (this.data.table && this.data.table.current_match_id) ||
+        (this.data.match && this.data.match.status === 'playing');
 
-      const match = playing
+      const match = shouldSync
         ? await api.request(`/api/match/${id}/sync`, 'POST', {})
         : await api.request(`/api/match/${id}`);
 
@@ -617,13 +600,12 @@ Page({
       }
 
     } catch (e) {
-
       if (this.isAuthError(e)) {
-
-        this.stopPoll();
-
+        const refreshed = await api.tryRefreshToken().catch(() => false);
+        if (!refreshed) {
+          this.stopPoll();
+        }
       }
-
       const m = this.data.match;
 
       if (m && (m.status === 'finished' || m.status === 'invalid')) {
@@ -777,11 +759,9 @@ Page({
     }
 
     const body = {
-
       race_to: this.data.raceTo,
-
       match_type: 'auto',
-
+      venue_id: this.data.expectedVenueId || getVenueId(),
     };
 
     const challenge = wx.getStorageSync('challenge_target');

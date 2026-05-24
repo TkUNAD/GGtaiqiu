@@ -9,7 +9,7 @@
       <text class="lobby-table-sub" wx:else>扫码签到 · 到场 {{table.waiting_count || 0}}/2</text>
     </view>
 
-    <view class="race-panel" wx:if="{{table.waiting_count >= 1 || table.i_am_waiting}}">
+    <view class="race-panel float-surface" wx:if="{{table.waiting_count >= 1 || table.i_am_waiting}}">
       <text class="race-panel-label">选择对局数</text>
       <view class="race-picker" bindtap="openRacePicker">
         <text class="race-picker-text">抢{{raceTo}}</text>
@@ -29,7 +29,7 @@
       <text class="race-sync" wx:if="{{table.race_picker}}">{{table.race_picker.nickname}} 选择了抢{{table.race_to}}（双方已同步）</text>
     </view>
 
-    <view class="vs-arena">
+    <view class="vs-arena float-surface">
       <view class="fighter-slot">
         <image class="fighter-avatar" src="{{lobbyP1.avatar}}" mode="aspectFill" />
         <text class="fighter-name">{{lobbyP1.nickname}}</text>
@@ -69,12 +69,12 @@
 
   <!-- ========== 对局进行中 ========== -->
   <view class="play-shell" wx:if="{{match && match.status === 'playing'}}">
-    <view class="play-head">
+    <view class="play-head float-surface">
       <text class="play-race">抢{{match.race_to}}</text>
       <text class="play-type">{{match.match_type === 'ranked' ? '排位赛' : '休闲局'}}</text>
     </view>
 
-    <view class="play-scoreboard">
+    <view class="play-scoreboard float-surface">
       <view class="play-side">
         <text class="play-score-num">{{match.score1}}</text>
         <text class="play-side-name">{{match.p1.nickname}}</text>
@@ -89,7 +89,7 @@
       </view>
     </view>
 
-    <view class="play-fighters">
+    <view class="play-fighters float-surface">
       <view class="play-fighter">
         <image class="play-avatar" src="{{match.p1.avatarUrl}}" mode="aspectFill" />
         <image class="tier-img tier-img-sm" src="{{match.p1.tierImage}}" mode="aspectFit" />
@@ -102,7 +102,7 @@
       </view>
     </view>
 
-    <view class="bonus-section bonus-section-center">
+    <view class="bonus-section bonus-section-center float-surface">
       <text class="bonus-title">炸清/接清（对方确认后加分，申报方胜1局）</text>
       <view class="bonus-row">
         <view class="bonus-btn {{cooldown > 0 ? 'btn-action-disabled' : ''}}" bindtap="requestBonus" data-type="break_run">申报炸清+20</view>

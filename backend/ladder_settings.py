@@ -44,6 +44,9 @@ DEFAULT_LADDER_RULES = {
     "bonus_review_threshold": 2,
     "cheat_penalty_points": 200,
     "cheat_scroll_times": 3,
+    "match_idle_alert_seconds": 600,
+    "match_idle_prompt_seconds": 60,
+    "match_end_request_seconds": 60,
     "tier_definitions": default_tier_definitions(),
     "point_rules": deepcopy(DEFAULT_POINT_RULES),
     "rule_description": "",
@@ -95,6 +98,9 @@ def _merge_rules(raw: Dict) -> Dict:
                 "bonus_review_threshold",
                 "cheat_penalty_points",
                 "cheat_scroll_times",
+                "match_idle_alert_seconds",
+                "match_idle_prompt_seconds",
+                "match_end_request_seconds",
             ):
                 rules[key] = int(val)
             elif key in ("beyond_rank_daily_bonus_only", "ranked_over_limit_to_casual"):
@@ -141,6 +147,9 @@ def build_rule_description(rules: Dict) -> str:
         "",
         f"【日常】有效局+{rules.get('daily_bonus_valid_match')}；炸清+{rules.get('daily_bonus_break_run')}；"
         f"接清+{rules.get('daily_bonus_clearance')}；开台+{rules.get('daily_bonus_hour_open')}/小时。",
+        "",
+        f"【闲置】双方无操作 {int(rules.get('match_idle_alert_seconds', 600) // 60)} 分钟后提醒；"
+        f"提醒后 {int(rules.get('match_idle_prompt_seconds', 60) // 60)} 分钟内仍无操作则自动结束对局。",
     ]
     return "\n".join(lines)
 
