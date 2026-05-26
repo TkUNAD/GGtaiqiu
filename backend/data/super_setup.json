@@ -1,0 +1,9 @@
+{
+  "initialized": true,
+  "pending_token": null,
+  "token_used": true,
+  "token_expires_at": 1780319962.5702527,
+  "pending_scene": null,
+  "password_hash": "scrypt:32768:8:1$nvakKBPYkrZNFrXg$10ac9af7f6abdf1ea860e0690a9c7cfe88ef63c69e0b1bea78d8213a34981d0b0bb367c29ff266e734c10987c77862321a945e9bfe0a38a092b44a4595f02368",
+  "provisioned_at": 1779717047.146267
+}

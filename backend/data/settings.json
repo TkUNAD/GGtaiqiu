@@ -50,6 +50,9 @@
     "bonus_review_threshold": 2,
     "cheat_penalty_points": 200,
     "cheat_scroll_times": 5,
+    "match_idle_alert_seconds": 600,
+    "match_idle_prompt_seconds": 60,
+    "match_end_request_seconds": 60,
     "tier_definitions": [
       {
         "name": "新锐学徒",
@@ -83,7 +86,7 @@
       }
     ],
     "point_rules": {
-      "max_ranked_tier_gap": 1,
+      "max_ranked_tier_gap": 3,
       "same_winner_base": 20,
       "same_winner_per_frame": 2,
       "same_loser_base": 15,
@@ -96,7 +99,7 @@
       "high_win_winner_per_frame": 2,
       "high_win_loser_base": 10,
       "high_win_loser_per_frame": 2,
-      "casual_winner_bonus": 0
+      "casual_winner_bonus": 5
     },
     "rule_description": ""
   }

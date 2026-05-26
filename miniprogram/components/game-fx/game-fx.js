@@ -6,26 +6,23 @@ function makeShards(n) {
   return Array.from({ length: n }, (_, i) => ({
     id: i,
     rot: (360 / n) * i + (i % 3) * 15,
-    dist: 60 + (i % 5) * 36,
     delay: (i % 6) * 0.05,
-    size: 16 + (i % 4) * 10,
-    left: 38 + (i * 7) % 24,
   }));
 }
 
-function makeEmbers(n) {
+function makeParticles(n, kind) {
   return Array.from({ length: n }, (_, i) => ({
     id: i,
-    left: 15 + (i * 11) % 70,
-    top: 35 + (i * 9) % 40,
-    delay: (i % 8) * 0.12,
-    dur: 0.6 + (i % 4) * 0.15,
+    left: 8 + (i * 17) % 84,
+    top: kind === 'win' ? 50 + (i * 13) % 40 : 0,
+    delay: (i % 10) * 0.08,
+    size: 10 + (i % 5) * 6,
   }));
 }
 
 Component({
   properties: {
-    type: { type: String, value: '' },
+    fxKind: { type: String, value: '' },
     oldTier: { type: Number, value: 1 },
     newTier: { type: Number, value: 1 },
   },
@@ -33,7 +30,7 @@ Component({
   data: {
     visible: false,
     shards: [],
-    embers: [],
+    particles: [],
     oldSrc: '',
     newSrc: '',
     tierPhase: 'old',
@@ -46,13 +43,13 @@ Component({
   },
 
   observers: {
-    type(t) {
-      if (!t) {
+    fxKind(kind) {
+      if (!kind) {
         this._clearTimer();
         this.setData({ visible: false, tierPhase: 'old' });
         return;
       }
-      this._play(t);
+      this._play(kind);
     },
   },
 
@@ -72,10 +69,11 @@ Component({
 
     _play(t) {
       this._clearTimer();
+      const particles = makeParticles(t === 'lose' ? 18 : 14, t);
       const base = {
         visible: true,
-        shards: makeShards(t === 'lose' ? 22 : 14),
-        embers: makeEmbers(12),
+        shards: makeShards(12),
+        particles,
         tierPhase: 'old',
       };
       if (t === 'tierUp') {

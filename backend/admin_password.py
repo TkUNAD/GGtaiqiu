@@ -55,6 +55,20 @@ def apply_super_admin_password(new_password: str) -> None:
     config.ADMIN_PASS = new_password
 
 
+def apply_super_admin_account(username: str, password: str) -> None:
+    """写入总后台账号密码（.env + 运行时 config）"""
+    username = (username or "").strip()
+    password = password or ""
+    if not username:
+        raise ValueError("总后台账号不能为空")
+    if len(password) < 6:
+        raise ValueError("总后台密码至少 6 位")
+    _update_env_key("ADMIN_USER", username)
+    _update_env_key("ADMIN_PASS", password)
+    config.ADMIN_USER = username
+    config.ADMIN_PASS = password
+
+
 def verify_super_recovery_secret(secret: str) -> bool:
     """找回总后台密码：需输入 .env 中的 JWT_SECRET"""
     expected = (config.JWT_SECRET or "").strip()
@@ -70,7 +84,9 @@ def change_password_with_old(
         raise ValueError("请填写账号和当前密码")
 
     if username == config.ADMIN_USER:
-        if old_password != config.ADMIN_PASS:
+        from super_setup_service import verify_super_password
+
+        if not verify_super_password(old_password):
             raise ValueError("当前密码错误")
         apply_super_admin_password(new_password)
         return {"role": "super", "username": username, "message": "总后台密码已更新"}
@@ -81,7 +97,7 @@ def change_password_with_old(
 
     from venue_service import update_venue
 
-    update_venue(venue["id"], {"password": new_password})
+    update_venue(venue["id"], {"password": new_password, "initial_password_plain": new_password})
     return {
         "role": "venue",
         "username": username,
@@ -116,7 +132,7 @@ def reset_password_forgot(
             raise ValueError("安全码错误")
         from venue_service import update_venue
 
-        update_venue(venue["id"], {"password": new_password})
+        update_venue(venue["id"], {"password": new_password, "initial_password_plain": new_password})
         return {
             "role": "venue",
             "message": "球房密码已重置，请使用新密码登录",
@@ -135,7 +151,9 @@ def change_password_logged_in(
 ) -> dict:
     _validate_new_password(new_password, confirm_password)
     if role == "super":
-        if username != config.ADMIN_USER or old_password != config.ADMIN_PASS:
+        from super_setup_service import authenticate_super
+
+        if not authenticate_super(username, old_password):
             raise ValueError("当前密码错误")
         apply_super_admin_password(new_password)
         return {"message": "总后台密码已更新，下次登录请使用新密码"}
@@ -147,6 +165,6 @@ def change_password_logged_in(
             raise ValueError("当前密码错误")
         from venue_service import update_venue
 
-        update_venue(venue_id, {"password": new_password})
+        update_venue(venue_id, {"password": new_password, "initial_password_plain": new_password})
         return {"message": "球房登录密码已更新"}
     raise ValueError("无法修改密码")

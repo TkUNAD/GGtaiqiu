@@ -31,7 +31,7 @@
 
     <view class="vs-arena float-surface">
       <view class="fighter-slot">
-        <image class="fighter-avatar" src="{{lobbyP1.avatar}}" mode="aspectFill" />
+        <image class="fighter-avatar" src="{{lobbyP1.avatar}}" mode="aspectFill" binderror="onLobbyAvatarError" data-slot="lobbyP1" />
         <text class="fighter-name">{{lobbyP1.nickname}}</text>
         <view class="fighter-tier">
           <image class="tier-img tier-img-sm" src="{{lobbyP1.tierImage}}" mode="aspectFit" />
@@ -49,7 +49,7 @@
       </view>
 
       <view class="fighter-slot">
-        <image class="fighter-avatar" src="{{lobbyP2.avatar}}" mode="aspectFill" />
+        <image class="fighter-avatar" src="{{lobbyP2.avatar}}" mode="aspectFill" binderror="onLobbyAvatarError" data-slot="lobbyP2" />
         <text class="fighter-name">{{lobbyP2.nickname}}</text>
         <view class="fighter-tier">
           <image class="tier-img tier-img-sm" src="{{lobbyP2.tierImage}}" mode="aspectFit" />
@@ -72,6 +72,7 @@
     <view class="play-head float-surface">
       <text class="play-race">抢{{match.race_to}}</text>
       <text class="play-type">{{match.match_type === 'ranked' ? '排位赛' : '休闲局'}}</text>
+      <text class="play-review-hint" wx:if="{{match.review_notice}}">{{match.review_notice}}</text>
     </view>
 
     <view class="play-scoreboard float-surface">
@@ -91,12 +92,12 @@
 
     <view class="play-fighters float-surface">
       <view class="play-fighter">
-        <image class="play-avatar" src="{{match.p1.avatarUrl}}" mode="aspectFill" />
+        <image class="play-avatar" src="{{match.p1.avatarUrl}}" mode="aspectFill" binderror="onPlayAvatarError" data-side="p1" />
         <image class="tier-img tier-img-sm" src="{{match.p1.tierImage}}" mode="aspectFit" />
         <text class="play-tier">{{match.p1.tierName}}</text>
       </view>
       <view class="play-fighter">
-        <image class="play-avatar" src="{{match.p2.avatarUrl}}" mode="aspectFill" />
+        <image class="play-avatar" src="{{match.p2.avatarUrl}}" mode="aspectFill" binderror="onPlayAvatarError" data-side="p2" />
         <image class="tier-img tier-img-sm" src="{{match.p2.tierImage}}" mode="aspectFit" />
         <text class="play-tier">{{match.p2.tierName}}</text>
       </view>
@@ -193,7 +194,7 @@
       <view class="bonus-card-title">炸清 / 接清申报</view>
       <text class="bonus-card-desc">{{opponentBonusCard.claimer_name}} 申报了</text>
       <text class="bonus-card-type">{{opponentBonusCard.typeLabel}}</text>
-      <text class="bonus-card-hint">是否同意？确认后申报方加分并胜1局</text>
+      <text class="bonus-card-hint">是否同意？未达审核次数则加分并胜1局；达次数则仅记录待审核，比分可继续增加</text>
       <view class="bonus-card-actions">
         <view class="bonus-card-btn reject" bindtap="onRejectOpponentCard">拒绝</view>
         <view class="bonus-card-btn confirm" bindtap="onConfirmOpponentCard">确认</view>

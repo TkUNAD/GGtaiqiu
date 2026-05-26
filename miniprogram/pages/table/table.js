@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const { getVenueId } = require('../../utils/venueStore');
 const { getTierStyle } = require('../../utils/tierIcons');
+const { DEFAULT_AVATAR, resolveDisplayAvatar } = require('../../utils/avatar');
 
 const app = getApp();
 
@@ -16,8 +17,6 @@ function raceToPickerIndex(raceTo) {
   const idx = RACE_OPTIONS.indexOf(n);
   return idx >= 0 ? idx : 0;
 }
-const DEFAULT_AVATAR = '/assets/default-avatar.png';
-
 function normalizeRaceTo(v) {
   const n = parseInt(v, 10);
   return RACE_OPTIONS.indexOf(n) >= 0 ? n : 5;
@@ -35,10 +34,14 @@ function decorateLobbyPlayer(p, fallbackName) {
   const tier = getTierStyle(p.tier_index || 1);
   return {
     nickname: (p.nickname || fallbackName) + (p.is_me ? '（我）' : ''),
-    avatar: p.avatar || DEFAULT_AVATAR,
+    avatar: resolveDisplayAvatar(p.avatar),
     tierImage: tier.tierImage,
     tierName: p.tier_name ? `${p.tier_name} ${p.star || 1}星` : tier.tierName,
   };
+}
+
+function isMatchEnded(status) {
+  return status === 'finished' || status === 'invalid' || status === 'pending_review';
 }
 
 function decorateMatchPlayer(u, fallback) {
@@ -50,7 +53,7 @@ function decorateMatchPlayer(u, fallback) {
   return {
     ...raw,
     nickname: raw.nickname || fallback,
-    avatarUrl: raw.avatar || DEFAULT_AVATAR,
+    avatarUrl: resolveDisplayAvatar(raw.avatar),
     tierImage: tier.tierImage,
     tierName: tierLabel,
   };
@@ -323,7 +326,11 @@ Page({
 
       this._shownReviewNotice[b.id] = true;
 
-      wx.showToast({ title: '炸清/接清较多，已提交后台审核', icon: 'none', duration: 3000 });
+      wx.showToast({
+        title: '炸清/接清待审核，未加分未计胜局，可继续对战',
+        icon: 'none',
+        duration: 3000,
+      });
 
     });
 
@@ -591,7 +598,7 @@ Page({
 
       this.syncCooldownFromMatch(enriched);
 
-      if (match.status === 'finished' || match.status === 'invalid') {
+      if (isMatchEnded(match.status)) {
 
         this.goResult(match.id);
 
@@ -608,7 +615,7 @@ Page({
       }
       const m = this.data.match;
 
-      if (m && (m.status === 'finished' || m.status === 'invalid')) {
+      if (m && isMatchEnded(m.status)) {
 
         this.goResult(m.id);
 
@@ -876,7 +883,7 @@ Page({
     try {
       const match = await api.request(`/api/match/${this.data.match.id}/frame`, 'POST', { action });
       this.applyCooldownFromResponse(match);
-      if (match.status === 'finished' || match.status === 'invalid') {
+      if (isMatchEnded(match.status)) {
         this.goResult(match.id);
         return;
       }
@@ -918,12 +925,25 @@ Page({
 
   onLose() { this.reportFrame('lose'); },
 
+  onPlayAvatarError(e) {
+    const side = e.currentTarget.dataset.side;
+    if (!side || !this.data.match) return;
+    const key = `match.${side}.avatarUrl`;
+    this.setData({ [key]: DEFAULT_AVATAR });
+  },
+
+  onLobbyAvatarError(e) {
+    const slot = e.currentTarget.dataset.slot;
+    if (!slot) return;
+    this.setData({ [`${slot}.avatar`]: DEFAULT_AVATAR });
+  },
+
   async onIdleContinue() {
     if (!this.data.match || !this.data.match.id) return;
     if (!this.data.idleUi.need_my_continue) return;
     try {
       const match = await api.request(`/api/match/${this.data.match.id}/idle/continue`, 'POST', {});
-      if (match.status === 'finished' || match.status === 'invalid') {
+      if (isMatchEnded(match.status)) {
         this.goResult(match.id);
         return;
       }
@@ -940,7 +960,7 @@ Page({
     if (!this.data.match || !this.data.match.id) return;
     try {
       const match = await api.request(`/api/match/${this.data.match.id}/idle/end`, 'POST', {});
-      if (match.status === 'finished' || match.status === 'invalid') {
+      if (isMatchEnded(match.status)) {
         this.goResult(match.id);
         return;
       }
@@ -967,7 +987,7 @@ Page({
         'POST',
         { agree },
       );
-      if (match.status === 'finished' || match.status === 'invalid') {
+      if (isMatchEnded(match.status)) {
         this.goResult(match.id);
         return;
       }
@@ -1106,7 +1126,9 @@ Page({
       });
 
       let tip = '已同意，申报生效';
-      if (data.frame_awarded) {
+      if (data.pending_review) {
+        tip = '已同意，待后台审核（未加分、未计胜局），可继续对战';
+      } else if (data.frame_awarded) {
         tip = data.match_finished ? '已同意：对方加分胜局，对局已结束' : '已同意：对方加分并胜1局';
       } else if (data.applied) {
         tip = '已同意，加分成功';
@@ -1121,7 +1143,7 @@ Page({
 
       this.setData({ pendingBonuses: this.mapPending(data.pending) });
 
-      if (data.match_finished) {
+      if (data.match_finished || (data.match && isMatchEnded(data.match.status))) {
         this.stopPoll();
         this.goResult(this.data.match.id);
         return;

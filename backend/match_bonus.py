@@ -16,6 +16,56 @@ BONUS_TYPES = {"break_run", "clearance"}
 BONUS_LABELS = {"break_run": "炸清", "clearance": "接清"}
 
 
+def _sync_bonus_admin_review_log(
+    match_id: str,
+    bonus_id: str,
+    bonus: Optional[Dict],
+    result: str,
+    *,
+    note: str = "",
+    admin_by: str = "",
+    points_delta: int = 0,
+) -> None:
+    """管理员审核炸清/接清：同步更新审核记录"""
+    if not bonus or not bonus_id:
+        return
+    from admin_scope import match_venue_id as _mvid
+    from review_log_service import (
+        TYPE_BONUS_BREAK,
+        TYPE_BONUS_CLEAR,
+        append_review_log,
+        resolve_pending_review_log,
+    )
+
+    vid = _mvid(match_id)
+    if not vid:
+        return
+    rtype = TYPE_BONUS_BREAK if bonus.get("type") == "break_run" else TYPE_BONUS_CLEAR
+    resolved = resolve_pending_review_log(
+        vid,
+        match_id,
+        bonus_id,
+        result,
+        note=note or "",
+        admin_by=admin_by or "管理员",
+        points_delta=int(points_delta or 0),
+        auto_approved=False,
+    )
+    if not resolved:
+        append_review_log(
+            venue_id=vid,
+            match_id=match_id,
+            user_id=bonus.get("user_id"),
+            review_type=rtype,
+            ref_id=bonus_id,
+            result=result,
+            auto_approved=False,
+            points_delta=int(points_delta or 0),
+            note=note or "",
+            admin_by=admin_by or "管理员",
+        )
+
+
 def _players(m: Dict) -> Tuple[str, str]:
     return m["player1_id"], m["player2_id"]
 
@@ -149,10 +199,12 @@ def confirm_bonus(match_id: str, user_id: str, bonus_id: str = None) -> Dict:
     else:
         m = result_holder.get("match") or find_by_id(load("matches"), match_id)
 
+    item = result_holder.get("item") or {}
     return {
-        "item": result_holder.get("item"),
+        "item": item,
         "match": m,
-        "frame_awarded": bool(result_holder.get("item") and result_holder["item"].get("frame_awarded")),
+        "frame_awarded": bool(item.get("frame_awarded")),
+        "pending_review": item.get("status") == "pending_review",
         "match_finished": bool(finish_holder.get("winner_id")),
     }
 
@@ -226,6 +278,7 @@ def get_bonus_breakdown_by_player(m: Dict) -> Dict[str, Dict[str, int]]:
 
 def enrich_match_display(m: Dict, user_id: str = None) -> Dict:
     """小程序对局页：附带炸清/接清加分显示"""
+    from match_score_review import match_review_notice
     from services import get_match_action_cooldown_remaining
 
     p1_id, p2_id = _players(m)
@@ -241,6 +294,9 @@ def enrich_match_display(m: Dict, user_id: str = None) -> Dict:
     }
     if user_id:
         out["action_cooldown_remaining"] = get_match_action_cooldown_remaining(m, user_id)
+    notice = match_review_notice(m) if m.get("status") == "playing" else ""
+    if notice:
+        out["review_notice"] = notice
     return out
 
 
@@ -256,6 +312,15 @@ def _apply_bonus(
     pts = daily_bonus(bonus_type, rules=rules)
     existing = count_match_bonus_events(m)
     needs_review = existing >= threshold - 1 and threshold >= 2
+    venue_id = None
+    auto_bonus = False
+    if needs_review:
+        from venue_user_review_service import match_venue_id_from_match, player_auto_approve_bonus
+
+        venue_id = match_venue_id_from_match(m)
+        auto_bonus = bool(venue_id and player_auto_approve_bonus(claimer, venue_id))
+        if auto_bonus:
+            needs_review = False
 
     record = {
         "id": item["id"],
@@ -279,6 +344,25 @@ def _apply_bonus(
         item["status"] = "pending_review"
         item["frame_awarded"] = False
         record["frame_awarded"] = False
+        if venue_id:
+            from review_log_service import (
+                RESULT_PENDING,
+                TYPE_BONUS_BREAK,
+                TYPE_BONUS_CLEAR,
+                append_review_log,
+            )
+
+            append_review_log(
+                venue_id=venue_id,
+                match_id=m["id"],
+                user_id=claimer,
+                review_type=TYPE_BONUS_BREAK if bonus_type == "break_run" else TYPE_BONUS_CLEAR,
+                ref_id=item["id"],
+                result=RESULT_PENDING,
+                auto_approved=False,
+                points_delta=pts,
+                note="待后台审核",
+            )
         return None
     if pts:
         reason = f"{BONUS_LABELS.get(bonus_type, bonus_type)}(双方确认)"
@@ -295,10 +379,25 @@ def _apply_bonus(
     winner = _award_frame_for_claimer(m, claimer)
     item["frame_awarded"] = True
     record["frame_awarded"] = True
+    if auto_bonus and venue_id:
+        from review_log_service import TYPE_BONUS_BREAK, TYPE_BONUS_CLEAR, append_review_log
+        from review_log_service import RESULT_APPROVED
+
+        append_review_log(
+            venue_id=venue_id,
+            match_id=m["id"],
+            user_id=claimer,
+            review_type=TYPE_BONUS_BREAK if bonus_type == "break_run" else TYPE_BONUS_CLEAR,
+            ref_id=item["id"],
+            result=RESULT_APPROVED,
+            auto_approved=True,
+            points_delta=pts,
+            note="选手已开启自动通过：炸清/接清",
+        )
     return winner
 
 
-def approve_bonus_review(match_id: str, bonus_id: str, note: str = "") -> Dict:
+def approve_bonus_review(match_id: str, bonus_id: str, note: str = "", *, write_log: bool = True, admin_by: str = "") -> Dict:
     from services import adjust_user_score
 
     holder: Dict = {}
@@ -324,18 +423,115 @@ def approve_bonus_review(match_id: str, bonus_id: str, note: str = "") -> Dict:
 
     mutate("matches", _approve_fn)
     pts = daily_bonus(holder.get("bonus_type", ""))
-    if pts and holder.get("user_id"):
-        adjust_user_score(
-            holder["user_id"],
-            pts,
-            f"{BONUS_LABELS.get(holder['bonus_type'], holder['bonus_type'])}(审核通过)",
+    m_after = find_by_id(load("matches"), match_id) or {}
+    from admin_scope import match_venue_id as _mvid
+    from review_log_service import (
+        RESULT_APPROVED,
+        TYPE_BONUS_BREAK,
+        TYPE_BONUS_CLEAR,
+        append_review_log,
+    )
+
+    vid = _mvid(match_id)
+    if write_log and vid and holder.get("bonus"):
+        b = holder["bonus"]
+        from review_log_service import resolve_pending_review_log
+
+        rtype = TYPE_BONUS_BREAK if b.get("type") == "break_run" else TYPE_BONUS_CLEAR
+        resolved = resolve_pending_review_log(
+            vid,
             match_id,
+            bonus_id,
+            RESULT_APPROVED,
+            note=note or "管理员审核通过",
+            admin_by=admin_by or "管理员",
+            points_delta=pts,
+            auto_approved=False,
         )
+        if not resolved:
+            append_review_log(
+                venue_id=vid,
+                match_id=match_id,
+                user_id=b.get("user_id"),
+                review_type=rtype,
+                ref_id=bonus_id,
+                result=RESULT_APPROVED,
+                auto_approved=False,
+                points_delta=pts,
+                note=note or "管理员审核通过",
+                admin_by=admin_by or "管理员",
+            )
+    m_after = find_by_id(load("matches"), match_id) or {}
+    if pts and holder.get("user_id"):
+        reason = f"{BONUS_LABELS.get(holder['bonus_type'], holder['bonus_type'])}(审核通过)"
+        if m_after.get("status") == "pending_review":
+            ps = m_after.get("pending_settlement")
+            if ps is not None:
+                ps.setdefault("deferred_scores", []).append({
+                    "user_id": holder["user_id"],
+                    "delta": pts,
+                    "reason": reason,
+                    "at": now_iso(),
+                })
+
+                def _sync_ps(ms):
+                    mm = find_by_id(ms, match_id)
+                    if mm and mm.get("pending_settlement"):
+                        mm["pending_settlement"]["deferred_scores"] = ps["deferred_scores"]
+                    return ms
+
+                mutate("matches", _sync_ps)
+            else:
+
+                def _defer(ms):
+                    mm = find_by_id(ms, match_id)
+                    if mm:
+                        mm.setdefault("deferred_scores", []).append({
+                            "user_id": holder["user_id"],
+                            "delta": pts,
+                            "reason": reason,
+                            "at": now_iso(),
+                        })
+                    return ms
+
+                mutate("matches", _defer)
+        else:
+            adjust_user_score(holder["user_id"], pts, reason, match_id)
     m = find_by_id(load("matches"), match_id)
-    return {"match": m, "bonus": holder.get("bonus")}
+    bonus = holder.get("bonus")
+    if bonus and not bonus.get("frame_awarded") and m.get("status") == "playing":
+        finish_holder: Dict = {}
+
+        def _frame_fn(ms):
+            mm = find_by_id(ms, match_id)
+            if not mm or mm.get("status") != "playing":
+                return ms
+            b = next((x for x in mm.get("bonuses", []) if x.get("id") == bonus_id), None)
+            if not b or b.get("status") != "applied":
+                return ms
+            winner = _award_frame_for_claimer(mm, b.get("user_id"))
+            b["frame_awarded"] = True
+            if winner:
+                finish_holder["winner_id"] = winner
+            return ms
+
+        mutate("matches", _frame_fn)
+        if finish_holder.get("winner_id"):
+            from services import finalize_match
+
+            m = finalize_match(match_id, finish_holder["winner_id"], completed=True)
+        else:
+            m = find_by_id(load("matches"), match_id)
+    return {"match": m, "bonus": bonus}
 
 
-def reject_bonus_review(match_id: str, bonus_id: str, note: str = "") -> Dict:
+def reject_bonus_review(
+    match_id: str, bonus_id: str, note: str = "", *, admin_by: str = ""
+) -> Dict:
+    from review_log_service import RESULT_REJECTED
+
+    holder: Dict = {}
+
     def _reject_fn(ms):
         m = find_by_id(ms, match_id)
         if not m:
@@ -343,6 +539,7 @@ def reject_bonus_review(match_id: str, bonus_id: str, note: str = "") -> Dict:
         bonus = next((b for b in m.get("bonuses", []) if b.get("id") == bonus_id), None)
         if not bonus or bonus.get("status") != "pending_review":
             raise ValueError("无待审核的加分项")
+        holder["bonus"] = dict(bonus)
         bonus["status"] = "review_rejected"
         bonus["review_note"] = note
         bonus["reviewed_at"] = now_iso()
@@ -353,6 +550,15 @@ def reject_bonus_review(match_id: str, bonus_id: str, note: str = "") -> Dict:
         return ms
 
     mutate("matches", _reject_fn)
+    _sync_bonus_admin_review_log(
+        match_id,
+        bonus_id,
+        holder.get("bonus"),
+        RESULT_REJECTED,
+        note=note or "管理员审核驳回",
+        admin_by=admin_by,
+        points_delta=0,
+    )
     m = find_by_id(load("matches"), match_id)
     bonus = next((b for b in m.get("bonuses", []) if b.get("id") == bonus_id), None)
     return {"match": m, "bonus": bonus}
@@ -399,6 +605,17 @@ def punish_bonus_cheat(match_id: str, user_id: str, bonus_id: str, reason: str =
 
     add_violation_and_check_permanent(user_id, msg, "cheat_penalty", True)
     publish_cheat_announcement(nickname, msg, scroll_times)
+    from review_log_service import RESULT_CHEAT
+
+    _sync_bonus_admin_review_log(
+        match_id,
+        bonus_id,
+        holder.get("bonus"),
+        RESULT_CHEAT,
+        note=reason or msg,
+        admin_by="管理员",
+        points_delta=0,
+    )
     m = find_by_id(load("matches"), match_id)
     return {"match": m, "penalty": penalty, "scroll_times": scroll_times}
 
@@ -435,6 +652,32 @@ def count_applied_bonuses(m: Dict, user_id: str) -> Dict:
     return counts
 
 
+def match_duration_info(m: Dict) -> Dict:
+    """对局时长（秒 + 可读文案）"""
+    from datetime import datetime
+
+    started = (m or {}).get("started_at") or ""
+    ended = (m or {}).get("ended_at") or ""
+    if not started:
+        return {"duration_seconds": 0, "duration_label": "-"}
+    try:
+        s = datetime.fromisoformat(str(started).replace("Z", "+00:00")[:26])
+        if ended:
+            e = datetime.fromisoformat(str(ended).replace("Z", "+00:00")[:26])
+        else:
+            e = datetime.utcnow()
+        sec = max(0, int((e - s).total_seconds()))
+        if sec < 60:
+            label = f"{sec}秒"
+        elif sec < 3600:
+            label = f"{sec // 60}分{sec % 60:02d}秒"
+        else:
+            label = f"{sec // 3600}小时{(sec % 3600) // 60}分"
+        return {"duration_seconds": sec, "duration_label": label}
+    except Exception:
+        return {"duration_seconds": 0, "duration_label": "-"}
+
+
 def enrich_match_for_admin(m: Dict) -> Dict:
     """管理后台：对局列表附带球员比分与积分变动"""
     users = load("users")
@@ -464,8 +707,11 @@ def enrich_match_for_admin(m: Dict) -> Dict:
         reason = m.get("score_review_reason") or "快速操作待审核，积分暂未结算"
         review_alert = (review_alert + " · " if review_alert else "") + f"⚠ {reason}"
 
+    dur = match_duration_info(m)
     return {
         **m,
+        **dur,
+        "invalid_reason": m.get("invalid_reason") or "",
         "p1_name": p1.get("nickname", "球友"),
         "p2_name": p2.get("nickname", "球友"),
         "p1_current_score": p1.get("score", 1000),
@@ -509,10 +755,14 @@ def build_match_summary(m: Dict) -> Dict:
         tier_before = get_tier(score_before)
         ti_after = tier_after["tier_index"]
         ti_before = tier_before["tier_index"]
+        from avatar_service import client_avatar_url
+        from flask import has_request_context, request
+
+        req = request if has_request_context() else None
         return {
             "id": uid,
             "nickname": u.get("nickname", "球友"),
-            "avatar": u.get("avatar", ""),
+            "avatar": client_avatar_url(u.get("avatar") or "", req),
             "score": score_after,
             "frames_won": m["score1"] if uid == p1_id else m["score2"],
             "point_delta": delta,
@@ -525,11 +775,15 @@ def build_match_summary(m: Dict) -> Dict:
             "tier_promoted": ti_after > ti_before and m.get("status") != "invalid",
         }
 
+    from match_score_review import match_review_notice
+
     is_draw = (
-        m.get("status") == "finished"
+        m.get("status") in ("finished", "pending_review")
         and not w_id
         and m.get("score1", 0) == m.get("score2", 0)
     )
+    review_notice = match_review_notice(m)
+    settlement_pending = m.get("status") == "pending_review" or bool(review_notice)
     return {
         "match_id": m["id"],
         "winner_id": w_id,
@@ -543,6 +797,8 @@ def build_match_summary(m: Dict) -> Dict:
         "completed": m.get("completed", True),
         "half_points": m.get("half_points", False),
         "invalid_reason": m.get("invalid_reason"),
+        "settlement_pending": settlement_pending,
+        "review_notice": review_notice,
         "player1": player_summary(p1, p1_id),
         "player2": player_summary(p2, p2_id),
     }

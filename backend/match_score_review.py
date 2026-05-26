@@ -71,7 +71,33 @@ def defer_match_score(
 
 
 def match_should_defer_settlement(m: Dict) -> bool:
-    return bool(m.get("score_review_hold"))
+    from venue_user_review_service import match_venue_id_from_match, shutout_winner_should_auto
+
+    if shutout_winner_should_auto(m, match_venue_id_from_match(m)):
+        return False
+    if m.get("score_review_hold"):
+        return True
+    if m.get("needs_bonus_review"):
+        return True
+    for b in m.get("bonuses") or []:
+        if b.get("status") == "pending_review":
+            return True
+    return False
+
+
+def match_review_notice(m: Dict) -> str:
+    """小程序结算页：待审核说明"""
+    parts = []
+    if m.get("needs_bonus_review") or any(
+        b.get("status") == "pending_review" for b in (m.get("bonuses") or [])
+    ):
+        n = sum(1 for b in (m.get("bonuses") or []) if b.get("status") == "pending_review")
+        parts.append(f"本场有{n or 1}项炸清/接清待后台审核，积分暂未入账")
+    if m.get("score_review_hold"):
+        parts.append(m.get("score_review_reason") or "快速操作待审核，天梯积分暂未结算")
+    if m.get("status") == "pending_review" and not parts:
+        parts.append("本场对局待后台审核后结算积分")
+    return "；".join(parts)
 
 
 def build_pending_settlement(
@@ -109,7 +135,7 @@ def apply_pending_match_settlement(match_id: str, note: str = "") -> Dict:
 
     holder: Dict[str, Any] = {"alerts": []}
 
-    def _atomic(matches, users, score_logs, week_rank, tables):
+    def _atomic(matches, users, score_logs, week_rank):
         m = find_by_id(matches, match_id)
         if not m:
             raise ValueError("对局不存在")
@@ -118,6 +144,19 @@ def apply_pending_match_settlement(match_id: str, note: str = "") -> Dict:
         ps = m.get("pending_settlement")
         if not ps:
             raise ValueError("无待结算数据")
+
+        # 合并对局级暂存加分（审核炸清/接清时写入）到待结算包
+        ps_def = list(ps.get("deferred_scores") or [])
+        seen = {
+            (row.get("user_id"), int(row.get("delta") or 0), row.get("reason") or "")
+            for row in ps_def
+        }
+        for row in m.get("deferred_scores") or []:
+            key = (row.get("user_id"), int(row.get("delta") or 0), row.get("reason") or "")
+            if key not in seen and key[0] and key[1]:
+                ps_def.append(row)
+                seen.add(key)
+        ps["deferred_scores"] = ps_def
 
         m["status"] = "finished"
         m["review_note"] = note
@@ -182,9 +221,15 @@ def apply_pending_match_settlement(match_id: str, note: str = "") -> Dict:
 
         m.pop("pending_settlement", None)
         m.pop("deferred_scores", None)
+        m.pop("score_review_hold", None)
+        m.pop("needs_bonus_review", None)
+        m["bonus_review_queue"] = []
+        for bp in m.get("bonus_pending") or []:
+            if bp.get("status") == "pending_review":
+                bp["status"] = "applied"
         m["summary"] = build_match_summary(m)
         holder["m"] = m
-        return m
+        return matches
 
     mutate_multi(["matches", "users", "score_logs", "week_rank"], _atomic)
     from services import check_daily_score_alert

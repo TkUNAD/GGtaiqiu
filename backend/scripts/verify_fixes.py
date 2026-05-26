@@ -334,7 +334,36 @@ def test_delete_playing_match_rejected():
     print("ok delete playing rejected")
 
 
+def test_admin_staff_route_registered():
+    from app import app
+
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    assert "/api/admin/staff" in rules
+    assert "GET" in {m for r in app.url_map.iter_rules() if r.rule == "/api/admin/staff" for m in r.methods}
+    assert "/api/admin/owner-bind-qr" in rules
+    assert "POST" in {
+        m for r in app.url_map.iter_rules() if r.rule == "/api/admin/owner-bind-qr" for m in r.methods
+    }
+    print("ok admin staff + owner-bind-qr routes")
+
+
+def test_data_json_valid():
+    import json
+    import os
+
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    for name in os.listdir(data_dir):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(data_dir, name)
+        with open(path, encoding="utf-8") as f:
+            json.load(f)
+    print("ok data json files")
+
+
 if __name__ == "__main__":
+    test_admin_staff_route_registered()
+    test_data_json_valid()
     test_winner_validation()
     test_idempotent_finish()
     test_ranked_start_match()

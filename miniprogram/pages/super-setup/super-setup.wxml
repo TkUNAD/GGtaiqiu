@@ -1,0 +1,16 @@
+<view class="container">
+  <view class="card" wx:if="{{valid}}">
+    <view class="title">总后台首次设置</view>
+    <view class="hint">此二维码仅可使用一次，请设置总后台登录密码</view>
+    <view class="field">
+      <text class="label">新密码</text>
+      <input class="input" password value="{{password}}" bindinput="onPwd" />
+    </view>
+    <view class="field">
+      <text class="label">确认密码</text>
+      <input class="input" password value="{{confirm}}" bindinput="onConfirm" />
+    </view>
+    <button class="btn-primary" bindtap="onSubmit" loading="{{loading}}">完成设置</button>
+  </view>
+  <view class="empty" wx:else>{{errMsg || '链接无效或已使用'}}</view>
+</view>

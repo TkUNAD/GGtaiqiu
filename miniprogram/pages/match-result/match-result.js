@@ -8,10 +8,11 @@ Page({
     summary: null,
     matchId: '',
     loadError: '',
-    fxType: '',
+    fxKind: '',
     fxOldTier: 1,
     fxNewTier: 1,
     fxPlaying: false,
+    fxSeq: 0,
   },
 
   onLoad(options) {
@@ -30,6 +31,20 @@ Page({
     }
   },
 
+  async _ensureUser() {
+    if (app.globalData.user && app.globalData.user.id) {
+      return app.globalData.user;
+    }
+    try {
+      const profile = await api.request('/api/user/profile');
+      const u = { ...profile.user, tier: profile.tier, rank: profile.rank };
+      app.setUser(u, app.globalData.token || app.globalData.accessToken);
+      return u;
+    } catch (e) {
+      return null;
+    }
+  },
+
   _getMyPlayer(summary) {
     const user = app.globalData.user;
     if (!user || !user.id || !summary) return null;
@@ -39,22 +54,43 @@ Page({
     return null;
   },
 
+  _outcomeFromScore(summary, me) {
+    if (!me || !summary) return 'lose';
+    if (me.is_winner) return 'win';
+    const s1 = summary.score1 || 0;
+    const s2 = summary.score2 || 0;
+    if (s1 === s2) return 'draw';
+    const p1 = summary.player1 && summary.player1.id;
+    const p2 = summary.player2 && summary.player2.id;
+    if (me.id === p1) return s1 > s2 ? 'win' : 'lose';
+    if (me.id === p2) return s2 > s1 ? 'win' : 'lose';
+    return 'lose';
+  },
+
   _buildFxQueue(me, summary) {
-    if (!me || summary.status === 'invalid' || summary.invalid_reason) return [];
+    if (!me || !summary) return [];
     const queue = [];
-    if (me.tier_promoted) {
+    const skipTier = summary.status === 'invalid' || !!summary.invalid_reason;
+    if (!skipTier && me.tier_promoted) {
       queue.push({
         type: 'tierUp',
         oldTier: me.tier_before_index || 1,
         newTier: me.tier_index || 1,
       });
     }
+    const s1 = summary.score1 || 0;
+    const s2 = summary.score2 || 0;
     const isDraw = summary.is_draw
-      || (!summary.winner_id && summary.status === 'finished'
-        && summary.score1 === summary.score2);
-    if (isDraw) queue.push({ type: 'draw' });
-    else if (me.is_winner) queue.push({ type: 'win' });
-    else queue.push({ type: 'lose' });
+      || (s1 === s2 && (!summary.winner_id || summary.status === 'invalid'))
+      || this._outcomeFromScore(summary, me) === 'draw';
+    const outcome = isDraw ? 'draw' : this._outcomeFromScore(summary, me);
+    if (outcome === 'draw') {
+      queue.push({ type: 'draw' });
+    } else if (outcome === 'win') {
+      queue.push({ type: 'win' });
+    } else {
+      queue.push({ type: 'lose' });
+    }
     return queue;
   },
 
@@ -63,7 +99,7 @@ Page({
     this._fxQueue = queue;
     this._fxIndex = index;
     if (!queue || index >= queue.length) {
-      this.setData({ fxType: '', fxPlaying: false });
+      this.setData({ fxKind: '', fxPlaying: false, fxSeq: 0 });
       this._fxQueue = null;
       this._fxIndex = null;
       return;
@@ -71,20 +107,22 @@ Page({
     const item = queue[index];
     this.setData({
       fxPlaying: true,
-      fxType: item.type,
+      fxKind: item.type,
       fxOldTier: item.oldTier || 1,
       fxNewTier: item.newTier || 1,
+      fxSeq: (this.data.fxSeq || 0) + 1,
     });
-    this._fxTimer = setTimeout(() => {
-      this.setData({ fxType: '' });
-      this._playFxQueue(queue, index + 1);
-    }, FX_DURATION + 150);
   },
 
-  _startEffects(summary) {
+  async _startEffects(summary) {
+    await this._ensureUser();
     const me = this._getMyPlayer(summary);
     const queue = this._buildFxQueue(me, summary);
-    if (queue.length) this._playFxQueue(queue, 0);
+    if (queue.length) {
+      this._playFxQueue(queue, 0);
+    } else {
+      this.setData({ fxPlaying: false, fxKind: '' });
+    }
   },
 
   async load() {
@@ -93,6 +131,7 @@ Page({
       return;
     }
     try {
+      await this._ensureUser();
       const summary = await api.request(`/api/match/${this.data.matchId}/summary`);
       this.setData({ summary, loadError: '' });
       this._startEffects(summary);
@@ -110,13 +149,18 @@ Page({
   },
 
   onFxDone() {
-    if (this._fxQueue && this._fxIndex != null) {
-      this._playFxQueue(this._fxQueue, this._fxIndex + 1);
-    }
+    if (!this._fxQueue || this._fxIndex == null || this._fxAdvancing) return;
+    this._fxAdvancing = true;
+    this.setData({ fxKind: '' });
+    const next = this._fxIndex + 1;
+    setTimeout(() => {
+      this._fxAdvancing = false;
+      this._playFxQueue(this._fxQueue, next);
+    }, 100);
   },
 
-  onClose() {
+  onConfirm() {
     this._clearFxTimers();
-    wx.switchTab({ url: '/pages/profile/profile' });
+    wx.switchTab({ url: '/pages/index/index' });
   },
 });

@@ -1,0 +1,23 @@
+<view class="container">
+  <view class="card">
+    <view class="title">俱乐部密码重置</view>
+    <view class="field">
+      <text class="label">手机号</text>
+      <input class="input" type="number" maxlength="11" value="{{phone}}" bindinput="onPhone" />
+    </view>
+    <view class="field row">
+      <input class="input flex1" type="number" maxlength="4" placeholder="4位验证码" value="{{smsCode}}" bindinput="onSms" />
+      <button size="mini" class="btn-code" bindtap="onSendCode" disabled="{{codeSending}}">{{codeBtn}}</button>
+    </view>
+    <view class="field">
+      <text class="label">新密码</text>
+      <input class="input" password value="{{password}}" bindinput="onPwd" />
+    </view>
+    <view class="field">
+      <text class="label">确认新密码</text>
+      <input class="input" password value="{{confirm}}" bindinput="onConfirm" />
+    </view>
+    <button class="btn-primary" bindtap="onSubmit" loading="{{loading}}">确认修改</button>
+    <navigator class="link" url="/pages/venue-apply/venue-apply">申请新俱乐部账号</navigator>
+  </view>
+</view>

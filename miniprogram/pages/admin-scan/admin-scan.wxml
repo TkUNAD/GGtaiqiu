@@ -1,0 +1,66 @@
+<view class="container">
+
+
+
+  <view class="card scan-card" wx:if="{{showSuperForm}}">
+
+    <view class="scan-title">总后台 · 账号密码登录</view>
+
+    <view class="scan-desc">须已在总后台授权本微信，并在「我的」完成微信登录。输入总后台账号密码进入；已绑定过的微信再次登录也会刷新管理权限。</view>
+
+    <input class="form-input" placeholder="总后台账号" value="{{superUser}}" bindinput="onSuperUser" />
+
+    <input class="form-input" password placeholder="总后台密码" value="{{superPass}}" bindinput="onSuperPass" style="margin-top:16rpx" />
+
+    <button class="btn-primary" style="margin-top:24rpx" bindtap="onSuperLogin" loading="{{superLogging}}">登录总后台</button>
+
+  </view>
+
+
+
+  <view class="card tip-card" wx:if="{{showVenueSection}}">
+
+    <view class="tip-title link" bindtap="toggleVenueBind">俱乐部主管理员 · 账号密码绑定</view>
+
+    <block wx:if="{{showVenueBind}}">
+
+      <input class="form-input" type="number" maxlength="11" placeholder="俱乐部手机号（登录账号）" value="{{venueUser}}" bindinput="onVenueUser" />
+
+      <input class="form-input" password placeholder="俱乐部登录密码" value="{{venuePass}}" bindinput="onVenuePass" style="margin-top:16rpx" />
+
+      <button class="btn-primary" style="margin-top:24rpx" bindtap="onVenueBind">绑定俱乐部后台</button>
+
+    </block>
+
+  </view>
+
+  <view class="card tip-card" wx:if="{{showScanEntry}}">
+    <view class="tip-title">扫一扫</view>
+    <view class="tip-line">· 俱乐部「主管理员绑定码」（网页管理员设置里生成）</view>
+    <view class="tip-line">· 总后台登录码、授权登记码、子管理员邀请码</view>
+    <view class="tip-line">· 码约 5 分钟有效；请在本页点击扫一扫，勿用微信首页扫一扫</view>
+    <button class="btn-secondary btn-scan" bindtap="onScan" disabled="{{scanning}}">{{scanning ? '扫码中...' : '扫一扫'}}</button>
+  </view>
+
+  <view class="card tip-card" wx:if="{{!showSuperForm && !showVenueSection}}">
+    <view class="tip-title">暂无管理权限</view>
+    <view class="tip-line">您的微信尚未获授权。总后台管理员请在 Web 总后台添加授权微信。</view>
+  </view>
+
+  <view class="card tip-card" wx:if="{{showSuperForm || showVenueSection}}">
+
+    <view class="tip-title">说明</view>
+
+    <view class="tip-line">· 总后台与俱乐部账号不同，请勿混用</view>
+
+    <navigator class="tip-line link-nav" url="/pages/venue-apply/venue-apply">申请俱乐部管理账号</navigator>
+
+    <navigator class="tip-line link-nav" url="/pages/venue-reset/venue-reset">重置俱乐部密码</navigator>
+
+  </view>
+
+
+
+</view>
+
+

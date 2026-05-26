@@ -1,0 +1,6 @@
+{
+  "comment": "仅列出的 openid 在未绑定管理员前可在「我的」看到管理后台登录入口；已绑定管理员自动可见，无需重复填写",
+  "openids": [
+    "oqb843fvsHzGruHND91CRrX3Fe-U"
+  ]
+}

@@ -78,6 +78,28 @@
   <view class="card btn-shop-card" bindtap="goShop">
     <text class="btn-shop-text">积分商城 ›</text>
   </view>
+
+  <view wx:if="{{showConsoleSwitcher}}" class="console-switch-tip">
+  <text>已绑定总后台与俱乐部，点击下方入口切换</text>
+  </view>
+  <view
+    wx:for="{{consoleEntries}}"
+    wx:key="entry_key"
+    class="card admin-entry-card admin-navigator {{item.entry_type !== 'bound' ? 'bind-only-card' : ''}} {{item.is_active ? 'admin-entry-active' : ''}}"
+    hover-class="admin-entry-hover"
+    bindtap="onConsoleEntry"
+    data-entry-type="{{item.entry_type}}"
+    data-admin-id="{{item.admin_id}}"
+  >
+    <view class="admin-entry-row">
+      <view class="admin-entry-title-wrap">
+        <text class="admin-entry-title">{{item.title}}</text>
+        <text wx:if="{{item.is_active}}" class="admin-entry-active-tag">当前</text>
+      </view>
+      <text class="admin-entry-arrow">›</text>
+    </view>
+    <text class="admin-entry-desc">{{item.hint || item.subtitle}}</text>
+  </view>
   <view class="profile-legal">
     <text class="legal-link" bindtap="openLegal" data-type="user">用户服务协议</text>
     <text class="legal-dot">·</text>

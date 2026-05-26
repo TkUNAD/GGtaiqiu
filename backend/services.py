@@ -318,7 +318,9 @@ def reset_system_data(confirm_username: str, confirm_password: str) -> Dict:
     if not username or not password:
         raise ValueError("请输入管理员账号和密码")
 
-    if username != config.ADMIN_USER or password != config.ADMIN_PASS:
+    from super_setup_service import authenticate_super
+
+    if not authenticate_super(username, password):
         if authenticate_venue(username, password):
             raise ValueError("仅总管理员账号可执行全量数据重置")
         raise ValueError("账号或密码错误")
@@ -493,6 +495,7 @@ def admin_reset_data(
 
 def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone: str = "", ip: str = "") -> Dict:
     from anti_cheat import check_user_allowed
+    from avatar_service import is_ephemeral_avatar, sanitize_avatar_for_storage
 
     ok, msg = check_ip_limit(ip, openid)
     if not ok:
@@ -512,7 +515,11 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
             if nickname:
                 u["nickname"] = nickname
             if avatar:
-                u["avatar"] = avatar
+                clean = sanitize_avatar_for_storage(avatar)
+                if clean:
+                    u["avatar"] = clean
+                elif is_ephemeral_avatar(u.get("avatar") or ""):
+                    u["avatar"] = ""
             if phone:
                 okp, msgp = check_phone_unique(phone, u["id"])
                 if not okp:
@@ -530,7 +537,7 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
             "id": new_id("U"),
             "openid": openid,
             "nickname": nickname or f"球友{openid[-4:]}",
-            "avatar": avatar or "",
+            "avatar": sanitize_avatar_for_storage(avatar) if avatar else "",
             "phone": phone or "",
             "score": INITIAL_SCORE,
             "wins": 0,
@@ -1223,11 +1230,21 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
     mutate_multi(
         ["matches", "users", "score_logs", "week_rank", "tables"], _atomic
     )
+    result_m = holder.get("m") or find_by_id(load("matches"), match_id) or {}
+    if result_m and result_m.get("table_id"):
+        tbl = find_by_id(load("tables"), result_m.get("table_id"))
+        vid = (tbl or {}).get("venue_id", DEFAULT_VENUE_ID)
+        try:
+            from review_log_service import log_match_settlement_outcome
+
+            log_match_settlement_outcome(result_m, vid)
+        except Exception:
+            pass
     for uid, delta in holder.get("alerts") or []:
         alert = check_daily_score_alert(uid, delta)
         if alert:
             add_violation(uid, alert, "warn", False)
-    return holder.get("m") or find_by_id(load("matches"), match_id) or {}
+    return result_m
 
 
 def finish_match(match_id: str, winner_id: str = None, completed: bool = True) -> Dict:

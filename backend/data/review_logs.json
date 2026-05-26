@@ -1,0 +1,37 @@
+[
+  {
+    "id": "RLc345eb4499c0",
+    "venue_id": "V001",
+    "match_id": "Ma1209ceb9f3b",
+    "user_id": "Ue1c2981c0e39",
+    "user_name": ".",
+    "type": "match_settlement",
+    "type_label": "对局结算",
+    "ref_id": "Ma1209ceb9f3b",
+    "result": "approved",
+    "auto_approved": false,
+    "points_delta": 5,
+    "note": "管理员通过对局结果",
+    "admin_by": ".",
+    "created_at": "2026-05-27T01:55:00.149205",
+    "updated_at": "2026-05-27T02:16:28.653339",
+    "history": [
+      {
+        "result": "pending",
+        "auto_approved": false,
+        "points_delta": 5,
+        "note": "60秒内快速操作2次，待后台审核结算",
+        "admin_by": "",
+        "at": "2026-05-27T01:55:00.149214"
+      },
+      {
+        "result": "approved",
+        "auto_approved": false,
+        "points_delta": 5,
+        "note": "管理员通过对局结果",
+        "admin_by": ".",
+        "at": "2026-05-27T02:16:28.653347"
+      }
+    ]
+  }
+]

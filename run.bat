@@ -53,6 +53,11 @@ echo Running verify_fixes (optional)...
 "venv\Scripts\python.exe" scripts\verify_fixes.py
 if errorlevel 1 echo [WARN] verify_fixes failed - check data/backend
 
+echo Stopping old server on port 5000 if any...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5000" ^| findstr "LISTENING"') do (
+  taskkill /F /PID %%a >nul 2>&1
+)
+
 "venv\Scripts\python.exe" app.py
 set ERR=%ERRORLEVEL%
 popd

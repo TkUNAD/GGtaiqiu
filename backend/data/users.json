@@ -1,169 +1,5 @@
 [
   {
-    "id": "Ue1c2981c0e39",
-    "openid": "oqb843fvsHzGruHND91CRrX3Fe-U",
-    "nickname": ".",
-    "avatar": "http://tmp/o7NTsJawhzLxe883b9b6df571cd32763a9040298e146.jpeg",
-    "phone": "",
-    "score": 991,
-    "wins": 0,
-    "losses": 3,
-    "status": "active",
-    "created_at": "2026-05-20T20:43:13.374628",
-    "updated_at": "2026-05-24T23:37:27.987457",
-    "last_login_at": "2026-05-23T16:15:59.107896",
-    "last_battle_at": "2026-05-24T23:17:31.331280",
-    "last_ip": "127.0.0.1",
-    "daily_ranked_count": {
-      "date": "2026-05-23",
-      "count": 1
-    },
-    "weekly_ranked_count": {
-      "week": "2026-W20",
-      "count": 1
-    },
-    "open_table_hours": 0,
-    "refresh_tokens": [
-      {
-        "token_hash": "71bbb766b4654dc42dc0eaaea06b4551ee9a11c0f54599a35d386faa44eee896",
-        "expires_at": "2026-06-20T19:37:17.720321",
-        "created_at": "2026-05-21T19:37:17.720325"
-      },
-      {
-        "token_hash": "e1119bf437da11ddf5882101b682338423ec48d024f059178d38729e0f21831b",
-        "expires_at": "2026-06-21T12:52:16.727800",
-        "created_at": "2026-05-22T12:52:16.727806"
-      },
-      {
-        "token_hash": "f67bb837cb3a6015e3d45b712dd755c3687fc367e39c356ea0f6a54b8d8a1400",
-        "expires_at": "2026-06-21T14:06:23.018695",
-        "created_at": "2026-05-22T14:06:23.018701"
-      },
-      {
-        "token_hash": "795a8c13c35b3c370aee14439601d9a8e06b04d01246aa78988cdc1f472e9e8b",
-        "expires_at": "2026-06-21T14:25:46.125581",
-        "created_at": "2026-05-22T14:25:46.125587"
-      },
-      {
-        "token_hash": "4b13d4652e5d263e8a0df408f81ae5c9478735ce7eac5800b4553252afe4fcbf",
-        "expires_at": "2026-06-21T18:50:48.140019",
-        "created_at": "2026-05-22T18:50:48.140024"
-      },
-      {
-        "token_hash": "1454c3e19260e0a46ca9c16271fcac1430fd7ac4e01daf9da10aa0360e834b61",
-        "expires_at": "2026-06-22T00:11:47.538156",
-        "created_at": "2026-05-23T00:11:47.538160"
-      },
-      {
-        "token_hash": "52248f53f4c553ef897a19973dcb639d784b47fd3c295a9cd31cf40b0245e0fc",
-        "expires_at": "2026-06-22T00:11:58.837367",
-        "created_at": "2026-05-23T00:11:58.837375"
-      },
-      {
-        "token_hash": "62795dcc46794e23282a620e03143db3bdf3924d48bec78af7b907996f7eaa14",
-        "expires_at": "2026-06-22T00:25:15.398938",
-        "created_at": "2026-05-23T00:25:15.398942"
-      },
-      {
-        "token_hash": "ca745381e8be20688970098bcd1d8c9dac3c51ee9c68ee11cb521ef65e1cf1d8",
-        "expires_at": "2026-06-22T03:08:59.620608",
-        "created_at": "2026-05-23T03:08:59.620612"
-      },
-      {
-        "token_hash": "6fabf75544aecefb615f009bcb5cd5fdcf0f7d5e46cc39a6ae5a359acf869b20",
-        "expires_at": "2026-06-22T03:48:19.072989",
-        "created_at": "2026-05-23T03:48:19.072995"
-      },
-      {
-        "token_hash": "ba2c5ff344f3de1188abf0438fca3e31aad98bf9199c57b8586ea29db1a88a01",
-        "expires_at": "2026-06-22T04:32:58.731955",
-        "created_at": "2026-05-23T04:32:58.731960"
-      },
-      {
-        "token_hash": "5b8efd344d9c5a5291ed8f9ef1f6bad51a1f91db01b5b76c39912974b6f3e25e",
-        "expires_at": "2026-06-22T14:57:11.547558",
-        "created_at": "2026-05-23T14:57:11.547563"
-      },
-      {
-        "token_hash": "3cb4d23c40633eeef26cb55a5873c8ce45aeecf2b9c382ac991209f4f76d87e5",
-        "expires_at": "2026-06-22T14:57:20.843203",
-        "created_at": "2026-05-23T14:57:20.843233"
-      },
-      {
-        "token_hash": "14352cc2d262b15c44a845d6aed97ced9223302aa091aa2f109e511484e500ab",
-        "expires_at": "2026-06-22T16:10:55.923534",
-        "created_at": "2026-05-23T16:10:55.923538"
-      },
-      {
-        "token_hash": "33c627a40d460c312d5ad7067fb5a120afe3823e96745bc247ca50b326a4cc77",
-        "expires_at": "2026-06-22T16:11:31.487167",
-        "created_at": "2026-05-23T16:11:31.487171"
-      },
-      {
-        "token_hash": "b8853f97aa9d7a4905c80810ccc82fa6c11684c1fcbe522950f0ae21ebfeed93",
-        "expires_at": "2026-06-23T22:13:04.184408",
-        "created_at": "2026-05-24T22:13:04.184414"
-      },
-      {
-        "token_hash": "28381a2c497af1090ba0613db12a85ed58ca84fec5c8b48634df4361f0f8219b",
-        "expires_at": "2026-06-23T22:13:12.953725",
-        "created_at": "2026-05-24T22:13:12.953754"
-      },
-      {
-        "token_hash": "bb589c78dc06e0ad018185d872022f55d4d16a3fb7a38fd63dd90af52ddbddb7",
-        "expires_at": "2026-06-23T22:19:45.805150",
-        "created_at": "2026-05-24T22:19:45.805154"
-      },
-      {
-        "token_hash": "bcbbac15ce1b7865c64b63a6d0f8a6b79a070882e0c1547d0ada57b0808b9601",
-        "expires_at": "2026-06-23T23:02:30.127639",
-        "created_at": "2026-05-24T23:02:30.127644"
-      },
-      {
-        "token_hash": "7033c2afa3087740f31bd9732b096c35acc78b67dfbe7904823120066e76beb8",
-        "expires_at": "2026-06-23T23:24:55.514457",
-        "created_at": "2026-05-24T23:24:55.514463"
-      },
-      {
-        "token_hash": "75a7fd211f7d508373c85c8177c315fc00d0b94e9b3f99b5c6635645278b087c",
-        "expires_at": "2026-06-23T23:37:27.986999",
-        "created_at": "2026-05-24T23:37:27.987004"
-      }
-    ]
-  },
-  {
-    "id": "Uaa9478fe0103",
-    "openid": "oqb843YGYuJUciB3gkxQ6izGnaJM",
-    "nickname": "Na就是你",
-    "avatar": "wxfile://tmp_6b3360f39bbd6a3223990985ccddef3f2d2a46652a2c3ff1.jpg",
-    "phone": "",
-    "score": 1075,
-    "wins": 3,
-    "losses": 0,
-    "status": "active",
-    "created_at": "2026-05-20T20:44:24.884455",
-    "updated_at": "2026-05-24T23:17:31.331280",
-    "last_login_at": "2026-05-23T00:26:10.572469",
-    "last_battle_at": "2026-05-24T23:17:31.331280",
-    "last_ip": "192.168.0.106",
-    "daily_ranked_count": {
-      "date": "2026-05-23",
-      "count": 1
-    },
-    "weekly_ranked_count": {
-      "week": "2026-W20",
-      "count": 1
-    },
-    "open_table_hours": 0,
-    "refresh_tokens": [
-      {
-        "token_hash": "be19bda30bb8cf7958c55c47571e8686aced6d82ec6040563d1878c3f91c7656",
-        "expires_at": "2026-06-23T23:05:03.668629",
-        "created_at": "2026-05-24T23:05:03.668637"
-      }
-    ]
-  },
-  {
     "id": "u3fba0d7f695c",
     "nickname": "t",
     "score": 2000,
@@ -1126,28 +962,6 @@
     "openid": "o_u8f59a7073017"
   },
   {
-    "id": "u87f0bf364bab",
-    "nickname": "t",
-    "score": 1005,
-    "status": "active",
-    "wins": 1,
-    "losses": 0,
-    "openid": "o_u87f0bf364bab",
-    "last_battle_at": "2026-05-23T16:10:55.850254",
-    "updated_at": "2026-05-23T16:10:55.850254"
-  },
-  {
-    "id": "ub126279604d0",
-    "nickname": "t",
-    "score": 1000,
-    "status": "active",
-    "wins": 0,
-    "losses": 1,
-    "openid": "o_ub126279604d0",
-    "last_battle_at": "2026-05-23T16:10:55.850254",
-    "updated_at": "2026-05-23T16:10:55.850254"
-  },
-  {
     "id": "ub556fc36053d",
     "nickname": "t",
     "score": 2000,
@@ -1182,28 +996,6 @@
     "wins": 0,
     "losses": 0,
     "openid": "o_u215c158d738c"
-  },
-  {
-    "id": "u2766b8b4d06c",
-    "nickname": "t",
-    "score": 1005,
-    "status": "active",
-    "wins": 1,
-    "losses": 0,
-    "openid": "o_u2766b8b4d06c",
-    "last_battle_at": "2026-05-24T22:13:04.107683",
-    "updated_at": "2026-05-24T22:13:04.107683"
-  },
-  {
-    "id": "u107e0e4d4141",
-    "nickname": "t",
-    "score": 1000,
-    "status": "active",
-    "wins": 0,
-    "losses": 1,
-    "openid": "o_u107e0e4d4141",
-    "last_battle_at": "2026-05-24T22:13:04.107683",
-    "updated_at": "2026-05-24T22:13:04.107683"
   },
   {
     "id": "uc970865cc430",
@@ -1242,28 +1034,6 @@
     "openid": "o_uaaaa40522f96"
   },
   {
-    "id": "ued74ef4de54f",
-    "nickname": "t",
-    "score": 1005,
-    "status": "active",
-    "wins": 1,
-    "losses": 0,
-    "openid": "o_ued74ef4de54f",
-    "last_battle_at": "2026-05-24T22:19:45.727193",
-    "updated_at": "2026-05-24T22:19:45.727193"
-  },
-  {
-    "id": "u93c5859824ec",
-    "nickname": "t",
-    "score": 1000,
-    "status": "active",
-    "wins": 0,
-    "losses": 1,
-    "openid": "o_u93c5859824ec",
-    "last_battle_at": "2026-05-24T22:19:45.727193",
-    "updated_at": "2026-05-24T22:19:45.727193"
-  },
-  {
     "id": "u6177735f8044",
     "nickname": "t",
     "score": 2000,
@@ -1298,28 +1068,6 @@
     "wins": 0,
     "losses": 0,
     "openid": "o_u588d1f378ccf"
-  },
-  {
-    "id": "u9fad30ef0380",
-    "nickname": "t",
-    "score": 1005,
-    "status": "active",
-    "wins": 1,
-    "losses": 0,
-    "openid": "o_u9fad30ef0380",
-    "last_battle_at": "2026-05-24T23:02:30.041643",
-    "updated_at": "2026-05-24T23:02:30.041643"
-  },
-  {
-    "id": "ude432d0698bf",
-    "nickname": "t",
-    "score": 1000,
-    "status": "active",
-    "wins": 0,
-    "losses": 1,
-    "openid": "o_ude432d0698bf",
-    "last_battle_at": "2026-05-24T23:02:30.041643",
-    "updated_at": "2026-05-24T23:02:30.041643"
   },
   {
     "id": "u9282d648719a",
@@ -1358,28 +1106,6 @@
     "openid": "o_udc109b89be3d"
   },
   {
-    "id": "ue201844452dc",
-    "nickname": "t",
-    "score": 1005,
-    "status": "active",
-    "wins": 1,
-    "losses": 0,
-    "openid": "o_ue201844452dc",
-    "last_battle_at": "2026-05-24T23:24:55.422224",
-    "updated_at": "2026-05-24T23:24:55.422224"
-  },
-  {
-    "id": "ufafbf1403afa",
-    "nickname": "t",
-    "score": 1000,
-    "status": "active",
-    "wins": 0,
-    "losses": 1,
-    "openid": "o_ufafbf1403afa",
-    "last_battle_at": "2026-05-24T23:24:55.422224",
-    "updated_at": "2026-05-24T23:24:55.422224"
-  },
-  {
     "id": "ub017df78c877",
     "nickname": "t",
     "score": 2000,
@@ -1416,28 +1142,6 @@
     "openid": "o_u130ced184dad"
   },
   {
-    "id": "ua97cd02fbc0c",
-    "nickname": "t",
-    "score": 1005,
-    "status": "active",
-    "wins": 1,
-    "losses": 0,
-    "openid": "o_ua97cd02fbc0c",
-    "last_battle_at": "2026-05-24T23:37:27.885788",
-    "updated_at": "2026-05-24T23:37:27.885788"
-  },
-  {
-    "id": "u7ec4a9ca409f",
-    "nickname": "t",
-    "score": 1000,
-    "status": "active",
-    "wins": 0,
-    "losses": 1,
-    "openid": "o_u7ec4a9ca409f",
-    "last_battle_at": "2026-05-24T23:37:27.885788",
-    "updated_at": "2026-05-24T23:37:27.885788"
-  },
-  {
     "id": "u2979f259f32c",
     "nickname": "t",
     "score": 2000,
@@ -1472,5 +1176,1193 @@
     "wins": 0,
     "losses": 0,
     "openid": "o_u11916ffa3c85"
+  },
+  {
+    "id": "uff572265f43e",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uff572265f43e"
+  },
+  {
+    "id": "ue083d350ea3b",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue083d350ea3b"
+  },
+  {
+    "id": "uc02622b3d86d",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc02622b3d86d"
+  },
+  {
+    "id": "u3fe9dd79a151",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u3fe9dd79a151"
+  },
+  {
+    "id": "u4c42879efffe",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4c42879efffe"
+  },
+  {
+    "id": "uf96a060bb513",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf96a060bb513"
+  },
+  {
+    "id": "ucf5c1733bd1a",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ucf5c1733bd1a"
+  },
+  {
+    "id": "u6736792bbbde",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u6736792bbbde"
+  },
+  {
+    "id": "uebf4ba05abe2",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uebf4ba05abe2"
+  },
+  {
+    "id": "ubd8ccf1b717f",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ubd8ccf1b717f"
+  },
+  {
+    "id": "uf3dc910e733d",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf3dc910e733d"
+  },
+  {
+    "id": "u42672496aca1",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u42672496aca1"
+  },
+  {
+    "id": "u17b701a85f88",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u17b701a85f88"
+  },
+  {
+    "id": "udc5549d736d1",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_udc5549d736d1"
+  },
+  {
+    "id": "ud20ef856379d",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud20ef856379d"
+  },
+  {
+    "id": "u1f25863203c7",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u1f25863203c7"
+  },
+  {
+    "id": "ub2d96fd2d537",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub2d96fd2d537"
+  },
+  {
+    "id": "u240f6c4363b3",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u240f6c4363b3"
+  },
+  {
+    "id": "ud9fdbc76bd5a",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud9fdbc76bd5a"
+  },
+  {
+    "id": "u33cc96c82f26",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u33cc96c82f26"
+  },
+  {
+    "id": "ud5b837de1a16",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud5b837de1a16"
+  },
+  {
+    "id": "u362eb4e90f5e",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u362eb4e90f5e"
+  },
+  {
+    "id": "uf5c1aaab9384",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf5c1aaab9384"
+  },
+  {
+    "id": "u4794e7731f40",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4794e7731f40"
+  },
+  {
+    "id": "u8deaaa86ac02",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u8deaaa86ac02"
+  },
+  {
+    "id": "uba3319f087e0",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uba3319f087e0"
+  },
+  {
+    "id": "ud1069e4f3371",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud1069e4f3371"
+  },
+  {
+    "id": "u88fd0212a561",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u88fd0212a561"
+  },
+  {
+    "id": "u9b6721b5d698",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u9b6721b5d698"
+  },
+  {
+    "id": "ucd86075ad556",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ucd86075ad556"
+  },
+  {
+    "id": "u2392c14c7875",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2392c14c7875"
+  },
+  {
+    "id": "u09523eb5770b",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u09523eb5770b"
+  },
+  {
+    "id": "u9cabb70d9701",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u9cabb70d9701"
+  },
+  {
+    "id": "u2f84c5589aad",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2f84c5589aad"
+  },
+  {
+    "id": "u996094d62dcf",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u996094d62dcf"
+  },
+  {
+    "id": "uaa9baaf7bd07",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uaa9baaf7bd07"
+  },
+  {
+    "id": "uf9c44e6668d4",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf9c44e6668d4"
+  },
+  {
+    "id": "ufdc04f4400be",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ufdc04f4400be"
+  },
+  {
+    "id": "u710606e2bf8c",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u710606e2bf8c"
+  },
+  {
+    "id": "udae19a1bcf98",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_udae19a1bcf98"
+  },
+  {
+    "id": "u28fff84aa8b0",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u28fff84aa8b0"
+  },
+  {
+    "id": "u22517779dae0",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u22517779dae0"
+  },
+  {
+    "id": "ubec97a93d74e",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ubec97a93d74e"
+  },
+  {
+    "id": "u501ec0c93d7a",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u501ec0c93d7a"
+  },
+  {
+    "id": "ub262c6b2454f",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub262c6b2454f"
+  },
+  {
+    "id": "u7e7a400c7124",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u7e7a400c7124"
+  },
+  {
+    "id": "uf68b86b5d504",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf68b86b5d504"
+  },
+  {
+    "id": "u4e4ec7fcba67",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4e4ec7fcba67"
+  },
+  {
+    "id": "u3bace0742843",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u3bace0742843"
+  },
+  {
+    "id": "uff0c86aadc29",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uff0c86aadc29"
+  },
+  {
+    "id": "u7ed65c749f6b",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u7ed65c749f6b"
+  },
+  {
+    "id": "uab4e65d5b6fc",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uab4e65d5b6fc"
+  },
+  {
+    "id": "uc72c5de8d7f0",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc72c5de8d7f0"
+  },
+  {
+    "id": "u2e69bfbe7e5c",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2e69bfbe7e5c"
+  },
+  {
+    "id": "u4fde521dd1a8",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4fde521dd1a8"
+  },
+  {
+    "id": "ub2ccf45399c0",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub2ccf45399c0"
+  },
+  {
+    "id": "ub168f3e24d71",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub168f3e24d71"
+  },
+  {
+    "id": "ub6b63075c58d",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub6b63075c58d"
+  },
+  {
+    "id": "u6d8e1e341964",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u6d8e1e341964"
+  },
+  {
+    "id": "ud41b25463265",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud41b25463265"
+  },
+  {
+    "id": "ue859723ab65c",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue859723ab65c"
+  },
+  {
+    "id": "u597f70962e54",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u597f70962e54"
+  },
+  {
+    "id": "ue9d5cf0860e8",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue9d5cf0860e8"
+  },
+  {
+    "id": "u8d4e3aa4c2bc",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u8d4e3aa4c2bc"
+  },
+  {
+    "id": "u2cc43936b1ad",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2cc43936b1ad"
+  },
+  {
+    "id": "u46c89832ddd2",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u46c89832ddd2"
+  },
+  {
+    "id": "uf368892a4019",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf368892a4019"
+  },
+  {
+    "id": "uf5caf8f75843",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf5caf8f75843"
+  },
+  {
+    "id": "ubdb9dd07f671",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ubdb9dd07f671"
+  },
+  {
+    "id": "ue9b1fcc0d6c7",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue9b1fcc0d6c7"
+  },
+  {
+    "id": "u8e0e04aeef9c",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u8e0e04aeef9c"
+  },
+  {
+    "id": "u71890728fe39",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u71890728fe39"
+  },
+  {
+    "id": "ufcaed9e01fff",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ufcaed9e01fff"
+  },
+  {
+    "id": "ud1571c7974b9",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud1571c7974b9"
+  },
+  {
+    "id": "ue065cec6ba36",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue065cec6ba36"
+  },
+  {
+    "id": "u55aba2786737",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u55aba2786737"
+  },
+  {
+    "id": "u221db8766883",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u221db8766883"
+  },
+  {
+    "id": "ua374c802c524",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ua374c802c524"
+  },
+  {
+    "id": "u611686c8bbb1",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u611686c8bbb1"
+  },
+  {
+    "id": "u2f769e0805c3",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2f769e0805c3"
+  },
+  {
+    "id": "u03bade3f6632",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u03bade3f6632"
+  },
+  {
+    "id": "u97faeac75432",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u97faeac75432"
+  },
+  {
+    "id": "u34c6937e8e4c",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u34c6937e8e4c"
+  },
+  {
+    "id": "u5fa1d8e6082d",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u5fa1d8e6082d"
+  },
+  {
+    "id": "u0b712c092fc0",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u0b712c092fc0"
+  },
+  {
+    "id": "ufcb78291cd17",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ufcb78291cd17"
+  },
+  {
+    "id": "u396dbb8f710b",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u396dbb8f710b"
+  },
+  {
+    "id": "u07e42a29e189",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u07e42a29e189"
+  },
+  {
+    "id": "u55b91784ddc3",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u55b91784ddc3"
+  },
+  {
+    "id": "ufc96fe300f54",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ufc96fe300f54"
+  },
+  {
+    "id": "u2cb755d162a2",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2cb755d162a2"
+  },
+  {
+    "id": "u697c0a347e46",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u697c0a347e46"
+  },
+  {
+    "id": "uc60f0797bba1",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc60f0797bba1"
+  },
+  {
+    "id": "u096349f98d88",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u096349f98d88"
+  },
+  {
+    "id": "ub05c5e2460bf",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub05c5e2460bf"
+  },
+  {
+    "id": "ud435552a7e0c",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud435552a7e0c"
+  },
+  {
+    "id": "u5ea57078c50e",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u5ea57078c50e"
+  },
+  {
+    "id": "u7365febc791e",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u7365febc791e"
+  },
+  {
+    "id": "u3ef070ff1fa8",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u3ef070ff1fa8"
+  },
+  {
+    "id": "u99a0bb7654d5",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u99a0bb7654d5"
+  },
+  {
+    "id": "u433aa5b9441a",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u433aa5b9441a"
+  },
+  {
+    "id": "u818421e15d49",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u818421e15d49"
+  },
+  {
+    "id": "ucb5616fe5f79",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ucb5616fe5f79"
+  },
+  {
+    "id": "ud27cee106a68",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud27cee106a68"
+  },
+  {
+    "id": "u8d11b0de3ab3",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u8d11b0de3ab3"
+  },
+  {
+    "id": "u4a7d7738d845",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4a7d7738d845"
+  },
+  {
+    "id": "u8c958060da8d",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u8c958060da8d"
+  },
+  {
+    "id": "u41d46efdeec6",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u41d46efdeec6"
+  },
+  {
+    "id": "u044fbbea112a",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u044fbbea112a"
+  },
+  {
+    "id": "u3eeaea8a6af2",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u3eeaea8a6af2"
+  },
+  {
+    "id": "u4f7c6d5380a5",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4f7c6d5380a5"
+  },
+  {
+    "id": "u4932eee0a8f9",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u4932eee0a8f9"
+  },
+  {
+    "id": "u24050f54b94c",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u24050f54b94c"
+  },
+  {
+    "id": "ud047c2cd8254",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud047c2cd8254"
+  },
+  {
+    "id": "u3f03ee0fc9ca",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u3f03ee0fc9ca"
+  },
+  {
+    "id": "ub531cb7c2d3f",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub531cb7c2d3f"
+  },
+  {
+    "id": "u1ce7d49a9611",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u1ce7d49a9611"
+  },
+  {
+    "id": "ub15df5866a5d",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub15df5866a5d"
+  },
+  {
+    "id": "uffff948e3024",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uffff948e3024"
+  },
+  {
+    "id": "ud5871fcaa027",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ud5871fcaa027"
+  },
+  {
+    "id": "uab85da5faecc",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uab85da5faecc"
+  },
+  {
+    "id": "uc1f30cf9bad1",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc1f30cf9bad1"
+  },
+  {
+    "id": "uadda7bef578f",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uadda7bef578f"
+  },
+  {
+    "id": "u37726a5b1dca",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u37726a5b1dca"
+  },
+  {
+    "id": "u83af1a5aa9a7",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u83af1a5aa9a7"
+  },
+  {
+    "id": "uf2d6884e1744",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uf2d6884e1744"
+  },
+  {
+    "id": "uefe9552729e1",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uefe9552729e1"
+  },
+  {
+    "id": "uc4505bac5155",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc4505bac5155"
+  },
+  {
+    "id": "u27412a041bcd",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u27412a041bcd"
+  },
+  {
+    "id": "ue17e169e9920",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue17e169e9920"
+  },
+  {
+    "id": "udce6c104b618",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_udce6c104b618"
+  },
+  {
+    "id": "uc61e18214f71",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc61e18214f71"
   }
 ]

@@ -1,4 +1,5 @@
 const { getApiBaseUrl } = require('./config');
+const { readLocalAvatarBase64, isEphemeralAvatar } = require('./avatar');
 
 function getAppSafe() {
   return getApp();
@@ -179,6 +180,15 @@ function loginWithProfile(nickname, avatar) {
       reject('请先授权微信昵称');
       return;
     }
+    const av = (avatar || '').trim();
+    const prepareBody = (avatarBase64) => {
+      const body = { code: '', nickname: nick, avatar: av };
+      if (avatarBase64) {
+        body.avatar_base64 = avatarBase64;
+        if (isEphemeralAvatar(av)) body.avatar = '';
+      }
+      return body;
+    };
     wx.login({
       success(loginRes) {
         if (!loginRes.code) {
@@ -186,24 +196,28 @@ function loginWithProfile(nickname, avatar) {
           return;
         }
         wx.showLoading({ title: '登录中...', mask: true });
-        request('/api/auth/login', 'POST', {
-          code: loginRes.code,
-          nickname: nick,
-          avatar: (avatar || '').trim(),
-        })
-          .then((data) => {
-            const app = getAppSafe();
-            persistTokens(data);
-            if (app) app.setUser(data.user, data.access_token, data.refresh_token);
-            saveLastProfile(data.user);
-            markWxProfileAuthorized();
-            wx.hideLoading();
-            resolve(data);
-          })
-          .catch((err) => {
-            wx.hideLoading();
-            reject(err);
-          });
+        const sendLogin = (body) => {
+          body.code = loginRes.code;
+          request('/api/auth/login', 'POST', body)
+            .then((data) => {
+              const app = getAppSafe();
+              persistTokens(data);
+              if (app) app.setUser(data.user, data.access_token, data.refresh_token);
+              saveLastProfile(data.user);
+              markWxProfileAuthorized();
+              wx.hideLoading();
+              resolve(data);
+            })
+            .catch((err) => {
+              wx.hideLoading();
+              reject(err);
+            });
+        };
+        if (isEphemeralAvatar(av)) {
+          readLocalAvatarBase64(av).then((b64) => sendLogin(prepareBody(b64)));
+        } else {
+          sendLogin(prepareBody(''));
+        }
       },
       fail(err) {
         reject(err.errMsg || '微信登录失败');

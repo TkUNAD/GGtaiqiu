@@ -16,7 +16,13 @@
     "pages/profile-logs/profile-logs",
     "pages/profile-exchanges/profile-exchanges",
     "pages/shop/shop",
-    "pages/agreement/agreement"
+    "pages/agreement/agreement",
+    "pages/admin-scan/admin-scan",
+    "pages/admin-console/admin-console",
+    "pages/admin-module/admin-module",
+    "pages/venue-apply/venue-apply",
+    "pages/super-setup/super-setup",
+    "pages/venue-reset/venue-reset"
   ],
   "window": {
     "navigationBarBackgroundColor": "#0A0F1A",

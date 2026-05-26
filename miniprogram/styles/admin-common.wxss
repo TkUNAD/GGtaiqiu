@@ -1,0 +1,140 @@
+.admin-page { min-height: 100vh; padding-bottom: 48rpx; }
+.admin-header {
+  padding: 28rpx 32rpx;
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.15) 0%, rgba(18, 24, 42, 0.98) 60%);
+  border-bottom: 1rpx solid rgba(212, 175, 55, 0.2);
+}
+.admin-title { font-size: 36rpx; font-weight: bold; color: #f5f0e1; }
+.admin-sub { font-size: 24rpx; color: #8b92a8; margin-top: 8rpx; }
+.admin-tip { font-size: 24rpx; color: #f59e0b; margin-top: 12rpx; }
+.section-title { font-size: 26rpx; color: #8b92a8; margin: 24rpx 0 12rpx; padding: 0 8rpx; }
+.menu-grid { display: flex; flex-wrap: wrap; gap: 20rpx; padding: 24rpx; }
+.menu-item {
+  width: calc(50% - 10rpx);
+  box-sizing: border-box;
+  padding: 28rpx 24rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(168deg, #181f32 0%, #12182a 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.22);
+  position: relative;
+}
+.menu-item-title { font-size: 30rpx; font-weight: bold; color: #D4AF37; }
+.menu-item-desc { font-size: 22rpx; color: #8b92a8; margin-top: 8rpx; display: block; }
+.menu-badge {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #0A0F1A;
+  background: #ef4444;
+  border-radius: 18rpx;
+  padding: 0 8rpx;
+}
+.stats-row { display: flex; flex-wrap: wrap; gap: 16rpx; padding: 0 24rpx 24rpx; }
+.stat-box {
+  width: calc(33.33% - 12rpx);
+  box-sizing: border-box;
+  text-align: center;
+  padding: 20rpx 8rpx;
+  border-radius: 16rpx;
+  background: rgba(24, 31, 50, 0.9);
+  border: 1rpx solid rgba(212, 175, 55, 0.15);
+}
+.stat-num { font-size: 36rpx; font-weight: bold; color: #D4AF37; display: block; }
+.stat-lbl { font-size: 22rpx; color: #8b92a8; }
+.tabs { display: flex; gap: 16rpx; padding: 16rpx 24rpx; }
+.tab { font-size: 26rpx; color: #8b92a8; padding: 12rpx 20rpx; border-radius: 12rpx; }
+.tab.active { color: #D4AF37; background: rgba(212, 175, 55, 0.12); }
+.list-card { margin: 0 24rpx 20rpx; padding: 24rpx; border-radius: 16rpx; background: #181f32; border: 1rpx solid rgba(255,255,255,0.06); }
+.list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
+.list-title { font-size: 28rpx; color: #f5f0e1; flex: 1; }
+.tag { font-size: 22rpx; color: #D4AF37; padding: 4rpx 12rpx; border: 1rpx solid rgba(212,175,55,0.4); border-radius: 8rpx; }
+.tag-ok { color: #86efac; border-color: rgba(134, 239, 172, 0.5); background: rgba(22, 101, 52, 0.25); }
+.auto-flag { display: inline-block; margin-right: 16rpx; padding: 4rpx 16rpx; font-size: 24rpx; color: #8b92a8; border: 1rpx solid #444; border-radius: 8rpx; }
+.auto-flag.on { color: #86efac; border-color: rgba(134, 239, 172, 0.5); background: rgba(22, 101, 52, 0.2); }
+.tag-no { color: #fca5a5; border-color: rgba(252, 165, 165, 0.45); background: rgba(127, 29, 29, 0.25); }
+.list-meta { font-size: 24rpx; color: #8b92a8; margin-bottom: 16rpx; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.btn-mini-ok { background: #166534; color: #fff; font-size: 24rpx; }
+.btn-mini-no { background: #7f1d1d; color: #fff; font-size: 24rpx; }
+.btn-mini-gray { background: #374151; color: #e5e7eb; font-size: 24rpx; }
+.empty-hint { text-align: center; color: #6b7280; padding: 48rpx; font-size: 26rpx; }
+.form-row { margin: 16rpx 24rpx; }
+.form-label { font-size: 24rpx; color: #8b92a8; margin-bottom: 8rpx; display: block; }
+.form-input {
+  background: #12182a;
+  border: 1rpx solid rgba(212,175,55,0.2);
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  color: #f5f0e1;
+  font-size: 28rpx;
+}
+.toolbar { padding: 16rpx 24rpx; display: flex; gap: 16rpx; flex-wrap: wrap; }
+.btn-logout-admin {
+  margin: 32rpx 24rpx;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 28rpx;
+  padding: 24rpx;
+}
+.invite-qr { width: 360rpx; height: 360rpx; display: block; margin: 24rpx auto; }
+.quick-nav { display: flex; flex-wrap: wrap; gap: 12rpx; padding: 0 24rpx 16rpx; }
+.ladder-scroll { max-height: calc(100vh - 200rpx); }
+.ladder-section { margin-bottom: 8rpx; }
+.rule-desc-box { margin: 16rpx 24rpx; padding: 20rpx; background: #12182a; border-radius: 12rpx; }
+.rule-desc-text { font-size: 22rpx; color: #8b92a8; line-height: 1.5; white-space: pre-wrap; display: block; margin-top: 8rpx; }
+.danger-btn { background: #b91c1c !important; }
+.mp-super-user { display: flex; align-items: center; gap: 16rpx; }
+.mp-super-av-wrap { width: 72rpx; height: 72rpx; flex-shrink: 0; }
+.mp-super-av { width: 72rpx; height: 72rpx; border-radius: 50%; }
+.mp-super-av-fallback {
+  width: 72rpx; height: 72rpx; border-radius: 50%;
+  background: linear-gradient(135deg, #7C3AED, #3B82F6);
+  color: #fff; font-size: 28rpx; font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+}
+.mp-super-name { font-size: 28rpx; color: #f5f0e1; font-weight: 500; }
+.detail-mask {
+  position: fixed;
+  left: 0; right: 0; top: 0; bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: flex-end;
+}
+.detail-panel {
+  width: 100%;
+  max-height: 82vh;
+  background: #12182a;
+  border-radius: 24rpx 24rpx 0 0;
+  border-top: 1rpx solid rgba(212, 175, 55, 0.25);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx 16rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+.detail-title { font-size: 30rpx; font-weight: bold; color: #D4AF37; flex: 1; }
+.detail-close { font-size: 28rpx; color: #9ca3af; padding: 8rpx 0 8rpx 24rpx; }
+.detail-scroll { max-height: calc(82vh - 100rpx); padding: 8rpx 32rpx 32rpx; box-sizing: border-box; }
+.detail-meta { font-size: 26rpx; color: #c4c9d4; line-height: 1.6; margin-bottom: 8rpx; }
+.detail-section-title { font-size: 28rpx; color: #D4AF37; margin: 24rpx 0 12rpx; font-weight: 500; }
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 24rpx;
+  color: #e5e7eb;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.05);
+}
+.detail-row-tag { font-size: 22rpx; color: #8b92a8; flex-shrink: 0; }
+.detail-empty { font-size: 24rpx; color: #6b7280; padding: 16rpx 0; }

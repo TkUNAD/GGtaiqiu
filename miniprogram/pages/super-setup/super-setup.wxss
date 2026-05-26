@@ -1,0 +1,2 @@
+@import "../venue-apply/venue-apply.wxss";
+.empty { text-align: center; color: #8b92a8; padding: 80rpx 32rpx; font-size: 28rpx; }

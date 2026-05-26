@@ -21,6 +21,9 @@ FILES = {
     "week_rank": "week_rank.json",
     "settings": "settings.json",
     "venues": "venues.json",
+    "venue_admins": "venue_admins.json",
+    "venue_applications": "venue_applications.json",
+    "review_logs": "review_logs.json",
 }
 
 
@@ -67,6 +70,9 @@ def _default_data(name: str) -> Any:
             },
         },
         "venues": [],
+        "venue_admins": [],
+        "venue_applications": [],
+        "review_logs": [],
     }
     return defaults.get(name, [])
 

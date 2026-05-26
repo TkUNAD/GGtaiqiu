@@ -1,0 +1,415 @@
+<view class="admin-page">
+  <view wx:if="{{loading}}" class="empty-hint">加载中...</view>
+
+  <!-- 仪表盘 -->
+  <block wx:elif="{{module === 'dashboard'}}">
+    <view class="stats-row">
+      <view class="stat-box" wx:for="{{dashItems}}" wx:key="key">
+        <text class="stat-num">{{item.val}}</text>
+        <text class="stat-lbl">{{item.label}}</text>
+      </view>
+    </view>
+    <view class="quick-nav" wx:if="{{isSuperConsole}}">
+      <button size="mini" class="btn-mini-gray" data-id="review" bindtap="openModuleShortcut">审核中心</button>
+      <button size="mini" class="btn-mini-gray" data-id="venues" bindtap="openModuleShortcut">球房会员</button>
+      <button size="mini" class="btn-mini-gray" data-id="mp_wechat" bindtap="openModuleShortcut">授权微信</button>
+      <button size="mini" class="btn-mini-gray" data-id="settings" bindtap="openModuleShortcut">系统设置</button>
+    </view>
+    <view class="list-card" wx:for="{{venueRows}}" wx:key="venue_id" wx:if="{{venueRows.length}}">
+      <view class="list-head">
+        <text class="list-title">{{item.venue_name}}</text>
+        <text class="tag">{{item.is_member_active ? '会员中' : '已过期'}}</text>
+      </view>
+      <view class="list-meta">桌台 {{item.table_count}} · 会员 {{item.member_count}} · 到期 {{item.member_expires_at}}</view>
+    </view>
+  </block>
+
+  <!-- 审核中心 -->
+  <block wx:elif="{{module === 'review'}}">
+    <view class="tabs">
+      <text class="tab {{reviewTab === 'match' ? 'active' : ''}}" bindtap="switchReviewTab" data-tab="match">对局 ({{pendingMatches.length}})</text>
+      <text class="tab {{reviewTab === 'exchange' ? 'active' : ''}}" bindtap="switchReviewTab" data-tab="exchange">兑换 ({{pendingExchanges.length}})</text>
+      <text class="tab {{reviewTab === 'logs' ? 'active' : ''}}" bindtap="switchReviewTab" data-tab="logs">审核记录</text>
+    </view>
+    <block wx:if="{{reviewTab === 'match'}}">
+      <view class="list-card" wx:for="{{pendingMatches}}" wx:key="id" wx:for-item="match">
+        <view class="list-head">
+          <text class="list-title">{{match.player1_name}} vs {{match.player2_name}}</text>
+          <text class="tag">{{match.status_label}}</text>
+        </view>
+        <view class="list-meta">桌台 {{match.table_id}} · {{match.score1}}:{{match.score2}} · {{match.review_time}}</view>
+        <view class="row-actions" wx:if="{{match.match_review_state === 'approved'}}">
+          <text class="tag tag-ok">已通过</text>
+        </view>
+        <view class="row-actions" wx:elif="{{match.match_review_state === 'rejected'}}">
+          <text class="tag tag-no">已驳回</text>
+        </view>
+        <view class="row-actions" wx:elif="{{match.status === 'pending_review' && canReview}}">
+          <button size="mini" class="btn-mini-ok" data-id="{{match.id}}" data-action="approve" bindtap="reviewMatch">通过</button>
+          <button size="mini" class="btn-mini-no" data-id="{{match.id}}" data-action="reject" bindtap="reviewMatch">驳回</button>
+        </view>
+        <view class="list-card" style="margin:12rpx 0 0;padding:16rpx" wx:for="{{match.bonus_pending}}" wx:for-item="bonus" wx:key="bonus_id" wx:if="{{match.bonus_pending.length}}">
+          <view class="list-meta">{{bonus.user_name}} · {{bonus.type_label}} · {{bonus.review_time}}</view>
+          <view class="row-actions" wx:if="{{bonus.review_state === 'approved'}}">
+            <text class="tag tag-ok">已通过</text>
+          </view>
+          <view class="row-actions" wx:elif="{{bonus.review_state === 'rejected'}}">
+            <text class="tag tag-no">已驳回</text>
+          </view>
+          <view class="row-actions" wx:elif="{{bonus.review_state === 'cheat'}}">
+            <text class="tag tag-no">已认定作弊</text>
+          </view>
+          <view class="row-actions" wx:elif="{{canReview}}">
+            <button size="mini" class="btn-mini-ok" data-id="{{match.id}}" data-bonus-id="{{bonus.bonus_id}}" data-action="approve" bindtap="reviewBonus">通过</button>
+            <button size="mini" class="btn-mini-no" data-id="{{match.id}}" data-bonus-id="{{bonus.bonus_id}}" data-action="reject" bindtap="reviewBonus">驳回</button>
+            <button size="mini" class="btn-mini-no" data-id="{{match.id}}" data-bonus-id="{{bonus.bonus_id}}" data-action="cheat" bindtap="reviewBonus">认定作弊</button>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{!pendingMatches.length}}" class="empty-hint">暂无待审核对局</view>
+    </block>
+    <block wx:elif="{{reviewTab === 'logs'}}">
+      <view class="list-card" wx:for="{{reviewLogList}}" wx:key="id">
+        <view class="list-head">
+          <text class="list-title">{{item.user_name}} · {{item.type_label}}</text>
+          <text class="tag {{item.auto_approved ? 'tag-ok' : ''}}">{{item.result_display}}</text>
+        </view>
+        <view class="list-meta">{{item.time_label}} · 对局 {{item.match_id}} · {{item.pts_label}}分</view>
+        <view class="list-meta" wx:if="{{item.note}}">{{item.note}}</view>
+        <view class="row-actions" wx:if="{{item.can_re_review && canReview}}">
+          <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" data-action="approve" bindtap="reReviewLog">改通过</button>
+          <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-action="reject" bindtap="reReviewLog">改驳回</button>
+          <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-action="cheat" bindtap="reReviewLog">改作弊</button>
+        </view>
+      </view>
+      <view wx:if="{{!reviewLogList.length}}" class="empty-hint">暂无审核记录</view>
+    </block>
+    <block wx:else>
+      <view class="list-card" wx:for="{{pendingExchanges}}" wx:key="id">
+        <view class="list-head">
+          <text class="list-title">{{item.user_name}} · {{item.product_name}}</text>
+          <text class="tag">-{{item.points}}分</text>
+        </view>
+        <view class="row-actions" wx:if="{{canReview}}">
+          <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" data-status="approved" bindtap="reviewExchange">发放</button>
+          <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-status="rejected" bindtap="reviewExchange">拒绝</button>
+        </view>
+      </view>
+      <view wx:if="{{!pendingExchanges.length}}" class="empty-hint">暂无待审核兑换</view>
+    </block>
+  </block>
+
+  <!-- 对局管理 -->
+  <block wx:elif="{{module === 'matches'}}">
+    <view class="list-card" wx:for="{{matchList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.p1_name || item.player1_name}} vs {{item.p2_name || item.player2_name}}</text>
+        <text class="tag">{{item.status}}</text>
+      </view>
+      <view class="list-meta">{{item.table_id}} · 时长 {{item.duration_label || '-'}} · {{item.review_time || item.started_at}}</view>
+      <view class="list-meta" wx:if="{{item.invalid_reason}}">{{item.invalid_reason}}</view>
+      <view class="row-actions" wx:if="{{item.match_review_state === 'approved'}}">
+        <text class="tag tag-ok">已通过</text>
+      </view>
+      <view class="row-actions" wx:elif="{{item.match_review_state === 'rejected'}}">
+        <text class="tag tag-no">已驳回</text>
+      </view>
+      <view class="row-actions" wx:elif="{{canWrite && item.status === 'pending_review'}}">
+        <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" data-action="approve" bindtap="reviewMatch">通过</button>
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-action="reject" bindtap="reviewMatch">驳回</button>
+      </view>
+      <view class="row-actions" wx:if="{{canWrite && isSuperConsole}}">
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" bindtap="deleteMatch">删除</button>
+      </view>
+    </view>
+    <view wx:if="{{!matchList.length}}" class="empty-hint">暂无对局</view>
+  </block>
+
+  <!-- 玩家管理 -->
+  <block wx:elif="{{module === 'users'}}">
+    <view class="admin-tip" wx:if="{{canPromotePlayers && !isSuperConsole}}" style="padding:16rpx 24rpx">
+      可将已微信登录的玩家设为子管理员（最多3人）。也可在「管理员设置」查看列表。
+    </view>
+    <view class="admin-tip" wx:elif="{{!isSuperConsole && !canPromotePlayers}}" style="padding:16rpx 24rpx;color:#f59e0b">
+      仅主管理员可设置子管理员；子管理员可查看本列表。
+    </view>
+    <view class="list-card" wx:for="{{userList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.nickname}}</text>
+        <text class="tag">{{item.score}} 分</text>
+      </view>
+      <view class="list-meta">ID {{item.id}}</view>
+      <view class="list-meta" wx:if="{{item.adminRoleLabel}}">身份：{{item.adminRoleLabel}}</view>
+      <view class="list-meta" wx:elif="{{!item.has_wechat && canPromotePlayers}}">未微信授权，暂不可设为管理员</view>
+      <view class="list-meta" wx:if="{{!isSuperConsole && canWrite}}">
+        自动审核：
+        <text class="auto-flag {{item.auto_review_bonus ? 'on' : ''}}" data-id="{{item.id}}" data-kind="bonus" bindtap="toggleUserAutoReview">炸接清{{item.auto_review_bonus ? '开' : '关'}}</text>
+        <text class="auto-flag {{item.auto_review_shutout ? 'on' : ''}}" data-id="{{item.id}}" data-kind="shutout" bindtap="toggleUserAutoReview">零封{{item.auto_review_shutout ? '开' : '关'}}</text>
+      </view>
+      <view class="row-actions" wx:if="{{canPromotePlayers && !isSuperConsole}}">
+        <button
+          size="mini"
+          class="btn-mini-ok"
+          wx:if="{{item.can_promote}}"
+          data-id="{{item.id}}"
+          data-name="{{item.nickname}}"
+          bindtap="promotePlayer"
+        >设为子管理员</button>
+        <button
+          size="mini"
+          class="btn-mini-no"
+          wx:if="{{item.can_demote_admin}}"
+          data-id="{{item.id}}"
+          data-name="{{item.nickname}}"
+          bindtap="demotePlayer"
+        >取消子管理员</button>
+      </view>
+      <view class="row-actions" wx:if="{{canWrite}}">
+        <button size="mini" class="btn-mini-ok" wx:if="{{isSuperConsole && item.openid && !item.mp_super_allowlisted}}" data-id="{{item.id}}" bindtap="grantMpSuperWechat">授权总后台</button>
+        <button size="mini" class="btn-mini-gray" data-id="{{item.id}}" bindtap="adjustScore">调分</button>
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-action="ban" bindtap="punishUser">封禁</button>
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" bindtap="deleteUser">删除</button>
+      </view>
+    </view>
+    <view wx:if="{{!userList.length}}" class="empty-hint">暂无玩家</view>
+  </block>
+
+  <!-- 桌台管理 -->
+  <block wx:elif="{{module === 'tables'}}">
+    <view class="toolbar" wx:if="{{canTable}}">
+      <button size="mini" class="btn-mini-ok" bindtap="addTable">新增桌台</button>
+    </view>
+    <view class="list-card" wx:for="{{tableList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.name}} ({{item.id}})</text>
+        <text class="tag">{{item.opened ? '已开台' : '空闲'}}</text>
+      </view>
+      <view class="list-meta" wx:if="{{item.qr_link}}">{{item.qr_link}}</view>
+      <view class="row-actions">
+        <button size="mini" class="btn-mini-gray" wx:if="{{canTable}}" data-id="{{item.id}}" bindtap="toggleTableOpen">{{item.opened ? '关台' : '开台'}}</button>
+        <button size="mini" class="btn-mini-gray" wx:if="{{canTable}}" data-id="{{item.id}}" bindtap="releaseTable">释放</button>
+        <button size="mini" class="btn-mini-no" wx:if="{{canTable}}" data-id="{{item.id}}" bindtap="deleteTable">删除</button>
+      </view>
+    </view>
+    <view wx:if="{{!tableList.length}}" class="empty-hint">暂无桌台</view>
+  </block>
+
+  <!-- 天梯规则 -->
+  <block wx:elif="{{module === 'ladder'}}">
+    <scroll-view scroll-y class="ladder-scroll">
+      <view class="admin-tip" style="padding:16rpx 24rpx" wx:if="{{ladderTip}}">{{ladderTip}}</view>
+      <view class="ladder-section" wx:for="{{ladderSections}}" wx:key="id" wx:for-item="sec">
+        <view class="section-title">{{sec.title}}</view>
+        <view class="form-row" wx:for="{{sec.fields}}" wx:key="key" wx:for-item="fld">
+          <text class="form-label">{{fld.label}}</text>
+          <input class="form-input" type="{{sec.id === 'tiers' ? 'text' : 'number'}}" value="{{fld.value}}" data-key="{{fld.key}}" bindinput="onLadderInput" disabled="{{!canLadder}}" />
+        </view>
+      </view>
+      <view class="rule-desc-box" wx:if="{{ladderDesc}}">
+        <text class="section-title">规则说明预览</text>
+        <text class="rule-desc-text">{{ladderDesc}}</text>
+      </view>
+      <view class="toolbar" wx:if="{{canLadder}}">
+        <button class="btn-primary" bindtap="saveLadder">保存规则</button>
+        <button size="mini" class="btn-mini-gray" wx:if="{{!ladderIsGlobal && ladderHasCustom}}" bindtap="syncLadder">同步总后台默认</button>
+      </view>
+    </scroll-view>
+  </block>
+
+  <!-- 球房会员（总后台） -->
+  <block wx:elif="{{module === 'venues'}}">
+    <view class="tabs">
+      <text class="tab {{venueTab === 'list' ? 'active' : ''}}" data-tab="list" bindtap="switchVenueTab">球房列表</text>
+      <text class="tab {{venueTab === 'apply' ? 'active' : ''}}" data-tab="apply" bindtap="switchVenueTab">申请审核</text>
+    </view>
+    <view class="toolbar" wx:if="{{venueTab === 'list' && canWrite}}">
+      <button size="mini" class="btn-mini-ok" bindtap="addVenue">新增球房</button>
+      <button size="mini" class="btn-mini-gray" bindtap="loadVenueList">刷新</button>
+    </view>
+    <block wx:if="{{venueTab === 'list'}}">
+      <view class="list-card" wx:for="{{venueList}}" wx:key="id">
+        <view class="list-head">
+          <text class="list-title">{{item.name}}</text>
+          <text class="tag">{{item.is_member_active ? '会员中' : '已过期'}}</text>
+        </view>
+        <view class="list-meta">账号 {{item.username}} · 到期 {{item.expShort}}</view>
+        <view class="list-meta" wx:if="{{item.apply_source === 'mp_apply'}}">来源：小程序申请</view>
+        <view class="row-actions">
+          <button size="mini" class="btn-mini-gray" data-id="{{item.id}}" bindtap="viewVenueDetail">详情</button>
+          <block wx:if="{{canWrite}}">
+            <button size="mini" class="btn-mini-gray" data-id="{{item.id}}" bindtap="editVenueExpire">续期</button>
+            <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="deleteVenue">删除</button>
+          </block>
+        </view>
+      </view>
+      <view wx:if="{{!venueList.length}}" class="empty-hint">暂无球房</view>
+    </block>
+    <block wx:else>
+      <view class="list-card" wx:for="{{venueAppList}}" wx:key="id">
+        <view class="list-head">
+          <text class="list-title">{{item.club_name}}</text>
+          <text class="tag">{{item.status === 'pending' ? '待审核' : item.status}}</text>
+        </view>
+        <view class="list-meta">手机 {{item.phone}} · 密码 {{item.password_plain || '-'}}</view>
+        <view class="row-actions" wx:if="{{item.status === 'pending' && canWrite}}">
+          <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" bindtap="approveVenueApp">通过</button>
+          <button size="mini" class="btn-mini-no" data-id="{{item.id}}" bindtap="rejectVenueApp">拒绝</button>
+        </view>
+      </view>
+      <view wx:if="{{!venueAppList.length}}" class="empty-hint">暂无待审核申请</view>
+    </block>
+  </block>
+
+  <!-- 授权微信（总后台） -->
+  <block wx:elif="{{module === 'mp_wechat'}}">
+    <view class="admin-tip" style="padding:16rpx 24rpx">仅列表内微信可在「我的」看到总后台登录入口</view>
+    <view class="toolbar">
+      <button size="mini" class="btn-mini-ok" bindtap="genMpAllowQr">生成授权登记码</button>
+      <button size="mini" class="btn-mini-gray" bindtap="loadMpWechatAllowlist">刷新</button>
+    </view>
+    <image wx:if="{{mpAllowQr}}" class="invite-qr" src="{{mpAllowQr}}" mode="aspectFit" />
+    <view class="list-card" wx:for="{{mpAllowList}}" wx:key="openid">
+      <view class="mp-super-user">
+        <view class="mp-super-av-wrap">
+          <image wx:if="{{item.avatarUsable}}" class="mp-super-av" src="{{item.avatar}}" mode="aspectFill" />
+          <text class="mp-super-av-fallback" wx:else>{{item.initial}}</text>
+        </view>
+        <view>
+          <text class="mp-super-name">{{item.nickname || '未命名'}}</text>
+          <view class="list-meta">{{item.is_bound_super ? '已绑定总后台' : '待登录'}} · {{item.phone || '无手机'}}</view>
+        </view>
+      </view>
+      <view class="row-actions" wx:if="{{!item.is_bound_super}}">
+        <button size="mini" class="btn-mini-no" data-oid="{{item.openid}}" bindtap="removeMpAllow">移除</button>
+      </view>
+    </view>
+    <view wx:if="{{!mpAllowList.length}}" class="empty-hint">暂无授权，可生成登记码或到玩家管理中授权</view>
+  </block>
+
+  <!-- 系统设置（总后台） -->
+  <block wx:elif="{{module === 'settings'}}">
+    <view class="list-card">
+      <view class="list-title">修改总后台密码</view>
+      <view class="list-meta">需输入当前密码验证</view>
+      <button class="btn-primary" style="margin-top:16rpx" bindtap="changeAdminPassword">修改密码</button>
+    </view>
+    <view class="list-card">
+      <view class="list-title">重置平台数据</view>
+      <view class="list-meta">清空玩家、对局、积分日志（保留球房与规则）</view>
+      <button class="btn-primary danger-btn" style="margin-top:16rpx" bindtap="resetSystemData">重置全部数据</button>
+    </view>
+  </block>
+
+  <!-- 兑换商品 -->
+  <block wx:elif="{{module === 'products'}}">
+    <view class="list-card" wx:for="{{productList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.name}}</text>
+        <text class="tag">{{item.points}} 分</text>
+      </view>
+      <view class="list-meta">库存 {{item.stock}} · {{item.enabled ? '上架' : '下架'}}</view>
+      <view class="row-actions" wx:if="{{isSuperConsole && canWrite}}">
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" bindtap="deleteProduct">删除</button>
+      </view>
+    </view>
+    <view wx:if="{{!productList.length}}" class="empty-hint">暂无商品</view>
+  </block>
+
+  <!-- 兑换记录 -->
+  <block wx:elif="{{module === 'exchanges'}}">
+    <view class="list-card" wx:for="{{exchangeList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.nickname || item.user_name}} · {{item.product_name}}</text>
+        <text class="tag">{{item.status}}</text>
+      </view>
+      <view class="list-meta">-{{item.points}} · {{item.created_at}}</view>
+      <view class="row-actions" wx:if="{{item.status === 'pending' && canReview}}">
+        <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" data-status="approved" bindtap="reviewExchange">发放</button>
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-status="rejected" bindtap="reviewExchange">拒绝</button>
+      </view>
+    </view>
+    <view wx:if="{{!exchangeList.length}}" class="empty-hint">暂无记录</view>
+  </block>
+
+  <!-- 积分明细 -->
+  <block wx:elif="{{module === 'logs'}}">
+    <view class="list-card" wx:for="{{logList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.reason}}</text>
+        <text class="tag">{{item.delta >= 0 ? '+' : ''}}{{item.delta}}</text>
+      </view>
+      <view class="list-meta">{{item.nickname}} · {{item.created_at}}</view>
+      <view class="row-actions" wx:if="{{canWrite}}">
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" bindtap="deleteLog">删除</button>
+      </view>
+    </view>
+    <view wx:if="{{!logList.length}}" class="empty-hint">暂无明细</view>
+  </block>
+
+  <!-- 管理员设置 -->
+  <block wx:elif="{{module === 'staff'}}">
+    <view class="admin-tip" style="padding:16rpx 24rpx">
+      子管理员最多3人。请在「玩家管理」中将已微信登录的玩家设为子管理员；主管理员须在本页「管理后台登录」用俱乐部账号密码绑定微信。
+    </view>
+    <view class="toolbar">
+      <button size="mini" class="btn-mini-ok" data-id="users" bindtap="openModuleShortcut">去玩家管理</button>
+      <button size="mini" class="btn-mini-gray" bindtap="loadStaff">刷新列表</button>
+      <button size="mini" class="btn-mini-gray" wx:if="{{canPromotePlayers}}" bindtap="inviteStaff">扫码邀请子管理员</button>
+    </view>
+    <image wx:if="{{inviteQr}}" class="invite-qr" src="{{inviteQr}}" mode="aspectFit" />
+    <view class="list-card" wx:for="{{staffList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.nickname || '管理员'}}</text>
+        <text class="tag">{{item.role === 'owner' ? '主管理员' : '子管理员'}}</text>
+      </view>
+      <view class="row-actions" wx:if="{{item.role === 'admin'}}">
+        <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-name="{{item.nickname}}" bindtap="removeStaff">移除</button>
+      </view>
+    </view>
+    <view class="section-title" wx:if="{{playerPickList.length}}">从玩家提拔</view>
+    <view class="list-card" wx:for="{{playerPickList}}" wx:key="id">
+      <view class="list-head">
+        <text class="list-title">{{item.nickname}}</text>
+        <text class="tag" wx:if="{{item.is_venue_admin}}">已是管理员</text>
+      </view>
+      <view class="list-meta">积分 {{item.score}} · {{item.has_openid ? '已授权微信' : '未授权'}}</view>
+      <view class="row-actions" wx:if="{{session.can_promote_players && item.can_promote}}">
+        <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" data-name="{{item.nickname}}" bindtap="promotePlayer">设为子管理员</button>
+      </view>
+    </view>
+    <view wx:if="{{!staffList.length && !playerPickList.length}}" class="empty-hint">暂无管理员，请在玩家管理中设置或扫码邀请</view>
+  </block>
+
+  <view wx:else class="empty-hint">未知模块</view>
+
+  <!-- 球房详情浮层 -->
+  <view class="detail-mask" wx:if="{{venueDetailVisible && venueDetail}}" catchtap="closeVenueDetail">
+    <view class="detail-panel" catchtap="">
+      <view class="detail-head">
+        <text class="detail-title">球房详情：{{venueDetail.name}}</text>
+        <text class="detail-close" bindtap="closeVenueDetail">关闭</text>
+      </view>
+      <scroll-view scroll-y class="detail-scroll">
+        <view class="detail-meta">管理人员：{{venueDetail.manager_name}}</view>
+        <view class="detail-meta">登录账号：{{venueDetail.username}}</view>
+        <view class="detail-meta">登录密码：{{venueDetail.password}}</view>
+        <view class="detail-meta">手机：{{venueDetail.phone}}</view>
+        <view class="detail-meta">会员到期：{{venueDetail.expires}} · {{venueDetail.is_active ? '会员有效' : '已过期'}}</view>
+        <view class="detail-meta">来源：{{venueDetail.apply_source}}</view>
+        <view class="detail-meta">桌台 {{venueDetail.table_count}} · 会员 {{venueDetail.member_count}} · 总积分 {{venueDetail.total_score}}</view>
+        <view class="detail-section-title">桌台</view>
+        <view class="detail-row" wx:for="{{venueDetail.tables}}" wx:key="id">
+          <text>{{item.label}}</text>
+          <text class="detail-row-tag">{{item.status}}</text>
+        </view>
+        <view wx:if="{{!venueDetail.tables.length}}" class="detail-empty">暂无桌台</view>
+        <view class="detail-section-title">会员积分（前50）</view>
+        <view class="detail-row" wx:for="{{venueDetail.members}}" wx:key="id">
+          <text>{{item.nickname}}</text>
+          <text class="detail-row-tag">{{item.score}} · {{item.tier}} · {{item.record}}</text>
+        </view>
+        <view wx:if="{{!venueDetail.members.length}}" class="detail-empty">暂无关联会员</view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

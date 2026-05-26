@@ -20,10 +20,10 @@
 
 .lobby-table-name {
   display: block;
-  font-size: 48rpx;
-  font-weight: 800;
+  font-size: 34rpx;
+  font-weight: 700;
   color: #f5f0e1;
-  letter-spacing: 4rpx;
+  letter-spacing: 2rpx;
 }
 
 .lobby-table-sub {
@@ -373,6 +373,18 @@
   margin-top: 8rpx;
   font-size: 29rpx;
   color: #8b92a8;
+}
+
+.play-review-hint {
+  display: block;
+  margin-top: 14rpx;
+  padding: 12rpx 16rpx;
+  font-size: 25rpx;
+  line-height: 1.45;
+  color: #FDE68A;
+  background: rgba(234, 88, 12, 0.12);
+  border-radius: 10rpx;
+  border: 1rpx solid rgba(251, 191, 36, 0.35);
 }
 
 .play-scoreboard {

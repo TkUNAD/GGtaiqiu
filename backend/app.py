@@ -5,7 +5,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Dict
 
-from flask import Flask, jsonify, request, render_template, session, send_file
+from flask import Flask, g, jsonify, request, render_template, session, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
@@ -13,9 +13,11 @@ import config
 from admin_auth import (
     admin_required,
     build_admin_session_info,
+    current_venue_id,
     has_permission,
     is_super_admin,
     member_permission_required,
+    mp_admin_required,
     require_active_venue_member,
     super_admin_required,
 )
@@ -73,6 +75,7 @@ from services import (
 )
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.secret_key = config.SECRET_KEY
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -90,6 +93,19 @@ socketio = SocketIO(
 )
 
 
+def _admin_actor_name() -> str:
+    ctx = getattr(g, "admin_ctx", None) or {}
+    if ctx.get("source") == "mp":
+        rec = ctx.get("admin_rec") or {}
+        return (
+            rec.get("nickname")
+            or rec.get("user_id")
+            or rec.get("id")
+            or "小程序管理员"
+        )
+    return session.get("admin_username") or "管理员"
+
+
 def _client_ip():
     return request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
 
@@ -104,7 +120,10 @@ def _err(msg, code=1, http_status=400):
 
 
 def _broadcast():
-    socketio.emit("update", get_screen_data())
+    try:
+        socketio.emit("update", get_screen_data())
+    except Exception:
+        pass
 
 
 # ---------- 页面 ----------
@@ -115,12 +134,163 @@ def index():
 
 @app.route("/api/health")
 def health():
-    return _ok({"status": "ok"})
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    return _ok({
+        "status": "ok",
+        "admin_staff_api": "/api/admin/staff" in rules,
+        "admin_owner_bind_qr_api": "/api/admin/owner-bind-qr" in rules,
+    })
+
+
+# ---------- 公开：验证码 / 总后台初始化 / 俱乐部申请 ----------
+@app.route("/api/public/captcha", methods=["GET"])
+def public_captcha():
+    from captcha_service import create_captcha
+
+    return _ok(create_captcha())
+
+
+@app.route("/api/public/super-setup/status")
+def public_super_setup_status():
+    from super_setup_service import get_setup_status
+
+    return _ok(get_setup_status())
+
+
+@app.route("/api/public/super-setup/verify", methods=["POST"])
+def public_super_setup_verify():
+    from super_setup_service import consume_setup_token
+
+    data = request.get_json(silent=True) or {}
+    raw = (data.get("token") or data.get("scene") or "").strip()
+    if raw.startswith("sas_"):
+        raw = raw[4:]
+    if not raw or not consume_setup_token(raw):
+        return _err("初始化链接无效或已使用")
+    return _ok({"valid": True})
+
+
+@app.route("/api/public/super-setup/complete", methods=["POST"])
+def public_super_setup_complete():
+    from super_setup_service import complete_setup
+
+    data = request.get_json(silent=True) or {}
+    raw = (data.get("token") or data.get("scene") or "").strip()
+    if raw.startswith("sas_"):
+        raw = raw[4:]
+    try:
+        return _ok(
+            complete_setup(
+                raw,
+                data.get("password") or "",
+                data.get("confirm_password") or data.get("confirm") or "",
+            )
+        )
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/setup/super-init-qr.png")
+def setup_super_init_qr_png():
+    """生成总后台一次性初始化小程序码（扫码打开 super-setup 页）"""
+    from io import BytesIO
+
+    from super_setup_service import create_one_time_setup_token
+    from wx_miniprogram_qr import build_miniprogram_qr, normalize_scene
+
+    try:
+        qr = create_one_time_setup_token()
+    except ValueError as e:
+        return _err(str(e), 403, 403)
+    scene = normalize_scene(qr["scene"])
+    try:
+        png, _ = build_miniprogram_qr("pages/super-setup/super-setup", scene)
+        # scene 为 16 位短码，勿加 sas_ 前缀，避免超过微信 32 字符限制
+    except ValueError as e:
+        return _err(str(e), 500, 500)
+    buf = BytesIO(png)
+    buf.seek(0)
+    from flask import send_file
+
+    return send_file(buf, mimetype="image/png", download_name="super-setup-wxacode.png")
+
+
+@app.route("/api/setup/venue-apply-qr.png")
+def setup_venue_apply_qr_png():
+    """俱乐部申请入口小程序码"""
+    from io import BytesIO
+
+    from wx_miniprogram_qr import build_miniprogram_qr
+
+    scene = "venue_apply"
+    try:
+        png, _ = build_miniprogram_qr("pages/venue-apply/venue-apply", scene)
+    except ValueError as e:
+        return _err(str(e), 500, 500)
+    buf = BytesIO(png)
+    buf.seek(0)
+    from flask import send_file
+
+    return send_file(buf, mimetype="image/png", download_name="venue-apply-wxacode.png")
+
+
+@app.route("/api/public/venue-apply/submit", methods=["POST"])
+def public_venue_apply_submit():
+    from venue_application_service import submit_application
+
+    data = request.get_json(silent=True) or {}
+    try:
+        return _ok(
+            submit_application(
+                data.get("phone") or "",
+                data.get("club_name") or "",
+                data.get("password") or "",
+                data.get("confirm_password") or data.get("confirm") or "",
+                data.get("captcha_id") or "",
+                data.get("captcha_code") or "",
+            )
+        )
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/public/venue-reset/send-code", methods=["POST"])
+def public_venue_reset_send_code():
+    from venue_application_service import send_reset_code
+
+    data = request.get_json(silent=True) or {}
+    try:
+        return _ok(send_reset_code(data.get("phone") or ""))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/public/venue-reset/confirm", methods=["POST"])
+def public_venue_reset_confirm():
+    from venue_application_service import reset_venue_password
+
+    data = request.get_json(silent=True) or {}
+    try:
+        return _ok(
+            reset_venue_password(
+                data.get("phone") or "",
+                data.get("sms_code") or "",
+                data.get("new_password") or "",
+                data.get("confirm_password") or data.get("confirm") or "",
+            )
+        )
+    except ValueError as e:
+        return _err(str(e))
 
 
 @app.route("/admin")
 def admin_page():
-    return render_template("admin.html")
+    from flask import make_response
+
+    resp = make_response(render_template("admin.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/screen")
@@ -128,7 +298,7 @@ def screen_page():
     return render_template("screen.html")
 
 
-# ---------- 管理后台登录 ----------
+# ---------- 管理后台登录（总后台/俱乐部：账号+密码+图形验证码，无手机短信验证码）----------
 @app.route("/api/admin/login", methods=["POST"])
 def admin_login():
     from admin_auth import (
@@ -150,7 +320,17 @@ def admin_login():
     session.clear()
     ensure_venues_file()
 
-    if username == config.ADMIN_USER and password == config.ADMIN_PASS:
+    captcha_id = (data.get("captcha_id") or "").strip()
+    captcha_code = (data.get("captcha_code") or "").strip()
+
+    from captcha_service import verify_captcha
+    from super_setup_service import authenticate_super
+
+    if username == config.ADMIN_USER:
+        if not verify_captcha(captcha_id, captcha_code):
+            return _err(record_login_failure(ip, "图形验证码错误"))
+        if not authenticate_super(username, password):
+            return _err(record_login_failure(ip))
         session["admin_logged_in"] = True
         session["admin_role"] = "super"
         session["admin_username"] = username
@@ -161,12 +341,18 @@ def admin_login():
     if venue:
         from venue_service import is_member_active, venue_permissions
 
+        if not verify_captcha(captcha_id, captcha_code):
+            return _err(record_login_failure(ip, "图形验证码错误"))
+
         session["admin_logged_in"] = True
         session["admin_role"] = "venue"
         session["venue_id"] = venue["id"]
         session["admin_username"] = username
         session["permissions"] = venue_permissions(venue)
         clear_login_attempts(ip)
+        from venue_activity_service import touch_venue_activity
+
+        touch_venue_activity(venue["id"])
         info = build_admin_session_info()
         if not is_member_active(venue):
             info["member_tip"] = "球房会员已过期，仅可查看基础数据；开通后可管理桌台、修改天梯规则、屏蔽手机端广告"
@@ -199,11 +385,26 @@ def admin_password_change():
     if blocked:
         return _err(blocked, 429, 429)
 
+    role = session.get("admin_role", "")
+    username = session.get("admin_username", "")
+    venue_id = current_venue_id()
+    ctx = getattr(g, "admin_ctx", None)
+    if ctx and ctx.get("source") == "mp" and ctx.get("admin_rec"):
+        rec = ctx["admin_rec"]
+        role = rec.get("role", role)
+        venue_id = rec.get("venue_id")
+        if role == "super":
+            username = config.ADMIN_USER
+        elif venue_id:
+            from venue_service import get_venue
+
+            v = get_venue(venue_id)
+            username = (v.get("username") if v else "") or username
     try:
         result = change_password_logged_in(
-            session.get("admin_role", ""),
-            session.get("admin_username", ""),
-            session.get("venue_id"),
+            role,
+            username,
+            venue_id,
             data.get("old_password") or "",
             data.get("new_password") or "",
             data.get("confirm_password") or data.get("new_password") or "",
@@ -316,6 +517,7 @@ def auth_login():
     code = (data.get("code") or "").strip()
     nickname = (data.get("nickname") or "").strip()
     avatar = (data.get("avatar") or "").strip()
+    avatar_base64 = (data.get("avatar_base64") or "").strip()
     if not code:
         return _err("缺少 code")
     if not nickname:
@@ -331,6 +533,33 @@ def auth_login():
             phone=data.get("phone", ""),
             ip=_client_ip(),
         )
+        from avatar_service import normalize_stored_avatar
+
+        stored_av = normalize_stored_avatar(
+            user["id"], avatar, avatar_base64=avatar_base64
+        )
+        from avatar_service import is_ephemeral_avatar
+
+        if stored_av and stored_av != user.get("avatar"):
+
+            def _set_av(users):
+                u = find_by_id(users, user["id"])
+                if u:
+                    u["avatar"] = stored_av
+                return users
+
+            mutate("users", _set_av)
+            user = find_by_id(load("users"), user["id"]) or user
+        elif is_ephemeral_avatar(user.get("avatar") or ""):
+
+            def _clear_av(users):
+                u = find_by_id(users, user["id"])
+                if u:
+                    u["avatar"] = ""
+                return users
+
+            mutate("users", _clear_av)
+            user = find_by_id(load("users"), user["id"]) or user
     except ValueError as e:
         return _err(str(e))
     from auth_tokens import issue_tokens
@@ -339,12 +568,16 @@ def auth_login():
     users = load("users")
     rank = get_user_rank(users, user["id"])
     tokens = issue_tokens(user)
+    from avatar_service import client_avatar_url
+
+    u_out = dict(user)
+    u_out["avatar"] = client_avatar_url(user.get("avatar") or "", request)
     return _ok({
         "access_token": tokens["access_token"],
         "refresh_token": tokens["refresh_token"],
         "expires_in": tokens["expires_in"],
         "token_type": tokens["token_type"],
-        "user": {**user, "tier": tier, "rank": rank},
+        "user": {**u_out, "tier": tier, "rank": rank},
     })
 
 
@@ -358,6 +591,17 @@ def auth_refresh():
     if err:
         return _err(err, 401, 401)
     return _ok(bundle)
+
+
+def _user_login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = _user_from_token()
+        if not user:
+            return _err("请先登录", 401, 401)
+        return f(*args, user=user, **kwargs)
+
+    return decorated
 
 
 def _user_from_token():
@@ -739,14 +983,16 @@ def match_start():
 def _match_player_card(u: Dict) -> Dict:
     from config import INITIAL_SCORE
     from rating import get_tier
+    from avatar_service import client_avatar_url
 
     if not u:
         return {}
     tier = get_tier(u.get("score", INITIAL_SCORE))
+    av = client_avatar_url(u.get("avatar") or "", request)
     return {
         "id": u.get("id"),
         "nickname": u.get("nickname", "球友"),
-        "avatar": u.get("avatar") or "",
+        "avatar": av,
         "score": u.get("score", INITIAL_SCORE),
         "tier_index": tier.get("tier_index", 1),
         "tier_name": tier.get("tier_name", ""),
@@ -847,7 +1093,7 @@ def match_finish(match_id):
     try:
         m = finish_match(match_id, winner_id, completed=completed)
         _broadcast()
-        if m.get("status") in ("finished", "invalid"):
+        if m.get("status") in ("finished", "invalid", "pending_review"):
             return _ok(m)
         return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
@@ -865,7 +1111,7 @@ def match_idle_continue(match_id):
         result = idle_confirm_continue(match_id, user["id"])
         _broadcast()
         m = result["match"]
-        if m.get("status") in ("finished", "invalid"):
+        if m.get("status") in ("finished", "invalid", "pending_review"):
             return _ok(m)
         return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
@@ -883,7 +1129,7 @@ def match_idle_end(match_id):
         result = idle_request_end(match_id, user["id"])
         _broadcast()
         m = result["match"]
-        if m.get("status") in ("finished", "invalid"):
+        if m.get("status") in ("finished", "invalid", "pending_review"):
             return _ok(m)
         return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
@@ -903,7 +1149,7 @@ def match_idle_end_response(match_id):
         result = idle_respond_end(match_id, user["id"], agree)
         _broadcast()
         m = result["match"]
-        if m.get("status") in ("finished", "invalid"):
+        if m.get("status") in ("finished", "invalid", "pending_review"):
             return _ok(m)
         return _ok(_match_api_payload(m, user["id"], run_idle=False))
     except ValueError as e:
@@ -954,6 +1200,7 @@ def match_bonus_confirm(match_id):
             "item": result["item"],
             "pending": get_pending_for_user(m, user["id"]) if m.get("status") == "playing" else [],
             "applied": result["item"].get("status") == "applied",
+            "pending_review": result.get("pending_review", False),
             "frame_awarded": result.get("frame_awarded", False),
             "match_finished": result.get("match_finished", False),
             "match": payload,
@@ -991,18 +1238,23 @@ def admin_bonus_review(match_id):
     from match_bonus import approve_bonus_review, punish_bonus_cheat, reject_bonus_review
 
     try:
-        assert_match_in_venue(match_id, session.get("venue_id"), is_super_admin())
+        assert_match_in_venue(match_id, current_venue_id(), is_super_admin())
     except ValueError as e:
         return _err(str(e))
 
     data = request.get_json(silent=True) or {}
     action = data.get("action")
     bonus_id = data.get("bonus_id")
+    admin_by = _admin_actor_name()
     try:
         if action == "approve":
-            result = approve_bonus_review(match_id, bonus_id, data.get("note", ""))
+            result = approve_bonus_review(
+                match_id, bonus_id, data.get("note", ""), admin_by=admin_by
+            )
         elif action == "reject":
-            result = reject_bonus_review(match_id, bonus_id, data.get("note", ""))
+            result = reject_bonus_review(
+                match_id, bonus_id, data.get("note", ""), admin_by=admin_by
+            )
         elif action == "cheat":
             result = punish_bonus_cheat(
                 match_id,
@@ -1018,6 +1270,84 @@ def admin_bonus_review(match_id):
         return _err(str(e))
 
 
+@app.route("/api/admin/review-logs")
+@admin_required
+def admin_review_logs():
+    from admin_auth import is_super_admin
+    from review_log_service import list_review_logs
+
+    if is_super_admin():
+        return _err("总后台请使用俱乐部后台查看审核记录", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    limit = request.args.get("limit", 200, type=int)
+    match_id = request.args.get("match_id") or None
+    user_id = request.args.get("user_id") or None
+    return _ok(list_review_logs(vid, limit=limit, match_id=match_id, user_id=user_id))
+
+
+@app.route("/api/admin/review-logs/<log_id>/re-review", methods=["POST"])
+@admin_required
+@require_active_venue_member
+def admin_review_log_re_review(log_id):
+    from admin_auth import is_super_admin
+    from review_log_service import get_review_log, re_review_log
+
+    if is_super_admin():
+        return _err("总后台无此功能", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    data = request.get_json(silent=True) or {}
+    action = data.get("action")
+    try:
+        log = get_review_log(log_id)
+        if not log or log.get("venue_id") != vid:
+            return _err("审核记录不存在", 404, 404)
+        result = re_review_log(
+            log_id,
+            action,
+            note=data.get("note", ""),
+            admin_by=_admin_actor_name(),
+        )
+        _broadcast()
+        return _ok(result)
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/user/<user_id>/review-auto-flags", methods=["PUT"])
+@admin_required
+@require_active_venue_member
+def admin_user_review_auto_flags(user_id):
+    from admin_auth import is_super_admin
+    from admin_scope import assert_user_in_venue
+    from venue_user_review_service import set_user_review_flags
+
+    if is_super_admin():
+        return _err("总后台无此功能", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    try:
+        assert_user_in_venue(user_id, vid, is_super_admin())
+    except ValueError as e:
+        return _err(str(e))
+    data = request.get_json(silent=True) or {}
+    flags = set_user_review_flags(
+        user_id,
+        vid,
+        auto_review_bonus=data.get("auto_review_bonus"),
+        auto_review_shutout=data.get("auto_review_shutout"),
+    )
+    return _ok({
+        "user_id": user_id,
+        "auto_review_bonus": flags.get("auto_review_bonus", False),
+        "auto_review_shutout": flags.get("auto_review_shutout", False),
+    })
+
+
 @app.route("/api/match/<match_id>/summary")
 def match_summary(match_id):
     from match_bonus import build_match_summary
@@ -1030,7 +1360,7 @@ def match_summary(match_id):
         return _err("对局不存在")
     if user["id"] not in (m.get("player1_id"), m.get("player2_id")):
         return _err("无权查看该对局", 403, 403)
-    if m.get("status") not in ("finished", "invalid"):
+    if m.get("status") not in ("finished", "invalid", "pending_review"):
         return _err("对局未结束")
     summary = m.get("summary") or build_match_summary(m)
     return _ok(summary)
@@ -1240,7 +1570,7 @@ def admin_get_ladder_settings():
         payload = ladder_rules_payload(None)
         payload["scope"] = "global"
         return _ok(payload)
-    vid = session.get("venue_id")
+    vid = current_venue_id()
     payload = ladder_rules_payload(vid)
     payload["scope"] = "venue"
     payload["can_edit"] = has_permission("ladder_settings")
@@ -1256,7 +1586,7 @@ def admin_save_ladder_settings():
         payload = ladder_rules_payload(None)
         payload["scope"] = "global"
         return _ok(payload)
-    vid = session.get("venue_id")
+    vid = current_venue_id()
     if not vid:
         return _err("球房会话无效")
     save_venue_ladder_rules(vid, data)
@@ -1270,11 +1600,60 @@ def admin_save_ladder_settings():
 def admin_sync_ladder_settings():
     if is_super_admin():
         return _err("总后台请直接编辑全局默认规则")
-    vid = session.get("venue_id")
+    vid = current_venue_id()
     if not vid:
         return _err("球房会话无效")
     sync_venue_ladder_from_global(vid)
     return _ok(ladder_rules_payload(vid))
+
+
+@app.route("/api/admin/venue-applications", methods=["GET"])
+@super_admin_required
+def admin_list_venue_applications():
+    from venue_application_service import list_applications
+
+    status = request.args.get("status")
+    return _ok(list_applications(status or None))
+
+
+@app.route("/api/admin/venue-applications/<app_id>/approve", methods=["POST"])
+@super_admin_required
+def admin_approve_venue_application(app_id):
+    from venue_application_service import approve_application
+
+    try:
+        return _ok(approve_application(app_id))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/venue-applications/<app_id>/reject", methods=["POST"])
+@super_admin_required
+def admin_reject_venue_application(app_id):
+    from venue_application_service import reject_application
+
+    data = request.get_json(silent=True) or {}
+    try:
+        return _ok(reject_application(app_id, data.get("reason") or ""))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/super-setup/regenerate-qr", methods=["POST"])
+@super_admin_required
+def admin_regenerate_super_qr():
+    from super_setup_service import create_one_time_setup_token, get_setup_status, is_super_initialized
+    from mp_admin_service import qr_png_base64
+
+    if is_super_initialized():
+        return _err("总后台已初始化，无法重新生成一次性二维码", 403, 403)
+    qr = create_one_time_setup_token()
+    scene = qr["scene"]
+    return _ok({
+        **qr,
+        "qr_base64": qr_png_base64(scene, "pages/super-setup/super-setup"),
+        "wxacode": True,
+    })
 
 
 @app.route("/api/admin/venues", methods=["GET"])
@@ -1328,7 +1707,7 @@ def admin_dashboard():
     from admin_auth import is_super_admin
     from admin_scope import scoped_dashboard_stats
 
-    return _ok(scoped_dashboard_stats(session.get("venue_id"), is_super_admin()))
+    return _ok(scoped_dashboard_stats(current_venue_id(), is_super_admin()))
 
 
 @app.route("/api/admin/matches")
@@ -1340,7 +1719,7 @@ def admin_matches():
 
     matches = load("matches")
     matches = filter_matches_for_venue(
-        matches, session.get("venue_id"), is_super_admin()
+        matches, current_venue_id(), is_super_admin()
     )
     matches.sort(key=lambda x: x.get("started_at", ""), reverse=True)
     return _ok([enrich_match_for_admin(m) for m in matches[:500]])
@@ -1351,28 +1730,40 @@ def admin_matches():
 def admin_review_match(match_id):
     from admin_auth import is_super_admin
     from admin_scope import assert_match_in_venue
-    from services import _release_table
+    from services import _release_table, finish_match
 
     try:
-        assert_match_in_venue(match_id, session.get("venue_id"), is_super_admin())
-    except ValueError as e:
-        return _err(str(e))
-
-    data = request.get_json(silent=True) or {}
-    action = data.get("action")
-    m = find_by_id(load("matches"), match_id)
-    if not m:
-        return _err("对局不存在")
-
-    if action == "approve":
         try:
-            if m.get("status") == "pending_review" and m.get("pending_settlement"):
+            assert_match_in_venue(match_id, current_venue_id(), is_super_admin())
+        except ValueError as e:
+            return _err(str(e))
+
+        data = request.get_json(silent=True) or {}
+        action = data.get("action")
+        m = find_by_id(load("matches"), match_id)
+        if not m:
+            return _err("对局不存在")
+
+        if action == "approve":
+            if m.get("status") == "pending_review":
+                if m.get("bonus_review_queue"):
+                    return _err("请先处理炸清/接清待审项，再通过对局结果")
+                if not m.get("pending_settlement"):
+                    return _err("无待结算数据，无法通过对局（请刷新列表后重试）")
                 from match_score_review import apply_pending_match_settlement
 
                 m = apply_pending_match_settlement(
                     match_id, data.get("note", "管理员审核通过")
                 )
-            else:
+                from admin_scope import match_venue_id
+                from review_log_service import log_admin_match_settlement_approved
+
+                vid_log = match_venue_id(match_id) or current_venue_id()
+                if vid_log:
+                    log_admin_match_settlement_approved(
+                        m, vid_log, _admin_actor_name(), data.get("note", "")
+                    )
+            elif m.get("status") == "playing":
                 winner_id = data.get("winner_id")
                 if not winner_id:
                     s1, s2 = m.get("score1", 0), m.get("score2", 0)
@@ -1384,36 +1775,62 @@ def admin_review_match(match_id):
                     winner_id,
                     completed=data.get("completed", True),
                 )
-        except ValueError as e:
-            return _err(str(e))
-    elif action == "reject":
-        def _reject(ms):
-            item = find_by_id(ms, match_id)
-            if not item:
-                raise ValueError("对局不存在")
-            item["status"] = "rejected"
-            item["review_note"] = data.get("note", "")
-            return ms
+            elif m.get("status") in ("finished", "invalid"):
+                return _ok({
+                    "id": match_id,
+                    "status": m.get("status"),
+                    "message": "对局已处理，无需重复审核",
+                })
+            else:
+                return _err(f"当前状态「{m.get('status')}」不可审核通过")
+        elif action == "reject":
+            if m.get("status") not in ("pending_review", "playing"):
+                return _err("当前状态不可驳回")
 
-        try:
+            def _reject(ms):
+                item = find_by_id(ms, match_id)
+                if not item:
+                    raise ValueError("对局不存在")
+                item["status"] = "rejected"
+                item["review_note"] = data.get("note", "")
+                item["reviewed_at"] = now_iso()
+                item.pop("pending_settlement", None)
+                item.pop("score_review_hold", None)
+                return ms
+
             mutate("matches", _reject)
-        except ValueError as e:
-            return _err(str(e))
-        table_id = m.get("table_id")
-        if table_id:
-            _release_table(table_id)
-        m = find_by_id(load("matches"), match_id)
-    elif action == "modify":
-        return _err(
-            "不支持直接改判比分。请使用「通过」完成结算，或「拒绝」取消对局。",
-            400,
-            400,
-        )
-    else:
-        return _err("未知操作")
+            table_id = m.get("table_id")
+            if table_id:
+                _release_table(table_id)
+            m = find_by_id(load("matches"), match_id)
+        elif action == "modify":
+            return _err(
+                "不支持直接改判比分。请使用「通过」完成结算，或「拒绝」取消对局。",
+                400,
+                400,
+            )
+        else:
+            return _err("未知操作")
 
-    _broadcast()
-    return _ok(m)
+        from admin_scope import match_venue_id
+        from venue_activity_service import touch_venue_activity
+
+        vid_act = match_venue_id(match_id) or current_venue_id()
+        if vid_act:
+            touch_venue_activity(vid_act)
+        _broadcast()
+        return _ok({
+            "id": m.get("id", match_id),
+            "status": m.get("status"),
+            "reviewed_at": m.get("reviewed_at"),
+        })
+    except ValueError as e:
+        return _err(str(e))
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return _err(f"审核处理失败：{e}", 500, 500)
 
 
 @app.route("/api/admin/match/<match_id>", methods=["DELETE"])
@@ -1425,7 +1842,7 @@ def admin_delete_match(match_id):
     try:
         result = delete_matches(
             [match_id],
-            venue_id=session.get("venue_id"),
+            venue_id=current_venue_id(),
             is_super=is_super_admin(),
         )
         _broadcast()
@@ -1445,7 +1862,7 @@ def admin_batch_delete_matches():
     try:
         result = delete_matches(
             match_ids,
-            venue_id=session.get("venue_id"),
+            venue_id=current_venue_id(),
             is_super=is_super_admin(),
         )
         _broadcast()
@@ -1463,15 +1880,109 @@ def admin_users():
     from anti_cheat import count_serious_violations
 
     users = filter_users_for_venue(
-        load("users"), session.get("venue_id"), is_super_admin()
+        load("users"), current_venue_id(), is_super_admin()
     )
     board = build_leaderboard(users, limit=1000, include_hidden=True)
     rank_map = {b["id"]: b["rank"] for b in board}
+    vid = current_venue_id()
+    admin_by_user = {}
+    if vid and not is_super_admin():
+        for a in load("venue_admins"):
+            if a.get("venue_id") == vid and a.get("user_id"):
+                admin_by_user[a["user_id"]] = a
+        admin_user_ids = set(admin_by_user.keys())
+    if is_super_admin():
+        from mp_super_allowlist_service import is_super_mp_allowlisted
+
+        for u in users:
+            oid = u.get("openid") or ""
+            u["has_wechat"] = bool(oid)
+            u["mp_super_allowlisted"] = is_super_mp_allowlisted(oid) if oid else False
     for u in users:
         u["rank"] = rank_map.get(u["id"], 9999)
         u["tier"] = get_tier(u.get("score", 1000))
         u["serious_violation_count"] = count_serious_violations(u["id"])
+        adm = admin_by_user.get(u.get("id")) if not is_super_admin() else None
+        u["is_venue_admin"] = adm is not None
+        u["venue_admin_role"] = adm.get("role") if adm else None
+        u["venue_admin_id"] = adm.get("id") if adm else None
+        u["has_wechat"] = bool(u.get("openid"))
+        u["can_promote"] = (
+            bool(u.get("openid"))
+            and not adm
+            and not is_super_admin()
+        )
+        u["can_demote_admin"] = (
+            adm is not None
+            and adm.get("role") == "admin"
+            and not is_super_admin()
+        )
+        if vid and not is_super_admin():
+            from venue_user_review_service import get_user_review_flags
+
+            rf = get_user_review_flags(u["id"], vid)
+            u["auto_review_bonus"] = rf.get("auto_review_bonus", False)
+            u["auto_review_shutout"] = rf.get("auto_review_shutout", False)
     return _ok(users)
+
+
+@app.route("/api/admin/staff")
+@admin_required
+def admin_staff_list():
+    from mp_admin_service import list_venue_admins
+
+    if is_super_admin():
+        return _err("总后台无此功能", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    try:
+        return _ok(list_venue_admins(vid))
+    except Exception as e:
+        return _err(f"加载管理员列表失败: {e}", 500, 500)
+
+
+@app.route("/api/admin/owner-bind-qr", methods=["POST"])
+@admin_required
+def admin_owner_bind_qr():
+    """俱乐部网页后台：生成主管理员绑定二维码（每俱乐部仅一名）"""
+    from mp_admin_service import create_owner_bind_qr
+
+    if is_super_admin():
+        return _err("总后台请使用「球房会员」管理各俱乐部账号", 403, 403)
+    ctx = getattr(g, "admin_ctx", None) or {}
+    if ctx.get("source") != "session" or ctx.get("role") != "venue":
+        return _err("请使用俱乐部网页账号登录后生成绑定码", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    created_by = session.get("admin_username", "") or "web"
+    try:
+        return _ok(create_owner_bind_qr(vid, created_by=created_by))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/staff/<admin_id>", methods=["DELETE"])
+@admin_required
+def admin_staff_remove(admin_id):
+    from mp_admin_service import remove_sub_admin
+
+    if is_super_admin():
+        return _err("总后台无此功能", 403, 403)
+    ctx = getattr(g, "admin_ctx", None) or {}
+    via_web = ctx.get("source") == "session" and ctx.get("role") == "venue"
+    operator_id = ""
+    if ctx.get("source") == "mp":
+        rec = ctx.get("admin_rec")
+        if not rec or rec.get("role") != "owner":
+            return _err("仅主管理员可移除子管理员", 403, 403)
+        operator_id = rec["id"]
+    try:
+        remove_sub_admin(operator_id, admin_id, via_venue_account=via_web)
+        return _ok()
+    except ValueError as e:
+        return _err(str(e))
 
 
 @app.route("/api/admin/user/<user_id>/score", methods=["POST"])
@@ -1482,7 +1993,7 @@ def admin_adjust_score(user_id):
     from admin_auth import is_super_admin
 
     try:
-        assert_user_in_venue(user_id, session.get("venue_id"), is_super_admin())
+        assert_user_in_venue(user_id, current_venue_id(), is_super_admin())
     except ValueError as e:
         return _err(str(e))
     data = request.get_json(silent=True) or {}
@@ -1504,7 +2015,7 @@ def admin_punish(user_id):
     from admin_auth import is_super_admin
 
     try:
-        assert_user_in_venue(user_id, session.get("venue_id"), is_super_admin())
+        assert_user_in_venue(user_id, current_venue_id(), is_super_admin())
     except ValueError as e:
         return _err(str(e))
     data = request.get_json() or {}
@@ -1540,7 +2051,7 @@ def admin_delete_user(user_id):
     from services import delete_users
 
     try:
-        assert_user_in_venue(user_id, session.get("venue_id"), is_super_admin())
+        assert_user_in_venue(user_id, current_venue_id(), is_super_admin())
         result = delete_users([user_id])
         _broadcast()
         return _ok(result)
@@ -1559,7 +2070,7 @@ def admin_batch_delete_users():
     user_ids = data.get("user_ids") or []
     try:
         for uid in user_ids:
-            assert_user_in_venue(uid, session.get("venue_id"), is_super_admin())
+            assert_user_in_venue(uid, current_venue_id(), is_super_admin())
         result = delete_users(user_ids)
         _broadcast()
         return _ok(result)
@@ -1575,7 +2086,7 @@ def admin_reset_system_data():
 
     data = request.get_json(silent=True) or {}
     role = "super" if is_super_admin() else "venue"
-    venue_id = session.get("venue_id")
+    venue_id = current_venue_id()
     try:
         result = admin_reset_data(
             role,
@@ -1596,7 +2107,7 @@ def admin_tables():
     if request.method == "GET":
         tables = filter_tables_for_session(
             load("tables"),
-            session.get("venue_id"),
+            current_venue_id(),
             is_super_admin(),
         )
         return _ok(enrich_tables(tables))
@@ -1620,8 +2131,8 @@ def admin_tables():
 
         tid = f"T{next_num:02d}"
         token = secrets.token_urlsafe(16)
-        venue_id = data.get("venue_id") or session.get("venue_id") or DEFAULT_VENUE_ID
-        if not is_super_admin() and venue_id != session.get("venue_id"):
+        venue_id = data.get("venue_id") or current_venue_id() or DEFAULT_VENUE_ID
+        if not is_super_admin() and venue_id != current_venue_id():
             raise ValueError("无权为该球房添加桌台")
         row = {
             "id": tid,
@@ -1647,7 +2158,7 @@ def _assert_table_venue_read(table: dict):
     """仅校验桌台归属；会员到期也可查看/下载二维码"""
     if is_super_admin():
         return
-    if table.get("venue_id", DEFAULT_VENUE_ID) != session.get("venue_id"):
+    if table.get("venue_id", DEFAULT_VENUE_ID) != current_venue_id():
         raise ValueError("无权查看该桌台")
 
 
@@ -1774,7 +2285,7 @@ def admin_open_table(table_id):
         from admin_auth import is_super_admin
 
         try:
-            assert_user_in_venue(user_id, session.get("venue_id"), is_super_admin())
+            assert_user_in_venue(user_id, current_venue_id(), is_super_admin())
         except ValueError as e:
             return _err(str(e))
         open_table_hours_bonus(user_id, hours)
@@ -1846,7 +2357,7 @@ def admin_exchanges():
     from admin_scope import filter_exchanges_for_venue
 
     exs = filter_exchanges_for_venue(
-        load("exchanges"), session.get("venue_id"), is_super_admin()
+        load("exchanges"), current_venue_id(), is_super_admin()
     )
     users = load("users")
     for e in exs:
@@ -1863,7 +2374,7 @@ def admin_review_exchange(ex_id):
     from admin_scope import assert_exchange_in_venue
 
     try:
-        assert_exchange_in_venue(ex_id, session.get("venue_id"), is_super_admin())
+        assert_exchange_in_venue(ex_id, current_venue_id(), is_super_admin())
     except ValueError as e:
         return _err(str(e))
 
@@ -1933,7 +2444,7 @@ def admin_delete_score_log(log_id):
     try:
         result = delete_score_logs(
             [log_id],
-            session.get("venue_id"),
+            current_venue_id(),
             is_super_admin(),
         )
         return _ok(result)
@@ -1952,7 +2463,7 @@ def admin_batch_delete_score_logs():
     try:
         result = delete_score_logs(
             data.get("log_ids") or [],
-            session.get("venue_id"),
+            current_venue_id(),
             is_super_admin(),
         )
         return _ok(result)
@@ -1968,7 +2479,7 @@ def admin_score_logs():
     from user_history import format_admin_score_detail
 
     logs = filter_score_logs_for_venue(
-        load("score_logs"), session.get("venue_id"), is_super_admin()
+        load("score_logs"), current_venue_id(), is_super_admin()
     )
     users = load("users")
     matches = load("matches")
@@ -2000,7 +2511,7 @@ def admin_export_matches():
     from admin_scope import filter_matches_for_venue
 
     matches = filter_matches_for_venue(
-        load("matches"), session.get("venue_id"), is_super_admin()
+        load("matches"), current_venue_id(), is_super_admin()
     )
     users = load("users")
     for m in matches:
@@ -2026,6 +2537,381 @@ def admin_export_matches():
                      as_attachment=True, download_name="matches.xlsx")
 
 
+@app.route("/api/admin/mp-super-login-qr", methods=["POST"])
+@super_admin_required
+def admin_mp_super_login_qr():
+    """总后台：生成小程序总管理员扫码登录码"""
+    from mp_admin_service import create_qr_token, qr_png_base64
+
+    qr = create_qr_token("super_login", venue_id=None, role="super")
+    scene = qr["scene"]
+    return _ok({**qr, "qr_base64": qr_png_base64(scene, "pages/admin-scan/admin-scan")})
+
+
+@app.route("/api/admin/mp-super-wechat-allowlist", methods=["GET"])
+@super_admin_required
+def admin_mp_super_wechat_allowlist_list():
+    from mp_super_allowlist_service import list_allowlist_entries
+
+    return _ok(list_allowlist_entries())
+
+
+@app.route("/api/admin/mp-super-wechat-allowlist", methods=["POST"])
+@super_admin_required
+def admin_mp_super_wechat_allowlist_add():
+    from mp_super_allowlist_service import add_allowlist_by_user_id, add_allowlist_entry
+
+    data = request.get_json(silent=True) or {}
+    openid = (data.get("openid") or "").strip()
+    user_id = (data.get("user_id") or "").strip()
+    note = (data.get("note") or "").strip()
+    try:
+        if user_id:
+            return _ok(add_allowlist_by_user_id(user_id, note=note))
+        if openid:
+            return _ok(add_allowlist_entry(openid, note=note))
+        return _err("请提供 user_id 或 openid")
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/mp-super-wechat-allowlist/<openid>", methods=["DELETE"])
+@super_admin_required
+def admin_mp_super_wechat_allowlist_remove(openid):
+    from mp_super_allowlist_service import remove_allowlist_entry
+
+    try:
+        remove_allowlist_entry(openid)
+        return _ok({"removed": openid})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/mp-super-wechat-allowlist/register-qr", methods=["POST"])
+@super_admin_required
+def admin_mp_super_wechat_register_qr():
+    """生成授权登记码：指定微信扫码后写入白名单（须在小程序已登录）"""
+    from mp_admin_service import create_qr_token, qr_png_base64
+
+    qr = create_qr_token("super_allowlist", venue_id=None, role="super")
+    scene = qr["scene"]
+    return _ok({
+        **qr,
+        "qr_base64": qr_png_base64(scene, "pages/admin-scan/admin-scan"),
+        "hint": "请对方微信先登录小程序，再扫此码完成总后台入口授权",
+    })
+
+
+# ---------- 小程序管理端 ----------
+@app.route("/api/mp-admin/eligibility")
+@_user_login_required
+def mp_admin_eligibility(user):
+    from mp_admin_service import check_mp_admin_visibility
+
+    vid = request.args.get("venue_id") or DEFAULT_VENUE_ID
+    info = check_mp_admin_visibility(user.get("openid", ""), vid)
+    return _ok(info)
+
+
+@app.route("/api/mp-admin/scan", methods=["POST"])
+@_user_login_required
+def mp_admin_scan(user):
+    from mp_admin_service import bind_from_qr, build_mp_admin_session_info, consume_qr_token
+    from mp_admin_tokens import issue_admin_tokens
+
+    data = request.get_json(silent=True) or {}
+    raw = (data.get("token") or data.get("scene") or "").strip()
+    if raw.startswith("sas_") or (
+        len(raw) == 16 and raw.isalnum() and all(c in "0123456789abcdefABCDEF" for c in raw)
+    ):
+        return _err(
+            "这是总后台「首次初始化」码，请用微信直接扫下载的初始化二维码，"
+            "不要在本页「扫一扫」里扫",
+            400,
+        )
+    if raw.startswith("adm_"):
+        raw = raw[4:]
+    if not raw:
+        return _err("缺少扫码令牌")
+    qr_rec = consume_qr_token(raw)
+    if not qr_rec:
+        return _err("登录码无效或已过期，请在 Web 后台重新生成")
+    if qr_rec.get("type") == "super_allowlist":
+        from mp_super_allowlist_service import register_self_from_scan
+
+        try:
+            rec = register_self_from_scan(
+                user.get("openid", ""),
+                user["id"],
+                user.get("nickname", ""),
+            )
+        except ValueError as e:
+            return _err(str(e))
+        msg = "授权成功，请在「我的」点击「总后台登录」并输入总后台账号密码"
+        if rec.get("already"):
+            msg = "您已在授权列表中，可直接在「我的」使用总后台登录"
+        return _ok({"registered": True, "message": msg, **rec})
+    try:
+        admin_rec = bind_from_qr(
+            qr_rec,
+            user.get("openid", ""),
+            user["id"],
+            user.get("nickname", ""),
+        )
+    except ValueError as e:
+        return _err(str(e))
+    tokens = issue_admin_tokens(admin_rec)
+    session_info = build_mp_admin_session_info(admin_rec)
+    from venue_activity_service import touch_venue_activity
+
+    if admin_rec.get("venue_id"):
+        touch_venue_activity(admin_rec["venue_id"])
+    return _ok({**tokens, "session": session_info})
+
+
+@app.route("/api/mp-admin/relogin", methods=["POST"])
+@_user_login_required
+def mp_admin_relogin(user):
+    from mp_admin_service import build_mp_admin_session_info, resolve_admin_for_relogin
+    from mp_admin_tokens import issue_admin_tokens
+
+    data = request.get_json(silent=True) or {}
+    admin_id = (data.get("admin_id") or "").strip()
+    try:
+        admin_rec = resolve_admin_for_relogin(user.get("openid", ""), admin_id or None)
+    except ValueError as e:
+        return _err(str(e), 403, 403)
+    tokens = issue_admin_tokens(admin_rec)
+    from venue_activity_service import touch_venue_activity
+
+    if admin_rec.get("venue_id"):
+        touch_venue_activity(admin_rec["venue_id"])
+    return _ok({**tokens, "session": build_mp_admin_session_info(admin_rec)})
+
+
+@app.route("/api/mp-admin/switch", methods=["POST"])
+@_user_login_required
+def mp_admin_switch(user):
+    """切换总后台 / 俱乐部管理身份（同一微信多条绑定）"""
+    from mp_admin_service import build_mp_admin_session_info, resolve_admin_for_relogin
+    from mp_admin_tokens import issue_admin_tokens
+
+    data = request.get_json(silent=True) or {}
+    admin_id = (data.get("admin_id") or "").strip()
+    if not admin_id:
+        return _err("请指定要进入的管理后台", 400)
+    try:
+        admin_rec = resolve_admin_for_relogin(user.get("openid", ""), admin_id)
+    except ValueError as e:
+        return _err(str(e), 403, 403)
+    tokens = issue_admin_tokens(admin_rec)
+    from venue_activity_service import touch_venue_activity
+
+    if admin_rec.get("venue_id"):
+        touch_venue_activity(admin_rec["venue_id"])
+    return _ok({**tokens, "session": build_mp_admin_session_info(admin_rec)})
+
+
+@app.route("/api/mp-admin/refresh", methods=["POST"])
+def mp_admin_refresh():
+    from mp_admin_tokens import refresh_admin_access_token
+
+    data = request.get_json(silent=True) or {}
+    refresh = (data.get("refresh_token") or "").strip()
+    bundle, err = refresh_admin_access_token(refresh)
+    if err:
+        return _err(err, 401, 401)
+    return _ok(bundle)
+
+
+@app.route("/api/mp-admin/me")
+@mp_admin_required
+def mp_admin_me():
+    from mp_admin_service import build_mp_admin_session_info
+
+    rec = g.admin_ctx["admin_rec"]
+    return _ok(build_mp_admin_session_info(rec))
+
+
+@app.route("/api/mp-admin/menu")
+@mp_admin_required
+def mp_admin_menu():
+    from mp_admin_service import build_admin_menu, build_mp_admin_session_info
+    from admin_scope import scoped_dashboard_stats
+
+    rec = g.admin_ctx["admin_rec"]
+    session = build_mp_admin_session_info(rec)
+    stats = scoped_dashboard_stats(current_venue_id(), is_super_admin())
+    badges = {
+        "pending_all": (
+            stats.get("pending_matches", 0)
+            + stats.get("pending_bonus_reviews", 0)
+            + stats.get("pending_exchanges", 0)
+        ),
+        "pending_matches": stats.get("pending_matches", 0),
+        "pending_bonus_reviews": stats.get("pending_bonus_reviews", 0),
+        "pending_exchanges": stats.get("pending_exchanges", 0),
+    }
+    return _ok({
+        "menu": build_admin_menu(session),
+        "session": session,
+        "badges": badges,
+        "console_type": session.get("console_type") or ("super" if rec.get("role") == "super" else "venue"),
+    })
+
+
+@app.route("/api/mp-admin/bind-owner", methods=["POST"])
+@_user_login_required
+def mp_admin_bind_owner(user):
+    """首次绑定俱乐部主管理员（需球房网页账号密码，无需网页扫码）"""
+    from mp_admin_service import bind_owner_with_password, build_mp_admin_session_info
+    from mp_admin_tokens import issue_admin_tokens
+
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    if not username or not password:
+        return _err("请输入俱乐部登录账号和密码")
+    try:
+        admin_rec = bind_owner_with_password(
+            username,
+            password,
+            user.get("openid", ""),
+            user["id"],
+            user.get("nickname", ""),
+        )
+    except ValueError as e:
+        return _err(str(e))
+    tokens = issue_admin_tokens(admin_rec)
+    return _ok({**tokens, "session": build_mp_admin_session_info(admin_rec)})
+
+
+@app.route("/api/mp-admin/super-login", methods=["POST"])
+@app.route("/api/mp-admin/bind-super", methods=["POST"])
+@_user_login_required
+def mp_admin_bind_super(user):
+    """总后台账号密码登录（首次登录自动绑定当前微信，无需扫码）"""
+    from mp_admin_service import bind_super_with_password, build_mp_admin_session_info
+    from mp_admin_tokens import issue_admin_tokens
+
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    if not username or not password:
+        return _err("请输入总后台账号和密码")
+    try:
+        admin_rec = bind_super_with_password(
+            username,
+            password,
+            user.get("openid", ""),
+            user["id"],
+            user.get("nickname", ""),
+        )
+    except ValueError as e:
+        return _err(str(e))
+    tokens = issue_admin_tokens(admin_rec)
+    return _ok({**tokens, "session": build_mp_admin_session_info(admin_rec)})
+
+
+@app.route("/api/mp-admin/pending-summary")
+@mp_admin_required
+def mp_admin_pending_summary():
+    from admin_scope import scoped_dashboard_stats
+
+    stats = scoped_dashboard_stats(current_venue_id(), is_super_admin())
+    return _ok({
+        "pending_matches": stats.get("pending_matches", 0),
+        "pending_bonus_reviews": stats.get("pending_bonus_reviews", 0),
+        "pending_exchanges": stats.get("pending_exchanges", 0),
+    })
+
+
+@app.route("/api/admin/user/<user_id>/promote-admin", methods=["POST"])
+@admin_required
+def admin_promote_player_admin(user_id):
+    from admin_auth import is_super_admin
+    from mp_admin_service import promote_player_to_sub_admin
+
+    if is_super_admin():
+        return _err("总后台请在球房会员中管理", 403, 403)
+    vid = current_venue_id()
+    ctx = getattr(g, "admin_ctx", None) or {}
+    via_web = ctx.get("source") == "session" and ctx.get("role") == "venue"
+    operator_id = ""
+    if ctx.get("source") == "mp":
+        rec = ctx.get("admin_rec")
+        if not rec or rec.get("role") != "owner":
+            return _err("仅主管理员可设置子管理员", 403, 403)
+        operator_id = rec["id"]
+    try:
+        return _ok(
+            promote_player_to_sub_admin(
+                vid,
+                user_id,
+                operator_id,
+                via_venue_account=via_web,
+            )
+        )
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/user/<user_id>/demote-admin", methods=["POST"])
+@admin_required
+def admin_demote_player_admin(user_id):
+    from admin_auth import is_super_admin
+    from mp_admin_service import get_venue_admin_by_user_id, remove_sub_admin
+
+    if is_super_admin():
+        return _err("总后台请在球房会员中管理", 403, 403)
+    vid = current_venue_id()
+    ctx = getattr(g, "admin_ctx", None) or {}
+    via_web = ctx.get("source") == "session" and ctx.get("role") == "venue"
+    operator_id = ""
+    if ctx.get("source") == "mp":
+        rec = ctx.get("admin_rec")
+        if not rec or rec.get("role") != "owner":
+            return _err("仅主管理员可取消子管理员", 403, 403)
+        operator_id = rec["id"]
+    target = get_venue_admin_by_user_id(vid, user_id)
+    if not target or target.get("role") != "admin":
+        return _err("该玩家不是子管理员")
+    try:
+        remove_sub_admin(operator_id, target["id"], via_venue_account=via_web)
+        return _ok()
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/mp-admin/staff/invite-qr", methods=["POST"])
+@mp_admin_required
+def mp_admin_staff_invite_qr():
+    from mp_admin_service import create_qr_token, qr_png_base64
+
+    rec = g.admin_ctx["admin_rec"]
+    if rec.get("role") != "owner":
+        return _err("仅主管理员可邀请子管理员", 403, 403)
+    vid = rec.get("venue_id")
+    if not vid:
+        return _err("总后台请使用 Web 管理端", 403, 403)
+    qr = create_qr_token("invite", venue_id=vid, role="admin", created_by=rec["id"])
+    scene = qr["scene"]
+    return _ok({**qr, "qr_base64": qr_png_base64(scene, "pages/admin-scan/admin-scan")})
+
+
+@app.route("/api/mp-admin/staff/<admin_id>", methods=["DELETE"])
+@mp_admin_required
+def mp_admin_staff_remove(admin_id):
+    from mp_admin_service import remove_sub_admin
+
+    rec = g.admin_ctx["admin_rec"]
+    try:
+        remove_sub_admin(rec["id"], admin_id)
+    except ValueError as e:
+        return _err(str(e))
+    return _ok()
+
+
 # ---------- SocketIO ----------
 @socketio.on("connect")
 def on_connect():
@@ -2038,6 +2924,11 @@ def on_request_update():
 
 
 if __name__ == "__main__":
+    from venue_activity_service import purge_inactive_mp_applied_venues
+
+    cancelled = purge_inactive_mp_applied_venues()
+    if cancelled:
+        print(f"已注销 {len(cancelled)} 个超过30天无操作的小程序申请俱乐部账号")
     process_season_and_week()
     os.makedirs(config.DATA_DIR, exist_ok=True)
     ensure_venues_file()

@@ -73,7 +73,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", DEFAULT_SECRET_KEY)
 JWT_SECRET = os.environ.get("JWT_SECRET", SECRET_KEY if SECRET_KEY != DEFAULT_SECRET_KEY else DEFAULT_JWT_SECRET)
 JWT_ACCESS_EXPIRE_SECONDS = int(os.environ.get("JWT_ACCESS_EXPIRE_SECONDS", 7200))
 JWT_REFRESH_EXPIRE_SECONDS = int(os.environ.get("JWT_REFRESH_EXPIRE_SECONDS", 2592000))
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_USER = os.environ.get("ADMIN_USER", "cca10")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
 CORS_ORIGINS = [

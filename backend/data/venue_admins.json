@@ -1,0 +1,146 @@
+[
+  {
+    "id": "VAbea310759d00",
+    "venue_id": null,
+    "openid": "oqb843fvsHzGruHND91CRrX3Fe-U",
+    "user_id": "Ue1c2981c0e39",
+    "role": "super",
+    "nickname": ".",
+    "refresh_tokens": [
+      {
+        "token_hash": "41f9850fee09450d310782c653d660fb659f25894f52067d669c931d881dafca",
+        "expires_at": "2026-06-25T00:24:23.072154",
+        "created_at": "2026-05-26T00:24:23.072180"
+      },
+      {
+        "token_hash": "ff3695145865c7689d505fc180b0a95b125d38f10011eade529e4c3558b7f3d5",
+        "expires_at": "2026-06-25T00:24:41.873133",
+        "created_at": "2026-05-26T00:24:41.873159"
+      },
+      {
+        "token_hash": "26859b54cd295eb088d6686350b3a1135604861611f43293c6b505bf4f2163ea",
+        "expires_at": "2026-06-25T00:24:41.908350",
+        "created_at": "2026-05-26T00:24:41.908375"
+      },
+      {
+        "token_hash": "5206ad2c002e201620b17b50724141819567931b7374e33d70176f75734e23cc",
+        "expires_at": "2026-06-25T00:24:44.383272",
+        "created_at": "2026-05-26T00:24:44.383298"
+      },
+      {
+        "token_hash": "da67c35f9af30b8fcc8fdc49252ecfac2ebf9dd22566f59b8311295766349378",
+        "expires_at": "2026-06-25T00:24:44.418659",
+        "created_at": "2026-05-26T00:24:44.418684"
+      },
+      {
+        "token_hash": "313a52539f9ef47cb411e7ac716eef7fabb93507a216fdcb37fb47092ef90bbd",
+        "expires_at": "2026-06-25T00:36:01.513778",
+        "created_at": "2026-05-26T00:36:01.513792"
+      },
+      {
+        "token_hash": "1da48ed2b356db2a84b62d8656e5e161cff1676b74d15df47751cd3a89ab2a11",
+        "expires_at": "2026-06-25T00:39:22.136956",
+        "created_at": "2026-05-26T00:39:22.136961"
+      },
+      {
+        "token_hash": "ac2333203a5d18a2895dffe07ebb1845bf407c6dd05e4c76e62f10ade6809120",
+        "expires_at": "2026-06-25T01:06:28.584663",
+        "created_at": "2026-05-26T01:06:28.584668"
+      },
+      {
+        "token_hash": "190de6ff3221eca3c5bbe4ee2438e211ed5f5ae88f6f39c7c18e86009a91340c",
+        "expires_at": "2026-06-25T11:39:05.786587",
+        "created_at": "2026-05-26T11:39:05.786595"
+      },
+      {
+        "token_hash": "a55417a0ea4fa2ef6146f80846436858d22ac2a0196ac93feb97ba2c03d2f773",
+        "expires_at": "2026-06-25T11:39:17.037375",
+        "created_at": "2026-05-26T11:39:17.037380"
+      },
+      {
+        "token_hash": "c41e2da0c91c30cda9e1c64f018e731a8fe03579c2b375e608f0a6ce36809692",
+        "expires_at": "2026-06-25T11:39:17.063138",
+        "created_at": "2026-05-26T11:39:17.063143"
+      },
+      {
+        "token_hash": "a105d3c82bf50236c752185a1a40a3b494735bb2bfd8dc7466ce9597b73603fa",
+        "expires_at": "2026-06-25T11:39:24.593639",
+        "created_at": "2026-05-26T11:39:24.593644"
+      },
+      {
+        "token_hash": "bec226818aac6539234b7c4cb28e769a61b7ca5fef1aaca9c7341b24336887d0",
+        "expires_at": "2026-06-25T11:39:24.614973",
+        "created_at": "2026-05-26T11:39:24.614977"
+      },
+      {
+        "token_hash": "5ba17b03140d8f4a29d94f9c8a8d786dddbd98ff62efcb99ecf7ac4ef61a441d",
+        "expires_at": "2026-06-25T11:42:02.345679",
+        "created_at": "2026-05-26T11:42:02.345686"
+      },
+      {
+        "token_hash": "de9a3ff861ad13f9fe13ee4d64fc652d657665000cef0ef327b0ab9ac2d37d3e",
+        "expires_at": "2026-06-25T11:42:02.366473",
+        "created_at": "2026-05-26T11:42:02.366483"
+      },
+      {
+        "token_hash": "c5fc409960b4d1d9c39aad26e4bf7a8aa5b007551184c6f24b26cc6292313008",
+        "expires_at": "2026-06-25T11:54:05.719662",
+        "created_at": "2026-05-26T11:54:05.719667"
+      },
+      {
+        "token_hash": "4dbdd44abc3b0dff53ba5d9094481c4e30cd61c6c4108be399b83f452ee25350",
+        "expires_at": "2026-06-25T11:57:14.126818",
+        "created_at": "2026-05-26T11:57:14.126823"
+      },
+      {
+        "token_hash": "7ad4f6c79d0b230d939848281f5c2c540f7e2127cefe7e4d2067399ccdbe3ba3",
+        "expires_at": "2026-06-25T12:45:13.798223",
+        "created_at": "2026-05-26T12:45:13.798231"
+      },
+      {
+        "token_hash": "ba717231e2590dc9d9065dd24edb124eafb8c8a7fee7cbab2e414cf59d9f9bd4",
+        "expires_at": "2026-06-25T12:45:19.409213",
+        "created_at": "2026-05-26T12:45:19.409217"
+      },
+      {
+        "token_hash": "7dd84ca213facbf84062f8724bd32d9f84e21a25d47b45e9e053daeb1d8a163d",
+        "expires_at": "2026-06-25T13:12:55.863480",
+        "created_at": "2026-05-26T13:12:55.863487"
+      },
+      {
+        "token_hash": "a9de5474a7be5518791054593158e971a3f625d147778f8a7185becad158d7ef",
+        "expires_at": "2026-06-26T02:14:38.551429",
+        "created_at": "2026-05-27T02:14:38.551458"
+      }
+    ],
+    "created_at": "2026-05-25T20:34:58.988434",
+    "created_by": "super_qr"
+  },
+  {
+    "id": "VA9e3df94b3d88",
+    "venue_id": "V001",
+    "openid": "oqb843fvsHzGruHND91CRrX3Fe-U",
+    "user_id": "Ue1c2981c0e39",
+    "role": "owner",
+    "nickname": ".",
+    "refresh_tokens": [
+      {
+        "token_hash": "16d82eb6362e8b14eae70b6ccacd542e6c7b3c702e3cc92d63b83b07524723bc",
+        "expires_at": "2026-06-25T13:12:21.496944",
+        "created_at": "2026-05-26T13:12:21.496951"
+      },
+      {
+        "token_hash": "88474d445cdcea3403f25925545a2bc5450c0a675507441e00ebb37864dd6220",
+        "expires_at": "2026-06-25T20:03:02.510354",
+        "created_at": "2026-05-26T20:03:02.510363"
+      },
+      {
+        "token_hash": "930c70a6f7da9d555fcd5c00f2945c3f463d02f66411f05f4c14628ceadd0f3d",
+        "expires_at": "2026-06-26T02:16:17.587510",
+        "created_at": "2026-05-27T02:16:17.587518"
+      }
+    ],
+    "created_at": "2026-05-26T13:12:21.494612",
+    "created_by": "bind_owner"
+  }
+]

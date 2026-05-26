@@ -15,10 +15,30 @@ App({
     showAds: true,
     location: null,
     version: '2.0.1',
+    adminAccessToken: '',
+    adminRefreshToken: '',
+    adminSession: null,
   },
-  onLaunch() {
+  onLaunch(options) {
     this.globalData.baseUrl = getApiBaseUrl();
-    console.log('[API] baseUrl =', this.globalData.baseUrl);
+
+    const q = (options && options.query) || {};
+    const scene = q.scene || '';
+    if (scene && String(scene).indexOf('adm_') >= 0) {
+      wx.navigateTo({
+        url: `/pages/admin-scan/admin-scan?scene=${encodeURIComponent(scene)}`,
+      });
+    } else if (scene === 'venue_apply' || String(scene).indexOf('venue_apply') >= 0) {
+      wx.navigateTo({ url: '/pages/venue-apply/venue-apply' });
+    } else if (scene && (String(scene).indexOf('sas_') >= 0 || /^[a-f0-9]{16}$/i.test(String(scene)))) {
+      let setupScene = String(scene);
+      if (setupScene.indexOf('sas_') >= 0) {
+        setupScene = setupScene.slice(setupScene.indexOf('sas_') + 4);
+      }
+      wx.navigateTo({
+        url: `/pages/super-setup/super-setup?scene=${encodeURIComponent(setupScene)}`,
+      });
+    }
 
     const access = wx.getStorageSync('access_token') || wx.getStorageSync('token');
     const refresh = wx.getStorageSync('refresh_token');
@@ -33,6 +53,15 @@ App({
       } else if (refresh) {
         api.tryRefreshToken().then(() => this.refreshProfile()).catch(() => {});
       }
+    }
+
+    const adminAccess = wx.getStorageSync('admin_access_token') || '';
+    const adminRefresh = wx.getStorageSync('admin_refresh_token') || '';
+    const adminSession = wx.getStorageSync('admin_session') || null;
+    if (adminAccess || adminRefresh) {
+      this.globalData.adminAccessToken = adminAccess;
+      this.globalData.adminRefreshToken = adminRefresh;
+      this.globalData.adminSession = adminSession;
     }
 
     this.loadVenueStatus();

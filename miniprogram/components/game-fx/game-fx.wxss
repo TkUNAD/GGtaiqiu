@@ -5,7 +5,7 @@
   top: 0;
   bottom: 0;
   z-index: 9999;
-  background: rgba(4, 6, 12, 0.94);
+  background: rgba(4, 6, 14, 0.96);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,370 +21,313 @@
   justify-content: center;
 }
 
-/* ========== 胜：行书金属 红黄 下落弹跳燃烧 4s（加大） ========== */
+/* ========== 标题通用 ========== */
+.fx-title-wrap {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.fx-title-main {
+  display: block;
+  font-size: 200rpx;
+  font-weight: 900;
+  letter-spacing: 24rpx;
+  line-height: 1.1;
+  font-family: STHeiti, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.fx-title-sub {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 36rpx;
+  letter-spacing: 12rpx;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* ========== 胜利 ========== */
 .fx-win {
   flex-direction: column;
 }
 
-.fx-art-win {
-  position: relative;
-  z-index: 6;
-  font-size: 380rpx;
-  font-weight: 900;
-  font-family: STXingkai, KaiTi, STKaiti, "华文行楷", serif;
-  letter-spacing: 20rpx;
-  line-height: 1;
-  background: linear-gradient(
-    165deg,
-    #fffef0 0%,
-    #fde047 12%,
-    #f59e0b 28%,
-    #ea580c 48%,
-    #dc2626 68%,
-    #fbbf24 88%,
-    #fef3c7 100%
+.fx-win-rays {
+  position: absolute;
+  width: 900rpx;
+  height: 900rpx;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(251, 191, 36, 0.15) 30deg,
+    transparent 60deg,
+    rgba(239, 68, 68, 0.12) 90deg,
+    transparent 120deg,
+    rgba(251, 191, 36, 0.18) 150deg,
+    transparent 180deg,
+    rgba(234, 88, 12, 0.1) 210deg,
+    transparent 240deg,
+    rgba(253, 224, 71, 0.2) 270deg,
+    transparent 300deg,
+    rgba(251, 191, 36, 0.15) 330deg,
+    transparent 360deg
   );
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-stroke: 3rpx rgba(254, 243, 199, 0.55);
-  filter:
-    drop-shadow(0 6rpx 0 rgba(127, 29, 29, 0.9))
-    drop-shadow(0 0 64rpx rgba(251, 191, 36, 0.9))
-    drop-shadow(0 0 120rpx rgba(239, 68, 68, 0.6));
-  animation: win-drop-bounce 4s cubic-bezier(0.22, 0.85, 0.28, 1) forwards;
+  opacity: 0;
+  animation: win-rays-in 4s ease-out forwards, win-rays-spin 8s linear 0.5s infinite;
 }
 
-@keyframes win-drop-bounce {
+@keyframes win-rays-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  25% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0.7; transform: scale(1.1); }
+}
+
+@keyframes win-rays-spin {
+  100% { transform: rotate(360deg); }
+}
+
+.fx-win-burst {
+  position: absolute;
+  width: 600rpx;
+  height: 600rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.55) 0%, rgba(239, 68, 68, 0.25) 40%, transparent 70%);
+  animation: win-burst-pulse 4s ease-out forwards;
+}
+
+@keyframes win-burst-pulse {
+  0% { transform: scale(0); opacity: 0; }
+  20% { transform: scale(1.2); opacity: 1; }
+  50% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.15); opacity: 0.5; }
+}
+
+.fx-title-win .fx-title-main {
+  color: #fef08a;
+  text-shadow:
+    0 0 40rpx rgba(251, 191, 36, 1),
+    0 0 80rpx rgba(239, 68, 68, 0.8),
+    0 8rpx 0 #b45309,
+    0 16rpx 32rpx rgba(0, 0, 0, 0.5);
+  animation: win-title-in 4s cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
+}
+
+.fx-title-win .fx-title-sub {
+  color: #fde68a;
+  animation: win-sub-in 4s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+@keyframes win-title-in {
   0% {
-    transform: translateY(-110vh) scale(1.2) rotate(-6deg);
+    transform: translateY(-80vh) scale(0.5);
     opacity: 0;
   }
-  6% { opacity: 1; }
-  42% {
-    transform: translateY(0) scale(1) rotate(0deg);
+  18% { opacity: 1; }
+  38% {
+    transform: translateY(0) scale(1.08);
   }
-  50% {
-    transform: translateY(-88rpx) scale(1.05);
+  48% {
+    transform: translateY(-40rpx) scale(1.02);
   }
   58% {
     transform: translateY(0) scale(1);
   }
-  64% {
-    transform: translateY(-44rpx) scale(1.03);
-  }
-  70% {
-    transform: translateY(0) scale(1);
-  }
   100% {
     transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
 
-.fx-win-flames {
+@keyframes win-sub-in {
+  0% { opacity: 0; transform: translateY(20rpx); }
+  30% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0.9; }
+}
+
+.fx-particle-win {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 4;
-}
-
-.fx-flame {
-  position: absolute;
-  left: 50%;
-  bottom: 16%;
-  transform: translateX(-50%);
-  border-radius: 50% 50% 45% 45%;
-  opacity: 0;
-  filter: blur(2rpx);
-}
-
-.fx-flame-1 {
-  width: 720rpx;
-  height: 500rpx;
-  background: radial-gradient(ellipse at bottom, rgba(254, 243, 199, 0.95), rgba(251, 191, 36, 0.7), rgba(239, 68, 68, 0.4), transparent 72%);
-  animation: win-flame-rise 2.6s ease-out 1.35s forwards;
-}
-
-.fx-flame-2 {
-  width: 920rpx;
-  height: 600rpx;
-  background: radial-gradient(ellipse at bottom, rgba(239, 68, 68, 0.75), rgba(234, 88, 12, 0.45), transparent 70%);
-  animation: win-flame-rise 2.6s ease-out 1.45s forwards;
-}
-
-.fx-flame-3 {
-  width: 560rpx;
-  height: 400rpx;
-  background: radial-gradient(ellipse at bottom, #fef3c7, #f97316, transparent 68%);
-  animation: win-flame-flicker 0.22s ease-in-out 1.4s infinite alternate;
-}
-
-@keyframes win-flame-rise {
-  0% { opacity: 0; transform: translateX(-50%) scaleY(0.2); }
-  25% { opacity: 1; transform: translateX(-50%) scaleY(1.1); }
-  100% { opacity: 0.85; transform: translateX(-50%) scaleY(1.25); }
-}
-
-@keyframes win-flame-flicker {
-  0% { opacity: 0.7; transform: translateX(-50%) scale(0.95); }
-  100% { opacity: 1; transform: translateX(-50%) scale(1.08); }
-}
-
-.fx-ember {
-  position: absolute;
-  bottom: 20%;
-  width: 14rpx;
-  height: 14rpx;
+  width: var(--size);
+  height: var(--size);
   border-radius: 50%;
   background: #fbbf24;
-  box-shadow: 0 0 18rpx #f97316;
+  box-shadow: 0 0 16rpx #f97316;
   opacity: 0;
-  animation: ember-fly 1.2s ease-out calc(1.5s + var(--delay)) infinite;
+  animation: particle-rise 2s ease-out calc(0.4s + var(--delay)) infinite;
 }
 
-@keyframes ember-fly {
+@keyframes particle-rise {
   0% { transform: translateY(0) scale(1); opacity: 0; }
-  12% { opacity: 1; }
-  100% { transform: translateY(-320rpx) scale(0.2); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-400rpx) scale(0.2); opacity: 0; }
 }
 
-/* ========== 平局：巨大银色行书「和」下落抖动 4s ========== */
-.fx-draw {
-  flex-direction: column;
-}
-
-.fx-draw-glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 820rpx;
-  height: 820rpx;
-  margin: -410rpx 0 0 -410rpx;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(192, 192, 192, 0.2) 35%,
-    transparent 68%
-  );
-  opacity: 0;
-  animation: draw-glow-pulse 4s ease-out forwards;
-  z-index: 4;
-  pointer-events: none;
-}
-
-@keyframes draw-glow-pulse {
-  0% { opacity: 0; transform: scale(0.6); }
-  32% { opacity: 0.85; transform: scale(1); }
-  100% { opacity: 0.5; transform: scale(1.08); }
-}
-
-.fx-art-draw {
-  position: relative;
-  z-index: 6;
-  font-size: 460rpx;
-  font-weight: 900;
-  font-family: STXingkai, KaiTi, STKaiti, "华文行楷", serif;
-  letter-spacing: 28rpx;
-  line-height: 1;
-  background: linear-gradient(
-    168deg,
-    #ffffff 0%,
-    #f8fafc 8%,
-    #e2e8f0 22%,
-    #cbd5e1 38%,
-    #94a3b8 52%,
-    #cbd5e1 68%,
-    #f1f5f9 82%,
-    #ffffff 100%
-  );
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-stroke: 4rpx rgba(248, 250, 252, 0.75);
-  filter:
-    drop-shadow(0 8rpx 0 rgba(71, 85, 105, 0.55))
-    drop-shadow(0 0 72rpx rgba(226, 232, 240, 0.95))
-    drop-shadow(0 0 140rpx rgba(148, 163, 184, 0.65));
-  animation: draw-drop-shake 4s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
-}
-
-@keyframes draw-drop-shake {
-  0% {
-    transform: translateY(-115vh) scale(1.25);
-    opacity: 0;
-  }
-  7% { opacity: 1; }
-  32% {
-    transform: translateY(0) scale(1);
-  }
-  /* 抖动 1 */
-  38% {
-    transform: translateY(-72rpx) scale(1.02);
-  }
-  44% {
-    transform: translateY(0) scale(1);
-  }
-  /* 抖动 2 */
-  50% {
-    transform: translateY(-72rpx) scale(1.02);
-  }
-  56% {
-    transform: translateY(0) scale(1);
-  }
-  /* 抖动 3 */
-  62% {
-    transform: translateY(-72rpx) scale(1.02);
-  }
-  68% {
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-}
-
-/* ========== 负：行书玻璃浅蓝 下落裂纹碎裂 4s（加大） ========== */
+/* ========== 失败 ========== */
 .fx-lose {
   flex-direction: column;
 }
 
-.fx-lose-glass {
-  position: relative;
-  z-index: 5;
-  animation:
-    lose-drop-impact 4s cubic-bezier(0.25, 0.9, 0.35, 1) forwards,
-    lose-glass-break 0.65s ease-in 2.5s forwards;
+.fx-lose-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 20%, rgba(15, 23, 42, 0.85) 100%);
+  animation: lose-vignette-in 4s ease-out forwards;
 }
 
-.fx-art-lose {
-  display: block;
-  font-size: 380rpx;
-  font-weight: 900;
-  font-family: STXingkai, KaiTi, STKaiti, "华文行楷", serif;
-  letter-spacing: 18rpx;
-  line-height: 1;
-  color: rgba(186, 230, 253, 0.92);
-  -webkit-text-stroke: 4rpx rgba(254, 240, 138, 0.55);
-  text-shadow:
-    0 0 32rpx rgba(254, 240, 138, 0.5),
-    0 0 64rpx rgba(125, 211, 252, 0.4),
-    0 8rpx 24rpx rgba(15, 23, 42, 0.65);
-  background: linear-gradient(
-    145deg,
-    rgba(224, 242, 254, 0.95) 0%,
-    rgba(125, 211, 252, 0.85) 40%,
-    rgba(56, 189, 248, 0.75) 100%
+@keyframes lose-vignette-in {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.fx-lose-rain {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 40rpx,
+    rgba(148, 163, 184, 0.06) 40rpx,
+    rgba(148, 163, 184, 0.06) 42rpx
   );
-  -webkit-background-clip: text;
-  opacity: 0.95;
+  animation: lose-rain-fall 0.8s linear infinite;
+  opacity: 0.5;
 }
 
-@keyframes lose-drop-impact {
+@keyframes lose-rain-fall {
+  100% { background-position: 0 80rpx; }
+}
+
+.fx-title-lose .fx-title-main {
+  color: #cbd5e1;
+  text-shadow:
+    0 0 24rpx rgba(100, 116, 139, 0.8),
+    0 6rpx 0 #334155,
+    0 12rpx 40rpx rgba(0, 0, 0, 0.7);
+  animation: lose-title-in 4s cubic-bezier(0.25, 0.85, 0.35, 1) forwards;
+}
+
+.fx-title-lose .fx-title-sub {
+  color: #94a3b8;
+  animation: lose-sub-in 4s ease-out 0.25s forwards;
+  opacity: 0;
+}
+
+@keyframes lose-title-in {
   0% {
-    transform: translateY(-110vh) scale(1.15);
+    transform: translateY(-70vh) scale(0.6);
     opacity: 0;
   }
-  8% { opacity: 1; }
-  28% {
-    transform: translateY(0) scale(1);
-  }
+  15% { opacity: 1; }
   32% {
-    transform: translateY(12rpx) scale(0.98);
+    transform: translateY(0) scale(1);
   }
   36% {
+    transform: translateY(8rpx) scale(0.98);
+  }
+  40% {
     transform: translateY(0) scale(1);
+  }
+  44% {
+    transform: translateX(-12rpx);
+  }
+  48% {
+    transform: translateX(12rpx);
+  }
+  52% {
+    transform: translateX(-8rpx);
+  }
+  56% {
+    transform: translateX(0);
   }
   100% {
     transform: translateY(0) scale(1);
+    opacity: 1;
   }
 }
 
-.fx-crack {
+@keyframes lose-sub-in {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+.fx-particle-lose {
   position: absolute;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), rgba(148, 163, 184, 0.9), transparent);
+  top: -20rpx;
+  width: 4rpx;
+  height: 48rpx;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.6), transparent);
   opacity: 0;
-  transform-origin: center;
-  animation: lose-crack-show 0.55s ease-out forwards;
+  animation: lose-drop 1.2s linear calc(var(--delay)) infinite;
 }
 
-.fx-crack-1 {
-  width: 150%;
-  height: 5rpx;
-  left: -25%;
-  top: 36%;
-  transform: rotate(-28deg);
-  animation-delay: 1.05s;
-}
-.fx-crack-2 {
-  width: 130%;
-  height: 4rpx;
-  left: -15%;
-  top: 50%;
-  transform: rotate(18deg);
-  animation-delay: 1.15s;
-}
-.fx-crack-3 {
-  width: 100%;
-  height: 4rpx;
-  left: 0%;
-  top: 60%;
-  transform: rotate(-42deg);
-  animation-delay: 1.22s;
-}
-.fx-crack-4 {
-  width: 80%;
-  height: 3rpx;
-  left: 15%;
-  top: 26%;
-  transform: rotate(35deg);
-  animation-delay: 1.28s;
-}
-.fx-crack-5 {
-  width: 58%;
-  height: 3rpx;
-  left: 25%;
-  top: 70%;
-  transform: rotate(-12deg);
-  animation-delay: 1.35s;
+@keyframes lose-drop {
+  0% { transform: translateY(-20rpx); opacity: 0; }
+  10% { opacity: 0.7; }
+  100% { transform: translateY(110vh); opacity: 0; }
 }
 
-@keyframes lose-crack-show {
-  0% { opacity: 0; transform: scaleX(0); }
-  40% { opacity: 1; }
-  100% { opacity: 0.95; transform: scaleX(1); }
+/* ========== 平局 ========== */
+.fx-draw {
+  flex-direction: column;
 }
 
-@keyframes lose-glass-break {
-  0% { opacity: 1; filter: brightness(1); }
-  100% { opacity: 0; transform: scale(1.03); filter: brightness(1.3) blur(3rpx); }
-}
-
-.fx-lose-shard {
+.fx-draw-ring {
   position: absolute;
-  top: 40%;
-  width: var(--sz);
-  height: var(--sz);
-  background: linear-gradient(135deg, rgba(186, 230, 253, 0.9), rgba(56, 189, 248, 0.5));
-  border: 1rpx solid rgba(254, 240, 138, 0.4);
-  opacity: 0;
-  z-index: 8;
-  animation: lose-shard-scatter 1.2s cubic-bezier(0.4, 0, 0.8, 0.5) calc(2.5s + var(--delay)) forwards;
+  width: 700rpx;
+  height: 700rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(226, 232, 240, 0.35);
+  box-shadow: 0 0 80rpx rgba(226, 232, 240, 0.25);
+  animation: draw-ring-in 4s ease-out forwards;
 }
 
-@keyframes lose-shard-scatter {
+@keyframes draw-ring-in {
+  0% { transform: scale(0); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.05); opacity: 0.6; }
+}
+
+.fx-title-draw .fx-title-main {
+  color: #f1f5f9;
+  text-shadow:
+    0 0 48rpx rgba(226, 232, 240, 0.9),
+    0 8rpx 0 #64748b;
+  animation: draw-title-in 4s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+}
+
+.fx-title-draw .fx-title-sub {
+  color: #cbd5e1;
+  animation: draw-sub-in 4s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+@keyframes draw-title-in {
   0% {
-    transform: rotate(0deg) translate(0, 0) scale(1);
+    transform: translateY(-90vh) scale(1.1);
     opacity: 0;
   }
-  10% { opacity: 1; }
-  100% {
-    transform: rotate(var(--rot)) translate(var(--dist), 400rpx) scale(0.25);
-    opacity: 0;
-  }
+  28% { opacity: 1; transform: translateY(0) scale(1); }
+  36% { transform: translateY(-36rpx); }
+  44% { transform: translateY(0); }
+  52% { transform: translateY(-36rpx); }
+  60% { transform: translateY(0); }
+  68% { transform: translateY(-24rpx); }
+  76% { transform: translateY(0); }
+  100% { opacity: 1; }
 }
 
-/* ========== 升段 ========== */
+@keyframes draw-sub-in {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  100% { opacity: 0.9; }
+}
+
+/* ========== 升段（保留） ========== */
 .fx-tier { flex-direction: column; }
 
 .fx-char-tier {

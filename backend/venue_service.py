@@ -132,6 +132,8 @@ def authenticate_venue(username: str, password: str) -> Optional[Dict]:
     v = find_venue_by_username(username)
     if not v:
         return None
+    if v.get("account_status") == "cancelled":
+        return None
     h = v.get("password_hash", "")
     if not h:
         return None
@@ -160,6 +162,15 @@ def venue_public_view(venue: Dict, admin: bool = False) -> Dict:
     if admin:
         row["has_password"] = bool(venue.get("password_hash"))
         row["has_security_code"] = bool(venue.get("security_code_hash"))
+        row["apply_phone"] = venue.get("apply_phone") or venue.get("contact_phone") or venue.get("username", "")
+        row["initial_password_plain"] = venue.get("initial_password_plain", "")
+        row["initial_security_code_plain"] = venue.get("initial_security_code_plain", "")
+        row["apply_source"] = venue.get("apply_source", "")
+        row["account_status"] = venue.get("account_status", "active")
+        row["last_activity_at"] = venue.get("last_activity_at", "")
+        row["approved_at"] = venue.get("approved_at", "")
+        row["cancelled_at"] = venue.get("cancelled_at", "")
+        row["cancel_reason"] = venue.get("cancel_reason", "")
     return row
 
 
@@ -260,10 +271,17 @@ def create_venue(data: Dict) -> Dict:
         "manager_name": (data.get("manager_name") or "").strip(),
         "username": username,
         "password_hash": generate_password_hash(password),
+        "initial_password_plain": password,
         "security_code_hash": generate_password_hash(security_code),
+        "initial_security_code_plain": security_code,
+        "apply_phone": (data.get("apply_phone") or data.get("contact_phone") or username).strip(),
         "member_expires_at": _normalize_member_expires(data.get("member_expires_at")),
         "contact_phone": data.get("contact_phone", ""),
         "note": data.get("note", ""),
+        "apply_source": (data.get("apply_source") or "").strip(),
+        "last_activity_at": data.get("last_activity_at") or now_iso(),
+        "approved_at": data.get("approved_at") or "",
+        "account_status": data.get("account_status") or "active",
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
@@ -305,6 +323,9 @@ def update_venue(venue_id: str, data: Dict) -> Dict:
             code = (data.get("security_code") or "").strip()
             if code:
                 v["security_code_hash"] = generate_password_hash(code)
+                v["initial_security_code_plain"] = code
+        if data.get("initial_security_code_plain") is not None:
+            v["initial_security_code_plain"] = data.get("initial_security_code_plain") or ""
         if data.get("username") is not None:
             uname = (data.get("username") or "").strip()
             if not uname:
@@ -314,7 +335,17 @@ def update_venue(venue_id: str, data: Dict) -> Dict:
                 raise ValueError("登录账号已被占用")
             v["username"] = uname
         if data.get("password"):
-            v["password_hash"] = generate_password_hash(data["password"])
+            pwd = data["password"]
+            v["password_hash"] = generate_password_hash(pwd)
+            v["initial_password_plain"] = data.get("initial_password_plain") or pwd
+        elif data.get("initial_password_plain") is not None:
+            v["initial_password_plain"] = data.get("initial_password_plain") or ""
+        if data.get("last_activity_at") is not None:
+            v["last_activity_at"] = data.get("last_activity_at")
+        if data.get("account_status") is not None:
+            v["account_status"] = data.get("account_status")
+        if data.get("apply_source") is not None:
+            v["apply_source"] = data.get("apply_source")
         v["updated_at"] = now_iso()
         updated["venue"] = v
         return venues

@@ -3,12 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>台球天梯 - 管理后台</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: "Microsoft YaHei", sans-serif; background: linear-gradient(180deg, #EDE9FE 0%, #DBEAFE 100%); min-height: 100vh; }
     .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(180deg, #6B21A8 0%, #2563EB 100%); }
-    .login-box { background: #fff; padding: 40px; border-radius: 12px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px rgba(107,33,168,0.25); }
+    #loginPage:not(.hidden) { position: fixed; inset: 0; z-index: 1000; overflow-y: auto; pointer-events: auto; }
+    #mainPage.hidden { display: none !important; pointer-events: none !important; visibility: hidden; }
+    #modal.hidden { pointer-events: none !important; }
+    .login-box { background: #fff; padding: 40px; border-radius: 12px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px rgba(107,33,168,0.25); position: relative; z-index: 1; }
+    .login-box input { pointer-events: auto; }
+    .login-captcha-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; align-items: stretch; }
+    .login-captcha-row input { margin-bottom: 0; }
+    #loginCaptchaImg { height: 48px; width: auto; max-width: 100%; min-width: 0; cursor: pointer; border-radius: 6px; align-self: center; }
     .login-box h2 { margin-bottom: 24px; color: #6B21A8; text-align: center; }
     .login-box .login-submit {
       display: block;
@@ -51,8 +59,15 @@
     .stat-item strong { font-size: 28px; color: #6B21A8; display: block; }
     .toolbar { margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal-overlay { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
     .modal-box { background: #fff; padding: 24px; border-radius: 8px; width: 400px; max-width: 90%; }
-    .modal-box.wide { width: 520px; }
+    .modal-box.wide { width: 560px; max-height: 90vh; overflow-y: auto; }
+    .venue-meta { background: #F5F3FF; border: 1px solid #C4B5FD; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
+    .venue-meta h4 { margin: 0 0 10px; color: #5B21B6; font-size: 14px; }
+    .venue-meta dl { display: grid; grid-template-columns: 108px 1fr; gap: 6px 10px; margin: 0; }
+    .venue-meta dt { color: #666; margin: 0; }
+    .venue-meta dd { margin: 0; color: #222; word-break: break-all; }
+    .venue-meta .pwd-val { font-family: Consolas, monospace; color: #6B21A8; font-weight: 600; }
     .qr-wrap { text-align: center; margin: 16px 0; }
     .qr-wrap canvas { border: 8px solid #EDE9FE; border-radius: 8px; }
     .qr-label { font-size: 13px; color: #666; margin: 8px 0 4px; }
@@ -76,20 +91,37 @@
     .qr-view-only { cursor: zoom-in; }
     .review-section { margin-bottom: 24px; }
     .review-section h4 { margin-bottom: 10px; color: #5B21B6; }
+    .review-subtabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .review-subtab { background: #EDE9FE; color: #5B21B6; border: 1px solid #C4B5FD; padding: 8px 16px; font-size: 13px; }
+    .review-subtab.active { background: linear-gradient(180deg, #7C3AED, #3B82F6); color: #fff; border-color: transparent; }
+    .toggle-pill { padding: 4px 10px; font-size: 12px; background: #eee; color: #666; border: 1px solid #ccc; margin: 2px; }
+    .toggle-pill.on { background: #E8F5E9; color: #2E7D32; border-color: #81C784; }
+    .super-console .venue-only-col { display: none; }
     .venue-form label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
     .ladder-rules-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 16px; }
     .ladder-rules-col { flex: 1; min-width: 300px; }
     .ladder-rules-col .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mp-super-user { display: flex; align-items: center; gap: 10px; min-width: 140px; }
+    .mp-super-av-wrap { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
+    .mp-super-av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #C4B5FD; display: block; }
+    .mp-super-av-fallback { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #7C3AED, #3B82F6); color: #fff; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+    .mp-super-name { font-weight: 500; color: #333; }
+    .mp-super-sub { font-size: 11px; color: #888; margin-top: 2px; word-break: break-all; }
   </style>
 </head>
 <body>
   <div id="loginPage" class="login-wrap">
-    <form id="loginForm" class="login-box" autocomplete="on" onsubmit="event.preventDefault(); doLogin();">
+    <form id="loginForm" class="login-box" autocomplete="off" onsubmit="event.preventDefault(); doLogin();">
       <h2>台球天梯管理后台</h2>
-      <p style="font-size:13px;color:#666;margin-bottom:12px">总后台账号或球房会员账号登录（回车可提交）</p>
-      <input id="username" name="username" placeholder="账号（总后台 admin / 球房账号）" value="admin" required>
-      <input id="password" name="password" type="password" placeholder="密码（见项目根目录 .env 中 ADMIN_PASS）" required>
+      <p id="loginHint" style="font-size:13px;color:#666;margin-bottom:12px">账号 + 密码 + 图形验证码（不区分大小写，点击图片可刷新）</p>
+      <input id="username" name="username" placeholder="账号（总后台 cca10 / 俱乐部手机号）" required autocomplete="username">
+      <input id="password" name="password" type="password" placeholder="密码" required autocomplete="current-password">
+      <div class="login-captcha-row">
+        <input id="loginCaptchaCode" placeholder="图形验证码（点击图片刷新）" autocomplete="off" autocapitalize="characters">
+        <img id="loginCaptchaImg" alt="验证码" title="点击刷新" onclick="refreshLoginCaptcha()">
+      </div>
       <button type="submit" class="login-submit">登录</button>
+      <p id="superSetupHint" style="font-size:12px;color:#6B21A8;margin-top:8px;display:none"></p>
       <div class="login-links">
         <button type="button" onclick="showPasswordModal('change-login')">修改密码</button>
         <button type="button" onclick="showPasswordModal('forgot')">忘记密码</button>
@@ -105,6 +137,7 @@
         <a class="active" data-tab="dashboard" onclick="switchTab('dashboard')">仪表盘</a>
         <a data-tab="matches" class="venue-only-nav member-only-nav" onclick="switchTab('matches')">对局管理</a>
         <a data-tab="users" class="venue-only-nav" onclick="switchTab('users')">玩家管理</a>
+        <a data-tab="staff" id="nav-staff" class="venue-only-nav" onclick="switchTab('staff')">管理员设置</a>
         <a data-tab="tables" id="nav-tables" class="venue-only-nav" onclick="switchTab('tables')">桌台管理</a>
         <a data-tab="review" id="nav-review" class="venue-only-nav member-only-nav" onclick="switchTab('review')">对局审核<span id="reviewNavBadge" class="nav-badge hidden">0</span></a>
         <a data-tab="ladder" id="nav-ladder" onclick="switchTab('ladder')">天梯规则</a>
@@ -114,6 +147,7 @@
         <a data-tab="logs" class="venue-only-nav member-only-nav" onclick="switchTab('logs')">积分明细</a>
       </nav>
       <div class="sidebar-footer">
+        <button type="button" class="btn-change-pwd super-only hidden" id="btnMpSuperLoginQr" onclick="showMpSuperLoginQr()">生成小程序总后台登录码</button>
         <button type="button" class="btn-change-pwd" onclick="showPasswordModal('logged-in')">修改密码</button>
         <div id="resetAllSection" class="sidebar-reset">
           <h4>危险操作</h4>
@@ -127,6 +161,19 @@
       <div id="tab-dashboard" class="tab-panel">
         <h3 id="dashboardTitle">仪表盘</h3>
         <div class="stats" id="stats"></div>
+        <div id="mpSuperWechatWrap" class="card hidden super-only" style="margin-top:16px">
+          <h3 style="margin-bottom:8px">小程序总后台授权微信</h3>
+          <p style="font-size:13px;color:#666;margin-bottom:12px">仅列表内微信在小程序「我的」可见「总后台登录」，输入总后台账号密码后进入。对方须先完成微信授权登录。</p>
+          <div class="toolbar">
+            <button type="button" class="secondary" onclick="showMpSuperWechatRegisterQr()">生成授权登记码</button>
+            <button type="button" class="secondary" onclick="loadMpSuperWechatAllowlist()">刷新列表</button>
+          </div>
+          <div class="table-scroll">
+            <table><thead><tr>
+              <th>微信用户</th><th>手机</th><th>openid</th><th>状态</th><th>添加时间</th><th>操作</th>
+            </tr></thead><tbody id="mpSuperWechatTable"></tbody></table>
+          </div>
+        </div>
         <div id="superVenueTableWrap" class="card hidden" style="margin-top:16px">
           <h3 style="margin-bottom:12px">各台球俱乐部概况（数据来自球房会员）</h3>
           <div class="table-scroll">
@@ -149,14 +196,37 @@
             <th style="width:40px"><input type="checkbox" id="matchSelectAll" title="全选" onchange="toggleAllMatches(this)"></th>
             <th>ID</th><th>桌台</th><th>选手1</th><th>局分</th><th>积分变动</th><th>炸清/接清</th>
             <th>选手2</th><th>局分</th><th>积分变动</th><th>炸清/接清</th>
-            <th>类型</th><th>状态</th><th>操作</th>
+            <th>类型</th><th>时长</th><th>状态</th><th>操作</th>
           </tr></thead>
           <tbody id="matchTable"></tbody></table>
           </div>
         </div>
       </div>
+      <div id="tab-staff" class="tab-panel hidden">
+        <div class="card">
+          <p id="staffOwnerTip" style="font-size:13px;color:#666;margin-bottom:12px">
+            每个俱乐部仅 <strong>1 名主管理员</strong>（微信扫码或小程序账号密码绑定，权限相同）+ 最多 3 名子管理员。子管理员在「玩家管理」中从已微信登录的玩家提拔。
+          </p>
+          <p id="staffOwnerBindHint" class="hidden" style="font-size:13px;color:#5B21B6;margin-bottom:12px;background:#F5F3FF;padding:10px;border-radius:6px;line-height:1.6">
+            尚未绑定主管理员：点击「生成主管理员绑定码」，将二维码发给对方。对方须<strong>先登录小程序</strong>，在「我的」→「俱乐部后台」或「管理后台登录」里用<strong>页内扫一扫</strong>扫描（不要用微信首页扫一扫）。
+          </p>
+          <div class="toolbar">
+            <button type="button" id="btnOwnerBindQr" class="hidden" onclick="showOwnerBindQr()">生成主管理员绑定码</button>
+            <button type="button" class="secondary" onclick="switchTab('users')">去玩家管理 · 设为子管理员</button>
+            <button type="button" class="secondary" onclick="loadStaffTab()">刷新</button>
+          </div>
+          <div class="table-scroll">
+            <table><thead><tr>
+              <th>昵称</th><th>角色</th><th>绑定用户ID</th><th>最近登录</th><th>操作</th>
+            </tr></thead><tbody id="staffTable"></tbody></table>
+          </div>
+        </div>
+      </div>
       <div id="tab-users" class="tab-panel hidden">
         <div class="card">
+          <p id="usersAdminTip" class="venue-only-nav" style="font-size:13px;color:#666;margin-bottom:12px;display:none">
+            可将已微信登录的玩家设为<strong>子管理员</strong>（最多3人），用于对局审核等。主管理员请在「管理员设置」生成绑定码扫码绑定，或在小程序用俱乐部账号密码绑定。
+          </p>
           <div class="toolbar">
             <button type="button" class="secondary" onclick="loadUsers()">刷新</button>
             <button type="button" class="danger" onclick="batchDeleteUsers()">批量删除</button>
@@ -165,7 +235,7 @@
           <div class="table-scroll">
           <table><thead><tr>
             <th style="width:40px"><input type="checkbox" id="userSelectAll" title="全选" onchange="toggleAllUsers(this)"></th>
-            <th>昵称</th><th>手机</th><th>积分</th><th>段位</th><th>排名</th><th>胜/负</th><th>违规</th><th>状态</th><th>操作</th>
+            <th>昵称</th><th>手机</th><th>积分</th><th>段位</th><th>排名</th><th>胜/负</th><th>违规</th><th>状态</th><th class="venue-only-col">自动审核</th><th>操作</th>
           </tr></thead>
           <tbody id="userTable"></tbody></table>
           </div>
@@ -173,17 +243,22 @@
       </div>
       <div id="tab-review" class="tab-panel hidden">
         <div class="card">
-          <p style="font-size:13px;color:#666;margin-bottom:16px">审核比赛中恶意刷分、作弊及炸清/接清异常申报；兑换发放请在此处理。</p>
+          <p style="font-size:13px;color:#666;margin-bottom:16px">审核比赛中恶意刷分、作弊及炸清/接清异常申报；兑换发放请在此处理。可在「审核记录」中重新审核历史结果。</p>
+          <div class="review-subtabs" style="margin-bottom:16px">
+            <button type="button" class="review-subtab active" data-sub="pending" onclick="switchReviewSubTab('pending')">待审核</button>
+            <button type="button" class="review-subtab" data-sub="logs" onclick="switchReviewSubTab('logs')">审核记录</button>
+          </div>
+          <div id="reviewPendingPanel">
           <div class="review-section">
             <h4>炸清 / 接清待审核</h4>
             <div class="table-scroll"><table><thead><tr>
-              <th>对局</th><th>桌台</th><th>选手</th><th>类型</th><th>操作</th>
+              <th>对局</th><th>桌台</th><th>选手</th><th>类型</th><th>待审时间</th><th>操作</th>
             </tr></thead><tbody id="reviewBonusTable"></tbody></table></div>
           </div>
           <div class="review-section">
             <h4>对局结果待审核</h4>
             <div class="table-scroll"><table><thead><tr>
-              <th>对局</th><th>桌台</th><th>比分</th><th>状态</th><th>操作</th>
+              <th>对局</th><th>桌台</th><th>比分</th><th>状态</th><th>待审时间</th><th>操作</th>
             </tr></thead><tbody id="reviewMatchTable"></tbody></table></div>
           </div>
           <div class="review-section">
@@ -192,7 +267,17 @@
               <th>用户</th><th>商品</th><th>积分</th><th>时间</th><th>操作</th>
             </tr></thead><tbody id="reviewExchangeTable"></tbody></table></div>
           </div>
-          <button type="button" class="secondary" onclick="loadReviewTab()">刷新审核列表</button>
+          <button type="button" class="secondary" onclick="loadReviewTab()">刷新待审核</button>
+          </div>
+          <div id="reviewLogsPanel" class="hidden">
+            <div class="review-section">
+              <h4>审核记录（可重新审核）</h4>
+              <div class="table-scroll"><table><thead><tr>
+                <th>时间</th><th>选手</th><th>类型</th><th>对局</th><th>结果</th><th>积分</th><th>备注</th><th>操作</th>
+              </tr></thead><tbody id="reviewLogTable"></tbody></table></div>
+            </div>
+            <button type="button" class="secondary" onclick="loadReviewLogs()">刷新审核记录</button>
+          </div>
         </div>
       </div>
       <div id="tab-tables" class="tab-panel hidden">
@@ -314,14 +399,25 @@
           </div>
         </div>
       </div>
-      <div id="tab-venues" class="tab-panel hidden">
+      <div id="tab-venues" class="tab-panel hidden super-only">
+        <div class="card" style="margin-bottom:16px">
+          <h3>俱乐部申请审核</h3>
+          <p style="font-size:13px;color:#666;margin-bottom:8px">小程序主动申请；审核通过后自动创建俱乐部账号（登录账号=手机号）。通过后30天内无管理操作将自动注销。</p>
+          <div class="toolbar">
+            <button type="button" class="secondary" onclick="loadVenueApplications()">刷新申请</button>
+            <a href="/api/setup/venue-apply-qr.png" target="_blank" class="secondary" style="padding:8px 12px;text-decoration:none;color:#6B21A8">下载俱乐部申请二维码</a>
+          </div>
+          <table><thead><tr><th>俱乐部</th><th>手机号</th><th>申请密码</th><th>来源</th><th>状态</th><th>申请时间</th><th>审核时间</th><th>操作</th></tr></thead>
+            <tbody id="venueAppTable"></tbody></table>
+        </div>
         <div class="card">
           <h3>球房会员管理</h3>
           <div class="toolbar">
             <button onclick="showVenueForm()">新增球房</button>
+            <button type="button" class="secondary" onclick="genSuperInitQr()">生成总后台初始化码</button>
             <button class="secondary" onclick="loadVenues()">刷新</button>
           </div>
-          <table><thead><tr><th>球房</th><th>管理人员</th><th>台桌数</th><th>会员数</th><th>登录账号</th><th>会员到期</th><th>状态</th><th>操作</th></tr></thead>
+          <table><thead><tr><th>球房</th><th>手机号</th><th>登录密码</th><th>来源</th><th>账号状态</th><th>最后操作</th><th>台桌</th><th>会员数</th><th>到期</th><th>会员</th><th>操作</th></tr></thead>
             <tbody id="venueTable"></tbody></table>
         </div>
       </div>
@@ -363,6 +459,11 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
+    function attrEsc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
     var MATCH_STATUS_ZH = {
       playing: '进行中', finished: '已结束', invalid: '无效', cancelled: '已取消',
       pending_review: '待审核', approved: '已通过', rejected: '已驳回', modified: '已改判'
@@ -391,13 +492,200 @@
         body: opts.body != null ? JSON.stringify(opts.body) : undefined,
       });
       var data;
+      var rawText = '';
       try {
-        data = await res.json();
+        rawText = await res.text();
+        data = rawText ? JSON.parse(rawText) : {};
       } catch (e) {
-        throw new Error('服务器响应异常(' + res.status + ')');
+        var hint = apiErrorHint(res.status);
+        if (rawText && rawText.length < 200) hint += '：' + rawText;
+        throw new Error(hint);
       }
       if (data.code !== 0) throw new Error(data.msg || '请求失败');
       return data.data;
+    }
+
+    function apiErrorHint(status) {
+      if (status === 404) return '接口不存在，请关闭旧窗口后重新运行 run.bat 启动后端，再刷新本页';
+      if (status === 401) return '登录已失效，请重新登录';
+      return '服务器响应异常(' + status + ')';
+    }
+
+    function showMpQrModal(title, data, tip) {
+      var mins = Math.floor((data.expires_in || 300) / 60);
+      var guide = (data && (data.scan_guide || data.hint)) || tip || '';
+      var html =
+        '<p style="line-height:1.65;color:#444;white-space:pre-line;font-size:13px">' + escapeHtml(guide) + '</p>' +
+        '<p style="font-size:12px;color:#888;margin-top:8px">有效期约 ' + mins + ' 分钟</p>';
+      if (data.qr_base64) {
+        html += '<img src="' + data.qr_base64 + '" alt="二维码" style="display:block;margin:12px auto;max-width:220px;border:1px solid #eee;border-radius:8px">';
+      }
+      var wrap = document.createElement('div');
+      wrap.className = 'modal-overlay';
+      wrap.innerHTML =
+        '<div class="modal-box" style="max-width:360px">' +
+        '<h3>' + escapeHtml(title) + '</h3>' + html +
+        '<button type="button" class="btn-primary" style="margin-top:16px;width:100%" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div>';
+      wrap.onclick = function (e) { if (e.target === wrap) wrap.remove(); };
+      document.body.appendChild(wrap);
+    }
+
+    async function showOwnerBindQr() {
+      try {
+        var data = await api('/api/admin/owner-bind-qr', { method: 'POST' });
+        showMpQrModal('主管理员绑定码', data, data.scan_guide || data.hint);
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    async function showMpSuperLoginQr() {
+      try {
+        var data = await api('/api/admin/mp-super-login-qr', { method: 'POST' });
+        showMpQrModal(
+          '小程序总后台登录码',
+          data,
+          '请已授权微信在小程序「我的」使用「总后台登录」，或在本页扫登录码（须已在下方授权列表中）。'
+        );
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    async function showMpSuperWechatRegisterQr() {
+      try {
+        var data = await api('/api/admin/mp-super-wechat-allowlist/register-qr', { method: 'POST' });
+        showMpQrModal(
+          '小程序总后台 · 微信授权登记码',
+          data,
+          data.hint || '请对方先微信登录小程序，再扫此码；成功后可在「我的」看到「总后台登录」。'
+        );
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    function mpSuperUserCell(row) {
+      var name = row.nickname || '未命名';
+      var initial = name.slice(0, 1) || '?';
+      var av = row.avatar || '';
+      var imgHtml = av
+        ? '<img class="mp-super-av" src="' + attrEsc(av) + '" alt="" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.mp-super-av-fallback\');if(f)f.style.display=\'flex\'">'
+        : '';
+      var fallbackStyle = av ? 'display:none' : '';
+      return '<div class="mp-super-user"><div class="mp-super-av-wrap">' + imgHtml +
+        '<span class="mp-super-av-fallback" style="' + fallbackStyle + '">' + escapeHtml(initial) + '</span></div>' +
+        '<div><div class="mp-super-name">' + escapeHtml(name) + '</div>' +
+        (row.user_id ? '<div class="mp-super-sub">ID ' + escapeHtml(row.user_id) + '</div>' : '') +
+        '</div></div>';
+    }
+
+    async function loadMpSuperWechatAllowlist() {
+      var tbody = document.getElementById('mpSuperWechatTable');
+      if (!tbody) return;
+      try {
+        var list = await api('/api/admin/mp-super-wechat-allowlist');
+        tbody.innerHTML = (list || []).map(function(row) {
+          var st = row.is_bound_super
+            ? '<span class="badge badge-green">已绑定总后台</span>'
+            : '<span class="badge badge-yellow">待登录</span>';
+          var acts = row.is_bound_super
+            ? '-'
+            : '<button type="button" class="danger" data-act="mp-super-rm" data-oid="' + attrEsc(row.openid) + '">移除</button>';
+          return '<tr><td>' + mpSuperUserCell(row) + '</td><td>' + escapeHtml(row.phone || '-') +
+            '</td><td style="font-size:11px;word-break:break-all;max-width:200px">' + escapeHtml(row.openid) +
+            '</td><td>' + st + '</td><td>' + escapeHtml((row.added_at || '').slice(0, 19) || '-') +
+            '</td><td>' + acts + '</td></tr>';
+        }).join('') || '<tr><td colspan="6" style="padding:12px">暂无授权微信，可生成登记码或从「玩家管理」添加</td></tr>';
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:red;padding:12px">' + escapeHtml(e.message) + '</td></tr>';
+      }
+    }
+
+    async function removeMpSuperWechat(openid) {
+      if (!confirm('确定移除该微信的总后台小程序授权？')) return;
+      try {
+        await api('/api/admin/mp-super-wechat-allowlist/' + encodeURIComponent(openid), { method: 'DELETE' });
+        loadMpSuperWechatAllowlist();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    async function grantMpSuperWechat(userId) {
+      try {
+        await api('/api/admin/mp-super-wechat-allowlist', { method: 'POST', body: { user_id: userId } });
+        alert('已授权：该用户可在小程序「我的」看到「总后台登录」');
+        loadMpSuperWechatAllowlist();
+        if (currentTab === 'users') loadUsers();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    function bindMpSuperWechatEvents() {
+      var tbody = document.getElementById('mpSuperWechatTable');
+      if (!tbody || tbody._mpBound) return;
+      tbody._mpBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act="mp-super-rm"]');
+        if (btn && btn.dataset.oid) removeMpSuperWechat(btn.dataset.oid);
+      });
+    }
+
+    var _staffTableBound = false;
+
+    function bindStaffTableEvents() {
+      var tbody = document.getElementById('staffTable');
+      if (!tbody || _staffTableBound) return;
+      _staffTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.aid) return;
+        if (btn.dataset.act === 'staff-remove') removeStaffAdmin(btn.dataset.aid, btn.dataset.name || '');
+      });
+    }
+
+    async function loadStaffTab() {
+      try {
+        var list = await api('/api/admin/staff');
+        var tbody = document.getElementById('staffTable');
+        if (!tbody) return;
+        var hasOwner = (list || []).some(function(s) { return s.role === 'owner'; });
+        var btnQr = document.getElementById('btnOwnerBindQr');
+        var hintBind = document.getElementById('staffOwnerBindHint');
+        if (btnQr) btnQr.classList.toggle('hidden', hasOwner);
+        if (hintBind) hintBind.classList.toggle('hidden', hasOwner);
+        var roleZh = { owner: '主管理员', admin: '子管理员' };
+        tbody.innerHTML = (list || []).map(function(s) {
+          var aid = attrEsc(s.id);
+          var ops = '';
+          if (s.role === 'admin') {
+            ops = '<button type="button" class="danger" data-act="staff-remove" data-aid="' + aid +
+              '" data-name="' + attrEsc(s.nickname || '') + '">移除</button>';
+          } else {
+            ops = '<span style="font-size:12px;color:#999">不可移除</span>';
+          }
+          return '<tr><td>' + escapeHtml(s.nickname || '-') + '</td><td>' + escapeHtml(roleZh[s.role] || s.role) +
+            '</td><td>' + escapeHtml(s.user_id || '-') + '</td><td>' + escapeHtml((s.last_login_at || '').slice(0, 16) || '-') +
+            '</td><td>' + ops + '</td></tr>';
+        }).join('') || '<tr><td colspan="5">暂无主管理员，请生成绑定码扫码绑定；子管理员请在「玩家管理」中设置</td></tr>';
+      } catch (e) {
+        alert('加载管理员失败: ' + (e.message || e));
+      }
+    }
+
+    async function removeStaffAdmin(aid, name) {
+      if (!aid) return;
+      if (!confirm('确定移除子管理员「' + (name || aid) + '」？')) return;
+      try {
+        await api('/api/admin/staff/' + encodeURIComponent(aid), { method: 'DELETE' });
+        await loadStaffTab();
+        alert('已移除');
+        if (currentTab === 'users') loadUsers();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
     }
 
     var _passwordModalMode = '';
@@ -421,7 +709,7 @@
           '<input id="pwdNew" type="password" placeholder="新密码（至少6位）">' +
           '<input id="pwdConfirm" type="password" placeholder="确认新密码">';
       } else {
-        hint = '<div class="pwd-hint">登录前修改密码需验证当前密码。总后台为 <code>admin</code> + .env 中的 <code>ADMIN_PASS</code>。</div>';
+        hint = '<div class="pwd-hint">登录前修改密码需验证当前密码。总后台为 <code>cca10</code> + .env 中的 <code>ADMIN_PASS</code>。</div>';
         fields =
           '<input id="pwdUsername" placeholder="账号" value="' + escapeHtml(document.getElementById('username') && document.getElementById('username').value || '') + '">' +
           '<input id="pwdOld" type="password" placeholder="当前密码">' +
@@ -487,11 +775,76 @@
       }
     }
 
+    var _loginCaptchaId = '';
+
+    async function refreshLoginCaptcha() {
+      try {
+        var d = await api('/api/public/captcha');
+        _loginCaptchaId = d.captcha_id;
+        var img = document.getElementById('loginCaptchaImg');
+        if (img && d.image_base64) img.src = d.image_base64;
+      } catch (e) { console.warn(e); }
+    }
+
+    async function checkSuperSetupHint() {
+      try {
+        var st = await api('/api/public/super-setup/status');
+        var el = document.getElementById('superSetupHint');
+        if (!el) return;
+        if (!st.initialized) {
+          el.style.display = 'block';
+          el.innerHTML = '总后台尚未初始化：请访问 <a href="/api/setup/super-init-qr.png" target="_blank">下载一次性初始化二维码</a>，小程序扫码设置密码。';
+        } else {
+          el.style.display = 'none';
+        }
+      } catch (e) {}
+    }
+
+    async function genSuperInitQr() {
+      try {
+        var d = await api('/api/admin/super-setup/regenerate-qr', { method: 'POST' });
+        var html = '<h3>总后台一次性初始化码</h3><p>仅可使用一次，请用小程序扫码设置总后台密码</p>';
+        if (d.qr_base64) html += '<img src="' + d.qr_base64 + '" style="max-width:240px;display:block;margin:12px auto">';
+        html += '<p style="font-size:12px;word-break:break-all">Scene: ' + escapeHtml(d.scene || '') + '</p>';
+        document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('modalContent').innerHTML = html + '<button type="button" onclick="closeModal()">关闭</button>';
+      } catch (e) { alert(e.message || String(e)); }
+    }
+
+    async function loadVenueApplications() {
+      var tbody = document.getElementById('venueAppTable');
+      if (!tbody) return;
+      try {
+        var list = await api('/api/admin/venue-applications');
+        var pending = list.filter(function(a) { return a.status === 'pending'; });
+        tbody.innerHTML = (pending.length ? pending : list).map(function(a) {
+          var st = a.status === 'pending' ? '<span class="badge badge-red">待审核</span>' :
+            a.status === 'approved' ? '<span class="badge badge-green">已通过</span>' : '<span class="badge">已拒绝</span>';
+          var src = (a.source === 'mp_apply') ? '小程序申请' : escapeHtml(a.source || '-');
+          var acts = '';
+          if (a.status === 'pending') {
+            acts = '<button type="button" data-act="app-approve" data-aid="' + attrEsc(a.id) + '">通过</button> ' +
+              '<button type="button" class="danger" data-act="app-reject" data-aid="' + attrEsc(a.id) + '">拒绝</button>';
+          } else acts = '-';
+          return '<tr><td>' + escapeHtml(a.club_name) + '</td><td>' + escapeHtml(a.phone) + '</td><td>' + escapeHtml(a.password_plain || '-') +
+            '</td><td>' + src + '</td><td>' + st + '</td><td>' + escapeHtml((a.created_at || '').slice(0, 19)) + '</td><td>' +
+            escapeHtml((a.reviewed_at || '').slice(0, 19) || '-') + '</td><td>' + acts + '</td></tr>';
+        }).join('') || '<tr><td colspan="8" style="padding:12px">暂无申请</td></tr>';
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" style="color:red">' + escapeHtml(e.message) + '</td></tr>';
+      }
+    }
+
     async function doLogin() {
       try {
         adminSession = await api('/api/admin/login', {
           method: 'POST',
-          body: { username: document.getElementById('username').value, password: document.getElementById('password').value },
+          body: {
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+            captcha_id: _loginCaptchaId,
+            captcha_code: document.getElementById('loginCaptchaCode').value,
+          },
         });
         document.getElementById('loginPage').classList.add('hidden');
         document.getElementById('mainPage').classList.remove('hidden');
@@ -499,6 +852,9 @@
         loadDashboard();
       } catch (e) {
         document.getElementById('loginErr').textContent = e.message;
+        refreshLoginCaptcha();
+        var cap = document.getElementById('loginCaptchaCode');
+        if (cap) cap.value = '';
       }
     }
 
@@ -513,34 +869,94 @@
       return val;
     }
 
+    function venueApplySourceLabel(src) {
+      if (src === 'mp_apply') return '小程序申请';
+      if (src) return escapeHtml(src);
+      return '后台创建';
+    }
+
+    function buildVenueAccountMetaHtml(v) {
+      if (!v) return '';
+      var pwd = (v.initial_password_plain || '').trim();
+      var pwdCell = pwd
+        ? '<span class="pwd-val">' + escapeHtml(pwd) + '</span>'
+        : (v.has_password ? '<span style="color:#888">已加密，历史密码未记录；修改并保存后可在此查看</span>' : '<span style="color:#c62828">未设置</span>');
+      var sec = (v.initial_security_code_plain || '').trim();
+      var secCell = sec
+        ? '<span class="pwd-val">' + escapeHtml(sec) + '</span>'
+        : (v.has_security_code ? '<span style="color:#888">已设置，未记录明文；修改并保存后可查看</span>' : '<span style="color:#c62828">未设置</span>');
+      var acc = v.account_status === 'cancelled' ? '<span class="badge badge-red">已注销</span>' : '<span class="badge badge-green">正常</span>';
+      var mem = v.is_member_active ? '<span class="badge badge-green">会员有效</span>' : '<span class="badge badge-red">未开通/已过期</span>';
+      var exp = (v.member_expires_at || '').slice(0, 10) || '-';
+      var lastAct = (v.last_activity_at || '').slice(0, 19) || '-';
+      var approved = (v.approved_at || '').slice(0, 19) || '-';
+      var created = (v.created_at || '').slice(0, 19) || '-';
+      var updated = (v.updated_at || '').slice(0, 19) || '-';
+      return '<div class="venue-meta">' +
+        '<h4>账号与开通信息</h4>' +
+        '<dl>' +
+        '<dt>申请/登录手机</dt><dd>' + escapeHtml(v.apply_phone || v.username || '-') + '</dd>' +
+        '<dt>登录账号</dt><dd>' + escapeHtml(v.username || '-') + '</dd>' +
+        '<dt>当前登录密码</dt><dd>' + pwdCell + '</dd>' +
+        '<dt>安全码</dt><dd>' + secCell + '</dd>' +
+        '<dt>开通来源</dt><dd>' + venueApplySourceLabel(v.apply_source) + '</dd>' +
+        '<dt>账号状态</dt><dd>' + acc + '</dd>' +
+        '<dt>会员状态</dt><dd>' + mem + '（到期 ' + escapeHtml(exp) + '）</dd>' +
+        '<dt>台桌 / 玩家</dt><dd>' + (v.table_count != null ? v.table_count : '-') + ' 台 · ' + (v.member_count != null ? v.member_count : '-') + ' 人</dd>' +
+        '<dt>最后活跃</dt><dd>' + escapeHtml(lastAct) + '</dd>' +
+        '<dt>审核通过</dt><dd>' + escapeHtml(approved) + '</dd>' +
+        '<dt>创建 / 更新</dt><dd>' + escapeHtml(created) + ' / ' + escapeHtml(updated) + '</dd>' +
+        (v.note ? '<dt>备注</dt><dd>' + escapeHtml(v.note) + '</dd>' : '') +
+        (v.cancel_reason ? '<dt>注销原因</dt><dd>' + escapeHtml(v.cancel_reason) + '</dd>' : '') +
+        '</dl></div>';
+    }
+
     function buildVenueFormHtml(v, isEdit) {
       var exp = isoToDateInput(v && v.member_expires_at);
+      var pwdVal = (isEdit && v && v.initial_password_plain) ? escapeHtml(v.initial_password_plain) : '';
+      var secVal = (isEdit && v && v.initial_security_code_plain) ? escapeHtml(v.initial_security_code_plain) : '';
       return '<div class="venue-form">' +
         '<label>球房名称<input id="v_name" value="' + escapeHtml((v && v.name) || '') + '"></label>' +
         '<label>管理人员<input id="v_manager" value="' + escapeHtml((v && v.manager_name) || '') + '" placeholder="管理人员姓名"></label>' +
         '<label>登录账号<input id="v_user" value="' + escapeHtml((v && v.username) || '') + '"></label>' +
-        '<label>登录密码（可见）<input id="v_pass" type="text" autocomplete="new-password" placeholder="' + (isEdit ? '不修改请留空' : '必填') + '"></label>' +
-        '<label>安全码（忘记密码核实）<input id="v_sec" type="text" autocomplete="off" placeholder="' + (isEdit ? '不修改请留空' : '必填，请告知球房保管') + '"></label>' +
+        '<label>登录密码（可见，保存后同步到上方信息）<input id="v_pass" type="text" autocomplete="new-password" value="' + pwdVal + '" placeholder="' + (isEdit ? '不修改请保持原值或留空' : '必填') + '"></label>' +
+        '<label>安全码（忘记密码核实）<input id="v_sec" type="text" autocomplete="off" value="' + secVal + '" placeholder="' + (isEdit ? '不修改请保持原值或留空' : '必填，请告知球房保管') + '"></label>' +
         '<label>会员到期日期<input id="v_exp" type="date" value="' + escapeHtml(exp) + '"></label>' +
         '<label>联系电话<input id="v_phone" value="' + escapeHtml((v && v.contact_phone) || '') + '" placeholder="可选"></label></div>';
     }
 
     function applyAdminSession() {
       if (!adminSession) return;
-      const isSuper = adminSession.role === 'super';
+      const isSuper = adminSession.role === 'super' || adminSession.console_type === 'super';
       _venueMemberActive = isSuper || !!adminSession.is_member_active;
       _venueExpiredMode = !isSuper && !adminSession.is_member_active;
       const badge = document.getElementById('adminBadge');
       const roleLabel = isSuper ? '总后台' : ('球房: ' + (adminSession.venue_name || ''));
-      const mem = adminSession.is_member_active ? '会员有效' : '会员已到期';
+      const mem = isSuper ? '平台管理' : (adminSession.is_member_active ? '会员有效' : '会员已到期');
       badge.textContent = roleLabel + ' · ' + mem;
+      document.body.classList.toggle('super-console', isSuper);
       document.querySelectorAll('.super-only').forEach(el => {
         el.classList.toggle('hidden', !isSuper);
       });
-      document.querySelectorAll('.venue-only-nav').forEach(el => {
-        el.classList.toggle('hidden', isSuper);
+      /* 总后台：仅保留仪表盘、天梯、球房会员；俱乐部保留完整菜单 */
+      var superHiddenTabs = ['matches', 'users', 'staff', 'tables', 'review', 'products', 'exchanges', 'logs'];
+      document.querySelectorAll('.sidebar a[data-tab]').forEach(function(a) {
+        var tab = a.dataset.tab || '';
+        if (isSuper) {
+          a.classList.toggle('hidden', superHiddenTabs.indexOf(tab) >= 0);
+        } else if (a.classList.contains('super-only') || tab === 'venues') {
+          a.classList.add('hidden');
+        } else {
+          a.classList.remove('hidden');
+        }
       });
-      var allowedExpired = ['dashboard', 'users', 'tables'];
+      document.querySelectorAll('.tab-panel.super-only, #tab-venues').forEach(function(el) {
+        el.classList.toggle('hidden', !isSuper);
+      });
+      if (isSuper && superHiddenTabs.indexOf(currentTab) >= 0) {
+        switchTab('dashboard');
+      }
+      var allowedExpired = ['dashboard', 'users', 'tables', 'staff'];
       document.querySelectorAll('.sidebar a[data-tab]').forEach(function(a) {
         var tab = a.dataset.tab;
         if (isSuper) {
@@ -591,14 +1007,34 @@
       if (resetBtn) {
         resetBtn.textContent = adminSession.role === 'super' ? '重置全部数据' : '重置本球房数据';
       }
+      var usersTip = document.getElementById('usersAdminTip');
+      if (usersTip) {
+        usersTip.style.display = isSuper ? 'none' : 'block';
+      }
+      var btnOwnerQr = document.getElementById('btnOwnerBindQr');
+      var hintOwnerBind = document.getElementById('staffOwnerBindHint');
+      var canOwnerQr = !isSuper && !!(adminSession && adminSession.can_generate_owner_bind_qr);
+      if (btnOwnerQr) btnOwnerQr.classList.toggle('hidden', !canOwnerQr);
+      if (hintOwnerBind) hintOwnerBind.classList.toggle('hidden', !canOwnerQr);
     }
 
     async function doLogout() {
-      await api('/api/admin/logout', { method: 'POST' });
-      location.reload();
+      try {
+        await api('/api/admin/logout', { method: 'POST' });
+      } catch (e) { /* 忽略 */ }
+      showLoginPage();
+      refreshLoginCaptcha();
+      var cap = document.getElementById('loginCaptchaCode');
+      if (cap) cap.value = '';
+      document.getElementById('loginErr').textContent = '';
     }
 
     function switchTab(tab) {
+      var isSuper = adminSession && (adminSession.role === 'super' || adminSession.console_type === 'super');
+      if (tab === 'venues' && !isSuper) {
+        alert('球房会员为总后台专属功能，俱乐部后台无此权限。');
+        return;
+      }
       var link = document.querySelector('.sidebar a[data-tab="' + tab + '"]');
       if (link && link.classList.contains('nav-disabled')) {
         alert('会员已到期，该功能不可用。续费后可使用全部功能。');
@@ -611,10 +1047,11 @@
       if (tab === 'dashboard') loadDashboard();
       if (tab === 'matches') { bindMatchTableEvents(); loadMatches(); }
       if (tab === 'users') { bindUserTableEvents(); loadUsers(); }
+      if (tab === 'staff') { bindStaffTableEvents(); loadStaffTab(); }
       if (tab === 'tables') { bindTableTableEvents(); loadTables(); }
       if (tab === 'review') { bindReviewTabEvents(); loadReviewTab(); }
       if (tab === 'ladder') loadLadderSettings();
-      if (tab === 'venues') { bindVenueTableEvents(); loadVenues(); }
+      if (tab === 'venues') { bindVenueAppEvents(); bindVenueTableEvents(); loadVenueApplications(); loadVenues(); }
       if (tab === 'products') loadProducts();
       if (tab === 'exchanges') { bindExchangeTableEvents(); loadExchanges(); }
       if (tab === 'logs') { bindLogTableEvents(); loadLogs(); }
@@ -627,6 +1064,12 @@
         var wrap = document.getElementById('superVenueTableWrap');
         if (d.scope === 'super') {
           wrap.classList.remove('hidden');
+          var mpWrap = document.getElementById('mpSuperWechatWrap');
+          if (mpWrap) {
+            mpWrap.classList.remove('hidden');
+            bindMpSuperWechatEvents();
+            loadMpSuperWechatAllowlist();
+          }
           statsEl.innerHTML =
             '<div class="stat-item"><strong>' + d.venues_count + '</strong>台球俱乐部</div>' +
             '<div class="stat-item"><strong>' + (d.active_venues_count || 0) + '</strong>会员有效</div>' +
@@ -634,9 +1077,7 @@
             '<div class="stat-item"><strong>' + (d.total_tables || 0) + '</strong>台桌总数</div>' +
             '<div class="stat-item"><strong>' + (d.total_member_count || 0) + '</strong>平台玩家</div>' +
             '<div class="stat-item"><strong>' + (d.total_member_score || d.total_score || 0) + '</strong>会员总积分</div>' +
-            '<div class="stat-item"><strong>' + (d.total_matches || 0) + '</strong>对局总数</div>' +
-            '<div class="stat-item"><strong>' + (d.pending_bonus_reviews || 0) + '</strong>待审核炸清/接清</div>' +
-            '<div class="stat-item"><strong>' + (d.pending_exchanges || 0) + '</strong>待审核兑换</div>';
+            '<div class="stat-item"><strong>' + (d.total_matches || 0) + '</strong>对局总数</div>';
           document.getElementById('superVenueStats').innerHTML = (d.venues || []).map(function(v) {
             var st = v.is_member_active ? '<span class="badge badge-green">会员中</span>' : '<span class="badge badge-red">已过期</span>';
             return '<tr><td>' + escapeHtml(v.venue_name) + '</td><td>' + escapeHtml(v.manager_name || '-') +
@@ -756,17 +1197,23 @@
           }
           const p1extra = '炸' + (m.p1_break_run || 0) + '/接' + (m.p1_clearance || 0);
           const p2extra = '炸' + (m.p2_break_run || 0) + '/接' + (m.p2_clearance || 0);
+          var durLabel = escapeHtml(m.duration_label || '-');
+          var durTip = m.invalid_reason ? (' title="' + escapeHtml(m.invalid_reason) + '"') : '';
+          var statusCell = fmtMatchStatus(m.status);
+          if (m.invalid_reason) {
+            statusCell += '<br><small style="color:#c62828">' + escapeHtml(m.invalid_reason) + '</small>';
+          }
           return '<tr><td><input type="checkbox" class="match-cb" data-id="' + mid + '" data-status="' + escapeHtml(m.status) + '" onchange="updateMatchSelectHint()"></td>' +
             '<td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) + '</td>' +
             '<td>' + escapeHtml(m.p1_name) + '<br><small>现' + (m.p1_current_score || 0) + '分</small></td>' +
             '<td>' + m.score1 + '</td><td>' + fmtDelta(m.p1_point_delta) + '</td><td>' + p1extra + '</td>' +
             '<td>' + escapeHtml(m.p2_name) + '<br><small>现' + (m.p2_current_score || 0) + '分</small></td>' +
             '<td>' + m.score2 + '</td><td>' + fmtDelta(m.p2_point_delta) + '</td><td>' + p2extra + '</td>' +
-            '<td>' + fmtMatchType(m.match_type) + '</td><td>' + fmtMatchStatus(m.status) + '</td><td>' + actions + '</td></tr>';
+            '<td>' + fmtMatchType(m.match_type) + '</td><td' + durTip + '>' + durLabel + '</td><td>' + statusCell + '</td><td>' + actions + '</td></tr>';
         }).join('');
         updateMatchSelectHint();
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="13" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
       }
     }
 
@@ -784,6 +1231,7 @@
 
 
     async function bonusReview(matchId, bonusId, userId, action) {
+      if (!bonusId) { alert('缺少审核项编号'); return; }
       const note = prompt('备注(可选)') || '';
       if (action === 'cheat' && !confirm('认定作弊将扣除积分并在大屏滚动公示，确定？')) return;
       try {
@@ -791,6 +1239,8 @@
           method: 'POST',
           body: { action, bonus_id: bonusId, user_id: userId, note }
         });
+        var state = action === 'approve' ? 'approved' : action === 'cheat' ? 'cheat' : 'rejected';
+        _reviewedOps['bonus:' + matchId + ':' + bonusId] = state;
         alert(action === 'approve' ? '已通过并加分' : action === 'cheat' ? '已处罚并公示' : '已驳回');
         loadReviewTab();
         loadMatches();
@@ -799,9 +1249,22 @@
     }
 
     async function reviewMatch(id, action) {
-      const winner_id = action === 'approve' ? prompt('胜者用户ID(可选)') : '';
+      var body = { action: action };
+      if (action === 'approve') {
+        var m = null;
+        try {
+          var list = await api('/api/admin/matches');
+          m = (list || []).find(function(x) { return x.id === id; });
+        } catch (e) { /* ignore */ }
+        if (m && m.status !== 'pending_review') {
+          var winner_id = prompt('胜者用户ID(可选，留空则按比分判定)') || '';
+          if (winner_id) body.winner_id = winner_id;
+        }
+      }
       try {
-        await api('/api/admin/match/' + id + '/review', { method: 'POST', body: { action, winner_id: winner_id || undefined } });
+        await api('/api/admin/match/' + id + '/review', { method: 'POST', body: body });
+        _reviewedOps['match:' + id] = action === 'approve' ? 'approved' : 'rejected';
+        alert(action === 'approve' ? '已通过' : '已驳回');
         loadReviewTab();
         loadMatches();
         loadDashboard();
@@ -818,11 +1281,6 @@
       } catch (e) { alert(e.message || String(e)); }
     }
 
-
-    function attrEsc(s) {
-      return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    }
 
     var _userTableBound = false;
 
@@ -842,6 +1300,11 @@
         else if (act === 'reset') punish(uid, 'reset_score');
         else if (act === 'cheat') punish(uid, 'record_cheat');
         else if (act === 'perm') punish(uid, 'permanent_ban');
+        else if (act === 'mp-super-allow') grantMpSuperWechat(uid);
+        else if (act === 'promote-admin') promotePlayerAdmin(uid);
+        else if (act === 'demote-admin') demotePlayerAdmin(uid);
+        else if (act === 'auto-bonus') toggleUserAutoReview(uid, 'bonus', btn);
+        else if (act === 'auto-shutout') toggleUserAutoReview(uid, 'shutout', btn);
       });
     }
 
@@ -894,14 +1357,41 @@
               ops += '<button type="button" data-act="ban" data-uid="' + uid + '">封禁</button> ';
               ops += '<button type="button" data-act="reset" data-uid="' + uid + '">重置积分</button> ';
             }
-            ops += '<button type="button" class="danger" data-act="delete" data-uid="' + uid + '">删除</button></div>';
+            ops += '<button type="button" class="danger" data-act="delete" data-uid="' + uid + '">删除</button>';
+            if (adminSession && adminSession.role === 'super' && u.openid && !u.mp_super_allowlisted) {
+              ops += ' <button type="button" data-act="mp-super-allow" data-uid="' + uid + '">授权小程序总后台</button>';
+            }
+            if (adminSession && adminSession.role === 'venue') {
+              if (u.can_promote) {
+                ops += ' <button type="button" data-act="promote-admin" data-uid="' + uid + '">设为子管理员</button>';
+              } else if (u.venue_admin_role === 'owner') {
+                ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">主管理员</span>';
+              } else if (u.is_venue_admin) {
+                ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">已是管理员</span>';
+              } else if (!u.has_wechat) {
+                ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">未微信授权</span>';
+              }
+              if (u.can_demote_admin) {
+                ops += ' <button type="button" class="danger" data-act="demote-admin" data-uid="' + uid + '">取消子管理员</button>';
+              }
+            }
+            ops += '</div>';
+          }
+          var autoCol = '';
+          if (adminSession && adminSession.role === 'venue' && !_venueExpiredMode) {
+            var bOn = u.auto_review_bonus ? 'on' : '';
+            var sOn = u.auto_review_shutout ? 'on' : '';
+            autoCol = '<td class="venue-only-col"><button type="button" class="toggle-pill ' + bOn + '" data-act="auto-bonus" data-uid="' + uid + '" title="炸清/接清自动通过">炸接清</button> ' +
+              '<button type="button" class="toggle-pill ' + sOn + '" data-act="auto-shutout" data-uid="' + uid + '" title="零封结束自动通过">零封</button></td>';
+          } else if (adminSession && adminSession.role === 'venue') {
+            autoCol = '<td class="venue-only-col">-</td>';
           }
           var userCb = (_venueExpiredMode && adminSession && adminSession.role !== 'super')
             ? '<td></td>' : '<td><input type="checkbox" class="user-cb" data-id="' + uid + '" onchange="updateUserSelectHint()"></td>';
           return '<tr>' + userCb +
             '<td>' + escapeHtml(u.nickname) + '</td><td>' + escapeHtml(u.phone || '-') + '</td><td>' + (u.score != null ? u.score : 0) + '</td>' +
             '<td>' + escapeHtml(u.tier ? u.tier.tier_name : '') + '</td><td>' + u.rank + '</td>' +
-            '<td>' + u.wins + '/' + u.losses + '</td><td>' + viol + '</td><td>' + status + '</td><td>' + ops + '</td></tr>';
+            '<td>' + u.wins + '/' + u.losses + '</td><td>' + viol + '</td><td>' + status + '</td>' + autoCol + '<td>' + ops + '</td></tr>';
         }).join('');
         updateUserSelectHint();
       } catch (e) {
@@ -945,6 +1435,26 @@
       try {
         var r = await api('/api/admin/users/batch-delete', { method: 'POST', body: { user_ids: ids } });
         await refreshUsersAfterDelete('已删除 ' + (r.deleted || ids.length) + ' 人，列表已刷新');
+      } catch (e) { alert(e.message || String(e)); }
+    }
+
+    async function promotePlayerAdmin(uid) {
+      if (!uid) return;
+      if (!confirm('将该玩家设为子管理员？对方须已用微信登录过小程序，最多3名子管理员。')) return;
+      try {
+        await api('/api/admin/user/' + encodeURIComponent(uid) + '/promote-admin', { method: 'POST', body: {} });
+        await loadUsers();
+        alert('已设为子管理员');
+      } catch (e) { alert(e.message || String(e)); }
+    }
+
+    async function demotePlayerAdmin(uid) {
+      if (!uid) return;
+      if (!confirm('确定取消该玩家的子管理员身份？')) return;
+      try {
+        await api('/api/admin/user/' + encodeURIComponent(uid) + '/demote-admin', { method: 'POST', body: {} });
+        await loadUsers();
+        alert('已取消子管理员');
       } catch (e) { alert(e.message || String(e)); }
     }
 
@@ -1394,6 +1904,101 @@
     }
 
     var _reviewTabBound = false;
+    var _reviewedOps = {};
+
+    function fmtReviewTime(m) {
+      var raw = (m && (m.ended_at || m.score_review_since || m.started_at)) || '';
+      return raw ? String(raw).slice(0, 19).replace('T', ' ') : '-';
+    }
+
+    function reviewOpLabel(state) {
+      if (state === 'approved') return '<span class="badge badge-green">已通过</span>';
+      if (state === 'rejected') return '<span class="badge badge-red">已驳回</span>';
+      if (state === 'cheat') return '<span class="badge badge-red">已认定作弊</span>';
+      return '';
+    }
+
+    var _reviewSubTab = 'pending';
+
+    function switchReviewSubTab(sub) {
+      _reviewSubTab = sub || 'pending';
+      document.querySelectorAll('.review-subtab').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.sub === _reviewSubTab);
+      });
+      var pending = document.getElementById('reviewPendingPanel');
+      var logs = document.getElementById('reviewLogsPanel');
+      if (pending) pending.classList.toggle('hidden', _reviewSubTab !== 'pending');
+      if (logs) logs.classList.toggle('hidden', _reviewSubTab !== 'logs');
+      if (_reviewSubTab === 'logs') loadReviewLogs();
+      else loadReviewTab();
+    }
+
+    async function loadReviewLogs() {
+      var tb = document.getElementById('reviewLogTable');
+      if (!tb) return;
+      try {
+        var rows = await api('/api/admin/review-logs?limit=200');
+        if (!rows || !rows.length) {
+          tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#666">暂无审核记录</td></tr>';
+          return;
+        }
+        tb.innerHTML = rows.map(function(r) {
+          var lid = attrEsc(r.id);
+          var res = r.auto_approved
+            ? '<span class="badge badge-green">自动通过</span>'
+            : escapeHtml(r.result_label || r.result);
+          var pts = r.points_delta ? (r.points_delta > 0 ? '+' : '') + r.points_delta : '-';
+          var time = (r.created_at || '').slice(0, 19).replace('T', ' ');
+          var ops = '';
+          if (r.can_re_review) {
+            ops = '<button type="button" data-act="rereview-approve" data-lid="' + lid + '">改通过</button> ' +
+              '<button type="button" data-act="rereview-reject" data-lid="' + lid + '">改驳回</button> ' +
+              '<button type="button" class="danger" data-act="rereview-cheat" data-lid="' + lid + '">改作弊</button>';
+          } else {
+            ops = '<span style="color:#999;font-size:12px">—</span>';
+          }
+          return '<tr><td>' + escapeHtml(time) + '</td><td>' + escapeHtml(r.user_name || r.user_id) +
+            '</td><td>' + escapeHtml(r.type_label || r.type) + '</td><td>' + escapeHtml(r.match_id) +
+            '</td><td>' + res + '</td><td>' + pts + '</td><td>' + escapeHtml(r.note || '') +
+            '</td><td>' + ops + '</td></tr>';
+        }).join('');
+      } catch (e) {
+        tb.innerHTML = '<tr><td colspan="8" style="color:red">' + escapeHtml(e.message) + '</td></tr>';
+      }
+    }
+
+    async function reReviewLog(logId, action) {
+      if (!logId) return;
+      var label = action === 'approve' ? '通过' : action === 'cheat' ? '认定作弊' : '驳回';
+      if (!confirm('确定将该记录重新审核为「' + label + '」？')) return;
+      var note = prompt('备注(可选)') || '';
+      try {
+        await api('/api/admin/review-logs/' + encodeURIComponent(logId) + '/re-review', {
+          method: 'POST',
+          body: { action: action, note: note }
+        });
+        alert('已更新审核记录');
+        loadReviewLogs();
+        loadReviewTab();
+        loadMatches();
+        loadDashboard();
+      } catch (e) { alert(e.message || String(e)); }
+    }
+
+    async function toggleUserAutoReview(uid, kind, btn) {
+      if (!uid || !btn) return;
+      var body = {};
+      if (kind === 'bonus') body.auto_review_bonus = !btn.classList.contains('on');
+      else body.auto_review_shutout = !btn.classList.contains('on');
+      try {
+        var r = await api('/api/admin/user/' + encodeURIComponent(uid) + '/review-auto-flags', {
+          method: 'PUT',
+          body: body
+        });
+        if (kind === 'bonus') btn.classList.toggle('on', !!r.auto_review_bonus);
+        else btn.classList.toggle('on', !!r.auto_review_shutout);
+      } catch (e) { alert(e.message || String(e)); }
+    }
 
     function bindReviewTabEvents() {
       var panel = document.getElementById('tab-review');
@@ -1409,6 +2014,9 @@
         else if (btn.dataset.act === 'review-reject') reviewMatch(btn.dataset.mid, 'reject');
         else if (btn.dataset.act === 'ex-approve') reviewEx(btn.dataset.eid, 'approved');
         else if (btn.dataset.act === 'ex-reject') reviewEx(btn.dataset.eid, 'rejected');
+        else if (btn.dataset.act === 'rereview-approve') reReviewLog(btn.dataset.lid, 'approve');
+        else if (btn.dataset.act === 'rereview-reject') reReviewLog(btn.dataset.lid, 'reject');
+        else if (btn.dataset.act === 'rereview-cheat') reReviewLog(btn.dataset.lid, 'cheat');
       });
     }
 
@@ -1422,35 +2030,49 @@
         var pendingCount = 0;
         var bonusRows = [];
         matches.forEach(function(m) {
-          if (m.needs_bonus_review && m.bonus_review_queue && m.bonus_review_queue.length) {
-            var q = m.bonus_review_queue[0];
+          if (!m.bonus_review_queue || !m.bonus_review_queue.length) return;
+          m.bonus_review_queue.forEach(function(q) {
+            var bid = q.bonus_id || q.id;
+            if (!bid) return;
             pendingCount++;
             var mid = attrEsc(m.id);
-            var bid = attrEsc(q.bonus_id);
+            var bidEsc = attrEsc(bid);
             var uid = attrEsc(q.user_id);
             var who = (q.user_id === m.player1_id ? m.p1_name : m.p2_name) || q.user_id;
+            var bKey = 'bonus:' + m.id + ':' + bid;
+            var bState = _reviewedOps[bKey] || 'pending';
+            var qTime = (q.created_at || '').slice(0, 19).replace('T', ' ') || '-';
+            var ops = reviewOpLabel(bState);
+            if (!ops) {
+              ops = '<button type="button" data-act="bonus-approve" data-mid="' + mid + '" data-bid="' + bidEsc + '" data-uid="' + uid + '">通过</button> ' +
+                '<button type="button" data-act="bonus-reject" data-mid="' + mid + '" data-bid="' + bidEsc + '" data-uid="' + uid + '">驳回</button> ' +
+                '<button type="button" class="danger" data-act="bonus-cheat" data-mid="' + mid + '" data-bid="' + bidEsc + '" data-uid="' + uid + '">认定作弊</button>';
+            }
             bonusRows.push('<tr><td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) +
               '</td><td>' + escapeHtml(who) + ' · ' + escapeHtml(q.label || q.type) +
-              '</td><td>' + escapeHtml(q.type) + '</td><td>' +
-              '<button type="button" data-act="bonus-approve" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">通过</button> ' +
-              '<button type="button" data-act="bonus-reject" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">驳回</button> ' +
-              '<button type="button" class="danger" data-act="bonus-cheat" data-mid="' + mid + '" data-bid="' + bid + '" data-uid="' + uid + '">认定作弊</button></td></tr>');
-          }
+              '</td><td>' + escapeHtml(q.type) + '</td><td>' + escapeHtml(qTime) + '</td><td>' + ops + '</td></tr>');
+          });
         });
-        bonusTb.innerHTML = bonusRows.length ? bonusRows.join('') : '<tr><td colspan="5" style="text-align:center;color:#666">暂无待审核</td></tr>';
+        bonusTb.innerHTML = bonusRows.length ? bonusRows.join('') : '<tr><td colspan="6" style="text-align:center;color:#666">暂无待审核</td></tr>';
 
         var matchRows = [];
         matches.forEach(function(m) {
-          if (m.status === 'pending_review') {
-            pendingCount++;
-            var mid = attrEsc(m.id);
-            matchRows.push('<tr><td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) +
-              '</td><td>' + m.score1 + ' : ' + m.score2 + '</td><td>' + fmtMatchStatus(m.status) + '</td><td>' +
-              '<button type="button" data-act="review-approve" data-mid="' + mid + '">通过</button> ' +
-              '<button type="button" class="danger" data-act="review-reject" data-mid="' + mid + '">驳回</button></td></tr>');
+          var mKey = 'match:' + m.id;
+          if (m.status !== 'pending_review' && !_reviewedOps[mKey]) return;
+          pendingCount++;
+          var mid = attrEsc(m.id);
+          var mState = _reviewedOps[mKey] || (m.status === 'pending_review' ? 'pending' : '');
+          if (!mState && m.reviewed_at) mState = 'approved';
+          var ops = reviewOpLabel(mState);
+          if (!ops) {
+            ops = '<button type="button" data-act="review-approve" data-mid="' + mid + '">通过</button> ' +
+              '<button type="button" class="danger" data-act="review-reject" data-mid="' + mid + '">驳回</button>';
           }
+          matchRows.push('<tr><td>' + escapeHtml(m.id) + '</td><td>' + escapeHtml(m.table_id) +
+            '</td><td>' + m.score1 + ' : ' + m.score2 + '</td><td>' + fmtMatchStatus(m.status) + '</td><td>' +
+            escapeHtml(fmtReviewTime(m)) + '</td><td>' + ops + '</td></tr>');
         });
-        matchTb.innerHTML = matchRows.length ? matchRows.join('') : '<tr><td colspan="5" style="text-align:center;color:#666">暂无待审核</td></tr>';
+        matchTb.innerHTML = matchRows.length ? matchRows.join('') : '<tr><td colspan="6" style="text-align:center;color:#666">暂无待审核</td></tr>';
 
         var exRows = [];
         exchanges.forEach(function(e) {
@@ -1466,7 +2088,7 @@
         exTb.innerHTML = exRows.length ? exRows.join('') : '<tr><td colspan="5" style="text-align:center;color:#666">暂无待审核</td></tr>';
         updateReviewNavBadge(pendingCount);
       } catch (e) {
-        var msg = '<tr><td colspan="5" style="color:red">' + escapeHtml(e.message) + '</td></tr>';
+        var msg = '<tr><td colspan="6" style="color:red">' + escapeHtml(e.message) + '</td></tr>';
         bonusTb.innerHTML = matchTb.innerHTML = exTb.innerHTML = msg;
       }
     }
@@ -1568,6 +2190,19 @@
 
     function closeModal() {
       document.getElementById('modal').classList.add('hidden');
+    }
+
+    function resetLoginOverlays() {
+      var modal = document.getElementById('modal');
+      if (modal) modal.classList.add('hidden');
+      document.querySelectorAll('.modal-overlay').forEach(function(el) { el.remove(); });
+    }
+
+    function showLoginPage() {
+      resetLoginOverlays();
+      document.getElementById('loginPage').classList.remove('hidden');
+      document.getElementById('mainPage').classList.add('hidden');
+      adminSession = null;
     }
 
     function fillLadderForm(rules, description) {
@@ -1690,6 +2325,33 @@
 
     var _venueTableBound = false;
 
+    function bindVenueAppEvents() {
+      var tbody = document.getElementById('venueAppTable');
+      if (!tbody || tbody._bound) return;
+      tbody._bound = true;
+      tbody.addEventListener('click', async function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.aid) return;
+        var aid = btn.dataset.aid;
+        if (btn.dataset.act === 'app-approve') {
+          if (!confirm('通过后将创建俱乐部账号，确定？')) return;
+          try {
+            await api('/api/admin/venue-applications/' + encodeURIComponent(aid) + '/approve', { method: 'POST' });
+            loadVenueApplications();
+            loadVenues();
+            alert('已通过');
+          } catch (err) { alert(err.message); }
+        } else if (btn.dataset.act === 'app-reject') {
+          var reason = prompt('拒绝原因（可选）') || '';
+          try {
+            await api('/api/admin/venue-applications/' + encodeURIComponent(aid) + '/reject', { method: 'POST', body: { reason: reason } });
+            loadVenueApplications();
+            alert('已拒绝');
+          } catch (err) { alert(err.message); }
+        }
+      });
+    }
+
     function bindVenueTableEvents() {
       var tbody = document.getElementById('venueTable');
       if (!tbody || _venueTableBound) return;
@@ -1713,15 +2375,22 @@
           const exp = (v.member_expires_at || '').slice(0, 10) || '-';
           const st = v.is_member_active ? '<span class="badge badge-green">会员中</span>' : '<span class="badge badge-red">未开通</span>';
           var vid = attrEsc(v.id);
-          return '<tr><td>' + escapeHtml(v.name) + '</td><td>' + escapeHtml(v.manager_name || '-') +
-            '</td><td>' + (v.table_count || 0) + '</td><td>' + (v.member_count || 0) + '</td><td>' + escapeHtml(v.username) + '</td><td>' + exp +
+          var phone = v.apply_phone || v.username || '-';
+          var pwd = v.initial_password_plain || '(已加密)';
+          var src = v.apply_source === 'mp_apply' ? '小程序申请' : (v.apply_source ? escapeHtml(v.apply_source) : '后台创建');
+          var acc = v.account_status === 'cancelled' ? '<span class="badge badge-red">已注销</span>' :
+            (v.account_status === 'active' || !v.account_status) ? '<span class="badge badge-green">正常</span>' : escapeHtml(v.account_status);
+          var lastAct = (v.last_activity_at || v.approved_at || '').slice(0, 19) || '-';
+          return '<tr><td>' + escapeHtml(v.name) + '</td><td>' + escapeHtml(phone) + '</td><td>' + escapeHtml(pwd) +
+            '</td><td>' + src + '</td><td>' + acc + '</td><td>' + escapeHtml(lastAct) +
+            '</td><td>' + (v.table_count || 0) + '</td><td>' + (v.member_count || 0) + '</td><td>' + exp +
             '</td><td>' + st + '</td><td>' +
             '<button type="button" data-act="venue-detail" data-vid="' + vid + '">详情</button> ' +
             '<button type="button" data-act="venue-edit" data-vid="' + vid + '">编辑</button> ' +
             '<button type="button" class="danger" data-act="venue-delete" data-vid="' + vid + '">删除</button></td></tr>';
         }).join('');
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="8" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
       }
     }
 
@@ -1748,16 +2417,21 @@
     }
 
     async function editVenue(id) {
-      const list = await api('/api/admin/venues');
-      const v = list.find(x => x.id === id);
-      if (!v) return;
-      document.getElementById('modal').classList.remove('hidden');
-      document.getElementById('modalContent').className = 'modal-box';
-      document.getElementById('modalContent').innerHTML =
-        '<h3>编辑球房: ' + escapeHtml(v.name) + '</h3>' +
-        buildVenueFormHtml(v, true) +
-        (v.has_security_code ? '<p style="font-size:12px;color:#666">已设置安全码；留空表示不修改</p>' : '<p style="font-size:12px;color:#c62828">尚未设置安全码，请填写以便球房忘记密码</p>') +
-        '<button type="button" onclick="updateVenue(\'' + id + '\')">保存</button> <button type="button" class="secondary" onclick="closeModal()">取消</button>';
+      try {
+        const d = await api('/api/admin/venues/' + encodeURIComponent(id) + '/detail');
+        const v = d.venue;
+        if (!v) return;
+        document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('modalContent').className = 'modal-box wide';
+        document.getElementById('modalContent').innerHTML =
+          '<h3>编辑球房: ' + escapeHtml(v.name) + '</h3>' +
+          buildVenueAccountMetaHtml(v) +
+          '<p style="font-size:12px;color:#666;margin-bottom:10px">下方可修改资料；密码/安全码保存后会更新上方「账号与开通信息」。</p>' +
+          buildVenueFormHtml(v, true) +
+          '<button type="button" onclick="updateVenue(\'' + id + '\')">保存</button> <button type="button" class="secondary" onclick="closeModal()">取消</button>';
+      } catch (e) {
+        alert(e.message || String(e));
+      }
     }
 
     async function updateVenue(id) {
@@ -1794,6 +2468,7 @@
       }).join('') || '<tr><td colspan="4">暂无关联会员</td></tr>';
       document.getElementById('modalContent').innerHTML =
         '<h3>球房详情：' + escapeHtml(v.name) + '</h3>' +
+        buildVenueAccountMetaHtml(v) +
         '<p><strong>管理人员：</strong>' + escapeHtml(v.manager_name || '-') + '</p>' +
         '<p><strong>台桌数：</strong>' + v.table_count + ' &nbsp; <strong>会员数：</strong>' + v.member_count +
         ' &nbsp; <strong>会员总积分：</strong>' + d.total_member_score + '</p>' +
@@ -1812,7 +2487,14 @@
       } catch (e) { alert(e.message || String(e)); }
     }
 
+    window.addEventListener('pageshow', function() {
+      if (!adminSession) showLoginPage();
+    });
+
     (async function initAdminPage() {
+      resetLoginOverlays();
+      refreshLoginCaptcha();
+      checkSuperSetupHint();
       try {
         adminSession = await api('/api/admin/me');
         document.getElementById('loginPage').classList.add('hidden');
@@ -1820,7 +2502,7 @@
         applyAdminSession();
         loadDashboard();
       } catch (e) {
-        /* 未登录，停留在登录页 */
+        showLoginPage();
       }
     })();
   </script>
