@@ -859,6 +859,33 @@ def table_detail(table_id):
     return _ok(view)
 
 
+@app.route("/api/table/<table_id>/qr-resolve")
+def table_qr_resolve(table_id):
+    """校验桌台二维码 Token，返回所属俱乐部（用于扫码后自动切换球房）"""
+    from table_queue import _require_qr_token_match
+    from venue_service import DEFAULT_VENUE_ID, get_venue
+
+    token = (request.args.get("qr_token") or "").strip()
+    tables = load("tables")
+    t = find_by_id(tables, table_id)
+    if not t:
+        return _err("桌台不存在")
+    try:
+        _require_qr_token_match(t, token)
+    except ValueError as e:
+        return _err(str(e))
+    vid = t.get("venue_id") or DEFAULT_VENUE_ID
+    v = get_venue(vid) or {}
+    return _ok(
+        {
+            "table_id": table_id,
+            "table_name": t.get("name", ""),
+            "venue_id": vid,
+            "venue_name": v.get("name", ""),
+        }
+    )
+
+
 @app.route("/api/table/<table_id>/scan-check")
 def table_scan_check(table_id):
     from table_queue import check_table_scan

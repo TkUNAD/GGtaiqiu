@@ -1,6 +1,6 @@
 const api = require('../../utils/api');
-const { parseTableScanResult } = require('../../utils/tableQr');
-const { getVenueId } = require('../../utils/venueStore');
+const { parseTableScanResult, extractSceneFromOptions, safeDecode } = require('../../utils/tableQr');
+const { setVenueId, getVenueId } = require('../../utils/venueStore');
 const { getTierStyle } = require('../../utils/tierIcons');
 const { DEFAULT_AVATAR, resolveDisplayAvatar } = require('../../utils/avatar');
 
@@ -119,10 +119,11 @@ Page({
 
     this._lobbyLeaveTimer = null;
 
-    let tableId = options.table_id || '';
-    let qrToken = options.qr_token || '';
-    if (options.scene) {
-      const parsed = parseTableScanResult(decodeURIComponent(options.scene));
+    let tableId = safeDecode(options.table_id || '');
+    let qrToken = safeDecode(options.qr_token || '');
+    const sceneRaw = extractSceneFromOptions(options);
+    if (sceneRaw) {
+      const parsed = parseTableScanResult(sceneRaw);
       if (parsed) {
         tableId = parsed.tableId;
         qrToken = parsed.qrToken;
@@ -416,9 +417,35 @@ Page({
 
 
 
+  async resolveTableVenue() {
+    const { tableId, qrToken } = this.data;
+    if (!tableId || !qrToken) return false;
+    try {
+      const info = await api.request(
+        `/api/table/${encodeURIComponent(tableId)}/qr-resolve?qr_token=${encodeURIComponent(qrToken)}`
+      );
+      if (info && info.venue_id) {
+        setVenueId(info.venue_id, false);
+        this.setData({ expectedVenueId: info.venue_id });
+      }
+      return true;
+    } catch (e) {
+      if (!this._destroyed) {
+        this.setData({ loadError: String(e) });
+        wx.showToast({ title: String(e), icon: 'none' });
+      }
+      return false;
+    }
+  },
+
   async init() {
 
     if (!(await this.ensureLogin())) {
+      this.setData({ pageReady: true });
+      return;
+    }
+
+    if (!(await this.resolveTableVenue())) {
       this.setData({ pageReady: true });
       return;
     }

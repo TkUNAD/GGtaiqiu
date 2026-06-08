@@ -30,7 +30,7 @@ App({
       });
     } else if (scene === 'venue_apply' || String(scene).indexOf('venue_apply') >= 0) {
       wx.navigateTo({ url: '/pages/venue-apply/venue-apply' });
-    } else if (scene && /^T\d+:/i.test(String(scene))) {
+    } else if (scene && /^T[\w-]+:/i.test(String(scene))) {
       wx.navigateTo({
         url: `/pages/table/table?scene=${encodeURIComponent(scene)}`,
       });

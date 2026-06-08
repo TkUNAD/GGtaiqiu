@@ -264,8 +264,9 @@ Page({
       if (!ok) return;
       wx.scanCode({
         onlyFromCamera: true,
+        scanType: ['qrCode', 'wxCode'],
         success: (res) => {
-          const parsed = parseTableScanResult(res.result || '');
+          const parsed = parseTableScanResult(res.result || res.path || '');
           if (!parsed) {
             wx.showToast({ title: '请扫描球台完整二维码', icon: 'none', duration: 2500 });
             return;
@@ -275,11 +276,18 @@ Page({
             wx.showToast({ title: '二维码无效，请重新扫描', icon: 'none' });
             return;
           }
-          const venueId = getVenueId();
-          const checkQ = `qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`;
           api
-            .request(`/api/table/${encodeURIComponent(tableId)}/scan-check?${checkQ}`)
+            .request(
+              `/api/table/${encodeURIComponent(tableId)}/qr-resolve?qr_token=${encodeURIComponent(qrToken)}`
+            )
+            .then((info) => {
+              const venueId = (info && info.venue_id) || getVenueId();
+              setVenueId(venueId, false);
+              const checkQ = `qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`;
+              return api.request(`/api/table/${encodeURIComponent(tableId)}/scan-check?${checkQ}`);
+            })
             .then(() => {
+              const venueId = getVenueId();
               wx.navigateTo({
                 url: `/pages/table/table?table_id=${encodeURIComponent(tableId)}&qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`,
               });
