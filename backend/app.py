@@ -584,10 +584,10 @@ def auth_login():
     users = load("users")
     rank = get_user_rank(users, user["id"])
     tokens = issue_tokens(user)
-    from avatar_service import client_avatar_url
+    from avatar_service import resolve_user_avatar_for_client
 
     u_out = dict(user)
-    u_out["avatar"] = client_avatar_url(user.get("avatar") or "", request)
+    u_out["avatar"] = resolve_user_avatar_for_client(user, request)
     return _ok({
         "access_token": tokens["access_token"],
         "refresh_token": tokens["refresh_token"],
@@ -1014,12 +1014,12 @@ def match_start():
 def _match_player_card(u: Dict) -> Dict:
     from config import INITIAL_SCORE
     from rating import get_tier
-    from avatar_service import client_avatar_url
+    from avatar_service import resolve_user_avatar_for_client
 
     if not u:
         return {}
     tier = get_tier(u.get("score", INITIAL_SCORE))
-    av = client_avatar_url(u.get("avatar") or "", request)
+    av = resolve_user_avatar_for_client(u, request)
     return {
         "id": u.get("id"),
         "nickname": u.get("nickname", "球友"),

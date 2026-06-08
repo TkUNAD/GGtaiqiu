@@ -1,5 +1,5 @@
 /** 小程序内可展示的头像 URL */
-const { getApiBaseUrl } = require('./config');
+const { getApiBaseUrl, PROD_API } = require('./config');
 
 const DEFAULT_AVATAR = '/assets/default-avatar.png';
 
@@ -11,19 +11,32 @@ function isEphemeralAvatar(url) {
   return false;
 }
 
+function _toHttpsIfProdHost(url) {
+  if (!url || !url.startsWith('http://')) return url;
+  const host = url.replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+  const prodHost = (PROD_API || '').replace(/^https?:\/\//i, '').replace(/\/$/, '').toLowerCase();
+  if (prodHost && (host === prodHost || host.endsWith('.' + prodHost))) {
+    return 'https://' + url.slice(7);
+  }
+  return url;
+}
+
 function resolveDisplayAvatar(url, options) {
   const opts = options || {};
-  const u = (url || '').trim();
+  let u = (url || '').trim();
   if (!u || isEphemeralAvatar(u)) {
     if (opts.allowLocal && u && !isEphemeralAvatar(u)) return u;
     return DEFAULT_AVATAR;
   }
+
+  const base = getApiBaseUrl().replace(/\/$/, '');
+  const prod = (PROD_API || 'https://ggtaiqiu.com').replace(/\/$/, '');
+  u = u.replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, prod);
+
   if (u.startsWith('/assets/')) return u;
-  if (u.startsWith('/static/')) {
-    const base = getApiBaseUrl().replace(/\/$/, '');
-    return base + u;
-  }
-  if (u.startsWith('https://') || u.startsWith('http://')) return u;
+  if (u.startsWith('/static/')) return base + u;
+  if (u.startsWith('http://')) return _toHttpsIfProdHost(u);
+  if (u.startsWith('https://')) return u;
   return DEFAULT_AVATAR;
 }
 

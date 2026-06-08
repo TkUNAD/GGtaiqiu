@@ -339,14 +339,14 @@ def build_table_view(table: Dict, user_id: str = None) -> Dict:
     for w in waiting:
         u = find_by_id(users, w.get("user_id")) or {}
         tier = get_tier(u.get("score", INITIAL_SCORE))
-        from avatar_service import client_avatar_url
+        from avatar_service import resolve_user_avatar_for_client
         from flask import has_request_context, request
 
         req = request if has_request_context() else None
         players.append({
             "user_id": w.get("user_id"),
             "nickname": w.get("nickname") or u.get("nickname", "球友"),
-            "avatar": client_avatar_url(u.get("avatar") or "", req),
+            "avatar": resolve_user_avatar_for_client(u, req),
             "tier_index": tier.get("tier_index", 1),
             "tier_name": tier.get("tier_name", ""),
             "star": tier.get("star", 1),

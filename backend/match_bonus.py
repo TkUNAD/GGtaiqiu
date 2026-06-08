@@ -755,14 +755,14 @@ def build_match_summary(m: Dict) -> Dict:
         tier_before = get_tier(score_before)
         ti_after = tier_after["tier_index"]
         ti_before = tier_before["tier_index"]
-        from avatar_service import client_avatar_url
+        from avatar_service import resolve_user_avatar_for_client
         from flask import has_request_context, request
 
         req = request if has_request_context() else None
         return {
             "id": uid,
             "nickname": u.get("nickname", "球友"),
-            "avatar": client_avatar_url(u.get("avatar") or "", req),
+            "avatar": resolve_user_avatar_for_client(u, req),
             "score": score_after,
             "frames_won": m["score1"] if uid == p1_id else m["score2"],
             "point_delta": delta,
