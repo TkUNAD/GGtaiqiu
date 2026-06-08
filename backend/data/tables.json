@@ -7,7 +7,14 @@
     "opened": false,
     "current_match_id": null,
     "opened_at": null,
-    "waiting_players": []
+    "waiting_players": [
+      {
+        "user_id": "Ud59aff410c63",
+        "nickname": ".",
+        "joined_at": "2026-06-08T21:02:31.188344",
+        "last_seen_at": "2026-06-08T21:06:35.220402"
+      }
+    ]
   },
   {
     "id": "T02",

@@ -73,10 +73,16 @@ def client_avatar_url(stored: str, request=None) -> str:
     if not u or _is_ephemeral_avatar(u):
         return ""
     if u.startswith("/static/"):
+        root = ""
         if request:
             root = (request.url_root or "").rstrip("/")
-            return f"{root}{u}" if root else u
-        return u
+        if not root:
+            try:
+                import config
+                root = getattr(config, "PUBLIC_URL", "") or ""
+            except ImportError:
+                root = ""
+        return f"{root}{u}" if root else u
     if u.startswith("http://") or u.startswith("https://"):
         return u
     return ""

@@ -76,11 +76,12 @@ JWT_REFRESH_EXPIRE_SECONDS = int(os.environ.get("JWT_REFRESH_EXPIRE_SECONDS", 25
 ADMIN_USER = os.environ.get("ADMIN_USER", "cca10")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
+PUBLIC_URL = (os.environ.get("PUBLIC_URL", "https://ggtaiqiu.com") or "https://ggtaiqiu.com").rstrip("/")
 CORS_ORIGINS = [
     o.strip()
     for o in os.environ.get(
         "CORS_ORIGINS",
-        "http://127.0.0.1:5000,http://localhost:5000",
+        f"{PUBLIC_URL},http://127.0.0.1:5000,http://localhost:5000",
     ).split(",")
     if o.strip()
 ]

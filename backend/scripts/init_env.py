@@ -95,7 +95,8 @@ def main() -> int:
             *[f"{k}={v}\n" for k, v in updates.items()],
             "DEV_MODE=false\n",
             "FLASK_DEBUG=false\n",
-            "CORS_ORIGINS=http://127.0.0.1:5000,http://localhost:5000\n",
+            "PUBLIC_URL=https://ggtaiqiu.com\n",
+            "CORS_ORIGINS=https://ggtaiqiu.com,http://127.0.0.1:5000,http://localhost:5000\n",
         ]
 
     with open(ENV_PATH, "w", encoding="utf-8") as f:

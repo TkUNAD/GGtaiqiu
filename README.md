@@ -30,15 +30,18 @@ python app.py
 
 或双击项目根目录 `run.bat`
 
-- API: http://127.0.0.1:5000
-- 管理后台: http://127.0.0.1:5000/admin （默认 admin / admin123）
-- 投屏大屏: http://127.0.0.1:5000/screen
+- 线上 API: https://ggtaiqiu.com
+- 管理后台: https://ggtaiqiu.com/admin
+- 投屏大屏: https://ggtaiqiu.com/screen
+- 本地调试: http://127.0.0.1:5000 （`run.bat` 启动）
 
 环境变量（可选，也可用项目根目录 `.env` / `wechat.secret.txt`）：
 
 | 变量 | 说明 |
 |------|------|
 | ADMIN_USER / ADMIN_PASS | 管理员账号密码 |
+| PUBLIC_URL | 线上域名，默认 `https://ggtaiqiu.com` |
+| CORS_ORIGINS | 允许跨域来源，默认含 `ggtaiqiu.com` 与本地 |
 | WECHAT_APPID / WECHAT_SECRET | 微信小程序正式登录 |
 | DEV_MODE=false | 关闭开发模式，启用真实微信登录 |
 | PORT | 端口，默认5000 |
@@ -55,17 +58,16 @@ python scripts/generate_assets.py
 
 1. 用微信开发者工具打开**项目根目录**（已配置 `miniprogramRoot`）或只打开 `miniprogram` 目录
 2. 修改 `project.config.json` 中的 `appid` 为你的小程序 AppID
-3. 真机调试：修改 `miniprogram/utils/config.js` 中 `LAN_IP` 为你电脑局域网 IP（`ipconfig` 查看，一般用 `192.168.x.x`，**不要用 198.18.x**）
-4. 手机与电脑连接**同一 WiFi**；微信开发者工具勾选「不校验合法域名」
-5. 若真机仍连不上，右键以管理员运行项目根目录 `open_firewall.bat` 开放 5000 端口
-6. 上线前将 `config.js` 改为 HTTPS 正式域名，并在微信公众平台配置服务器域名
+3. 真机/体验版/正式版默认请求 `https://ggtaiqiu.com`，须在微信公众平台配置 **request 合法域名** `ggtaiqiu.com`
+4. 本地真机联调：开发者工具勾选「不校验合法域名」，并在控制台执行 `setManualApiBase('http://192.168.x.x:5000')`（`ipconfig` 查看局域网 IP）
+5. 若本地联调连不上，右键以管理员运行项目根目录 `open_firewall.bat` 开放 5000 端口
 
 ### 3. 桌台二维码
 
 二维码内容示例（可生成打印贴桌）：
 
 ```
-https://你的域名/pages/table/table?table_id=T01&qr_token=table_T01
+https://ggtaiqiu.com/pages/table/table?table_id=T01&qr_token=table_T01
 ```
 
 或使用小程序码，scene 携带 `table_id` 与 `qr_token`。

@@ -28,9 +28,9 @@ if not exist "venv\Scripts\python.exe" (
 
 echo.
 echo Server starting...
-echo Admin:  http://127.0.0.1:5000/admin
-echo Screen: http://127.0.0.1:5000/screen
-echo Health: http://127.0.0.1:5000/api/health
+echo Admin:  https://ggtaiqiu.com/admin  (local: http://127.0.0.1:5000/admin)
+echo Screen: https://ggtaiqiu.com/screen  (local: http://127.0.0.1:5000/screen)
+echo Health: https://ggtaiqiu.com/api/health
 echo.
 
 if not exist "..\wechat.secret.txt" if not exist "..\.env" (

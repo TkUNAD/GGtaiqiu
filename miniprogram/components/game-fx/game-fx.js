@@ -37,19 +37,25 @@ Component({
   },
 
   lifetimes: {
+    attached() {
+      const kind = this.properties.fxKind;
+      if (kind) this._play(kind);
+    },
     detached() {
       this._clearTimer();
     },
   },
 
   observers: {
-    fxKind(kind) {
+    fxKind(kind, oldKind) {
       if (!kind) {
         this._clearTimer();
         this.setData({ visible: false, tierPhase: 'old' });
         return;
       }
-      this._play(kind);
+      if (oldKind !== undefined && oldKind !== '' && kind !== oldKind) {
+        this._play(kind);
+      }
     },
   },
 

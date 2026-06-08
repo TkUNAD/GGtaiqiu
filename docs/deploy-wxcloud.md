@@ -25,7 +25,8 @@ ADMIN_USER=admin
 ADMIN_PASS=强密码
 WECHAT_APPID=你的小程序AppID
 WECHAT_SECRET=你的小程序AppSecret
-CORS_ORIGINS=https://你的云托管HTTPS域名
+PUBLIC_URL=https://ggtaiqiu.com
+CORS_ORIGINS=https://ggtaiqiu.com
 ```
 
 生成随机密钥示例（本地 PowerShell）：
@@ -54,14 +55,14 @@ CORS_ORIGINS=https://你的云托管HTTPS域名
 
 1. 构建状态为 **成功**
 2. 实例为 **运行中**（非 CrashLoopBackOff）
-3. 浏览器访问：`https://你的域名/api/health` 返回 `{"ok":true,...}`
-4. 管理后台：`https://你的域名/admin`
+3. 浏览器访问：`https://ggtaiqiu.com/api/health` 返回 `{"ok":true,...}`
+4. 管理后台：`https://ggtaiqiu.com/admin`
 
 ## 小程序对接
 
-1. 复制云托管 **HTTPS 公网域名**
-2. 修改 `miniprogram/utils/config.js` 正式环境 API 地址
-3. 微信公众平台 → 服务器域名 → request 合法域名填入该域名
+1. 确保域名 `ggtaiqiu.com` 已解析并开启 HTTPS
+2. `miniprogram/utils/config.js` 中 `PROD_API` 已设为 `https://ggtaiqiu.com`
+3. 微信公众平台 → 服务器域名 → request 合法域名填入 `ggtaiqiu.com`
 
 ## 数据说明
 

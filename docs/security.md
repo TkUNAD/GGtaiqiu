@@ -41,7 +41,7 @@
 
 ### 验证步骤（总后台 admin / admin123）
 
-1. 重启 `run.bat`，浏览器打开 http://127.0.0.1:5000/admin ，`Ctrl+F5` 强刷。
+1. 重启 `run.bat`，浏览器打开 https://ggtaiqiu.com/admin（本地调试可用 http://127.0.0.1:5000/admin），`Ctrl+F5` 强刷。
 2. 账号 `admin`、密码 `admin123`，回车或点登录 → 应进入仪表盘。
 3. 登录页点「修改密码」：当前 `admin123`，新密码 `Admin1234!`，确认 → 提示成功；用新密码登录。
 4. 左下角「修改密码」：改回 `admin123` → 再用 `admin123` 登录。

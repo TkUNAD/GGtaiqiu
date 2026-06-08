@@ -33,7 +33,7 @@ Page({
         const app = getApp();
         hint = `无法连接服务器（${(app && app.globalData.baseUrl) || ''}）。真机请在开发者工具「详情-本地设置」把局域网 IP 改成电脑 ipconfig 中的地址，并确认 run.bat 已启动。`;
       } else if (msg.indexOf('无效') >= 0 || msg.indexOf('已使用') >= 0) {
-        hint = `${msg}。请浏览器打开后端「/api/setup/super-init-qr.png」下载新码后再扫。`;
+        hint = `${msg}。请浏览器打开 https://ggtaiqiu.com/api/setup/super-init-qr.png 下载新码后再扫。`;
       }
       this.setData({ valid: false, errMsg: hint });
     }

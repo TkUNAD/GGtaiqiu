@@ -5,7 +5,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Dict
 
-from flask import Flask, g, jsonify, request, render_template, session, send_file
+from flask import Flask, g, jsonify, redirect, request, render_template, session, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
@@ -129,7 +129,7 @@ def _broadcast():
 # ---------- 页面 ----------
 @app.route("/")
 def index():
-    return jsonify({"name": "台球天梯系统 API", "admin": "/admin", "screen": "/screen"})
+    return redirect("/admin")
 
 
 @app.route("/api/health")
@@ -2937,8 +2937,9 @@ if __name__ == "__main__":
 
     ensure_table_qr_tokens()
     print(f"台球天梯系统启动: http://{config.HOST}:{config.PORT}")
-    print(f"管理后台: http://127.0.0.1:{config.PORT}/admin")
-    print(f"投屏大屏: http://127.0.0.1:{config.PORT}/screen")
+    print(f"管理后台: {config.PUBLIC_URL}/admin")
+    print(f"投屏大屏: {config.PUBLIC_URL}/screen")
+    print(f"本地调试: http://127.0.0.1:{config.PORT}/admin")
     if config.WECHAT_APPID and config.WECHAT_SECRET:
         print(f"微信登录: 已配置 AppID={config.WECHAT_APPID}")
     else:
