@@ -7,7 +7,11 @@ RUN apt-get update \
         ca-certificates \
         libjpeg62-turbo zlib1g libfreetype6 \
         fonts-dejavu-core \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /app
 COPY . .

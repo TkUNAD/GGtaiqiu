@@ -149,6 +149,12 @@ def health():
         payload["mysql"] = mysql_status
         if not mysql_status.get("ok"):
             payload["status"] = "degraded"
+    from services import ping_wx_api
+
+    wx_status = ping_wx_api()
+    payload["wx_api"] = wx_status
+    if not wx_status.get("ok"):
+        payload["status"] = "degraded"
     return _ok(payload)
 
 

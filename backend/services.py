@@ -39,6 +39,34 @@ from rating import (
 )
 
 
+def ping_wx_api() -> Dict[str, Any]:
+    """探测本机能否 HTTPS 访问微信开放平台（用于健康检查与部署验证）。"""
+    import config as _cfg
+
+    if not _cfg.WECHAT_APPID or not _cfg.WECHAT_SECRET:
+        return {"ok": False, "reason": "wechat_secret_missing"}
+    url = "https://api.weixin.qq.com/sns/jscode2session"
+    params = {
+        "appid": _cfg.WECHAT_APPID,
+        "secret": _cfg.WECHAT_SECRET,
+        "js_code": "health_check_probe",
+        "grant_type": "authorization_code",
+    }
+    try:
+        r = http_get(url, params=params, timeout=8)
+        data = r.json()
+        if isinstance(data, dict) and ("errcode" in data or "openid" in data):
+            return {"ok": True}
+        return {"ok": False, "reason": "unexpected_response"}
+    except Exception as e:
+        msg = str(e)
+        if "api.weixin.qq.com" in msg and (
+            "CERTIFICATE_VERIFY" in msg or "SSL" in msg.upper()
+        ):
+            return {"ok": False, "reason": "ssl_verify_failed"}
+        return {"ok": False, "reason": msg[:160]}
+
+
 def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
     """仅用 code 换取 openid/session_key；用户头像昵称由前端 getUserProfile 传入，不在此接口获取。"""
     # 测试账号固定 code，仅开发模式可用
