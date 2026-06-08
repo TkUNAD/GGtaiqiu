@@ -30,6 +30,7 @@ from rating import (
     daily_bonus,
     get_tier,
     get_user_rank,
+    dec_ranked_quota,
     inc_ranked_quota,
     can_ranked_by_tier,
     ranked_quota_ok,
@@ -851,11 +852,12 @@ def start_match(
         "last_activity_at": now_iso(),
         "bonuses": [],
         "bonus_pending": [],
+        "ranked_quota_consumed": False,
     }
 
     from db import mutate_multi
 
-    def _start_atomic(matches, tables):
+    def _start_atomic(matches, tables, users):
         for m in matches:
             if m.get("status") != "playing":
                 continue
@@ -875,9 +877,10 @@ def start_match(
         matches.append(match)
         t["current_match_id"] = match["id"]
         t["waiting_players"] = []
+        _consume_ranked_quota_inplace(users, match)
         return match
 
-    return mutate_multi(["matches", "tables"], _start_atomic)
+    return mutate_multi(["matches", "tables", "users"], _start_atomic)
 
 
 def _latest_match_action_time(last: Dict) -> Optional[datetime]:
@@ -1037,6 +1040,30 @@ def _release_table_inplace(tables: List[Dict], table_id: str) -> None:
     t.pop("opened_by_scan", None)
 
 
+def _consume_ranked_quota_inplace(users: List[Dict], match: Dict) -> None:
+    """有效排位赛开始时扣减双方今日/本周排位次数"""
+    if match.get("ranked_quota_consumed"):
+        return
+    if match.get("match_type") != "ranked" or not match.get("ranked_valid", True):
+        return
+    for uid in (match.get("player1_id"), match.get("player2_id")):
+        u = find_by_id(users, uid)
+        if u:
+            inc_ranked_quota(u)
+    match["ranked_quota_consumed"] = True
+
+
+def _refund_ranked_quota_inplace(users: List[Dict], match: Dict) -> None:
+    """无效/取消的排位局退回次数"""
+    if not match.get("ranked_quota_consumed"):
+        return
+    for uid in (match.get("player1_id"), match.get("player2_id")):
+        u = find_by_id(users, uid)
+        if u:
+            dec_ranked_quota(u)
+    match["ranked_quota_consumed"] = False
+
+
 def _apply_finish_user_updates_inplace(
     users: List[Dict],
     score_logs: List[Dict],
@@ -1049,6 +1076,7 @@ def _apply_finish_user_updates_inplace(
     l_delta: int,
     casual_winner_bonus: int,
     is_draw: bool,
+    ranked_quota_consumed: bool = False,
 ) -> List[Tuple[str, int]]:
     """内存中更新用户/日志/周榜，返回需事后风控检查的 (user_id, delta) 列表"""
     alerts: List[Tuple[str, int]] = []
@@ -1070,8 +1098,9 @@ def _apply_finish_user_updates_inplace(
         raise ValueError("玩家数据异常")
 
     if is_ranked:
-        inc_ranked_quota(uw)
-        inc_ranked_quota(ul)
+        if not ranked_quota_consumed:
+            inc_ranked_quota(uw)
+            inc_ranked_quota(ul)
         uw["score"] = max(0, uw.get("score", INITIAL_SCORE) + w_delta)
         ul["score"] = max(0, ul.get("score", INITIAL_SCORE) + l_delta)
         _append_score_log_inplace(score_logs, winner_id, w_delta, "排位胜利", match_id)
@@ -1135,6 +1164,7 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
             m["status"] = "invalid"
             m["ended_at"] = now_iso()
             m["invalid_reason"] = "对局时长过短，判定无效"
+            _refund_ranked_quota_inplace(users, m)
             m["summary"] = build_match_summary(m)
             if table_id:
                 _release_table_inplace(tables, table_id)
@@ -1181,6 +1211,7 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
                     0,
                     0,
                     True,
+                    ranked_quota_consumed=bool(m.get("ranked_quota_consumed")),
                 )
             m["summary"] = build_match_summary(m)
             if table_id:
@@ -1255,6 +1286,7 @@ def finalize_match(match_id: str, winner_id: str = None, completed: bool = True)
                 l_delta,
                 casual_bonus,
                 False,
+                ranked_quota_consumed=bool(m.get("ranked_quota_consumed")),
             )
         m["summary"] = build_match_summary(m)
         if table_id:

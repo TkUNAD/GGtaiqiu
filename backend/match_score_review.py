@@ -185,6 +185,7 @@ def apply_pending_match_settlement(match_id: str, note: str = "") -> Dict:
                 0,
                 0,
                 True,
+                ranked_quota_consumed=bool(m.get("ranked_quota_consumed")),
             )
         else:
             holder["alerts"] = _apply_finish_user_updates_inplace(
@@ -199,6 +200,7 @@ def apply_pending_match_settlement(match_id: str, note: str = "") -> Dict:
                 l_delta,
                 casual_bonus,
                 False,
+                ranked_quota_consumed=bool(m.get("ranked_quota_consumed")),
             )
 
         for row in ps.get("deferred_scores") or []:

@@ -228,6 +228,18 @@ def inc_ranked_quota(user: Dict):
     weekly["count"] = weekly.get("count", 0) + 1
 
 
+def dec_ranked_quota(user: Dict):
+    """无效/取消排位局时退回已扣次数（不低于 0）"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    week = datetime.now().strftime("%Y-W%W")
+    daily = user.setdefault("daily_ranked_count", {})
+    weekly = user.setdefault("weekly_ranked_count", {})
+    if daily.get("date") == today and daily.get("count", 0) > 0:
+        daily["count"] = daily.get("count", 0) - 1
+    if weekly.get("week") == week and weekly.get("count", 0) > 0:
+        weekly["count"] = weekly.get("count", 0) - 1
+
+
 def build_leaderboard(users: List[Dict], limit: int = 100, include_hidden: bool = False) -> List[Dict]:
     rules = get_ladder_rules()
     active = [u for u in users if u.get("status") != "banned" and not u.get("deleted")]
