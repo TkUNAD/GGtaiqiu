@@ -1,5 +1,6 @@
 const api = require('../../utils/api');
 const { getApiBaseUrl } = require('../../utils/config');
+const { parseTableScanResult } = require('../../utils/tableQr');
 const {
   decorateList,
   padLeaderboardTop,
@@ -264,18 +265,12 @@ Page({
       wx.scanCode({
         onlyFromCamera: true,
         success: (res) => {
-          const result = (res.result || '').trim();
-          let tableId = '';
-          let qrToken = '';
-          if (result.includes('table_id=')) {
-            const m = result.match(/table_id=([^&]+)/);
-            tableId = m ? decodeURIComponent(m[1]) : '';
-            const t = result.match(/qr_token=([^&]+)/);
-            qrToken = t ? decodeURIComponent(t[1]) : '';
-          } else {
+          const parsed = parseTableScanResult(res.result || '');
+          if (!parsed) {
             wx.showToast({ title: '请扫描球台完整二维码', icon: 'none', duration: 2500 });
             return;
           }
+          const { tableId, qrToken } = parsed;
           if (!tableId || !qrToken) {
             wx.showToast({ title: '二维码无效，请重新扫描', icon: 'none' });
             return;

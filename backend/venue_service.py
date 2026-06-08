@@ -445,6 +445,8 @@ def ensure_table_qr_tokens():
     """为无 token 或弱默认 token 的桌台生成随机 qr_token"""
     import secrets
 
+    from table_util import default_qr_link
+
     tables = load("tables")
     changed = False
     for t in tables:
@@ -452,6 +454,7 @@ def ensure_table_qr_tokens():
         weak = not tok or any(tok.startswith(p) for p in ("table_", "table_T"))
         if weak:
             t["qr_token"] = secrets.token_urlsafe(16)
+            t["qr_link"] = default_qr_link(t)
             changed = True
     if changed:
         save("tables", tables)

@@ -30,6 +30,10 @@ App({
       });
     } else if (scene === 'venue_apply' || String(scene).indexOf('venue_apply') >= 0) {
       wx.navigateTo({ url: '/pages/venue-apply/venue-apply' });
+    } else if (scene && /^T\d+:/i.test(String(scene))) {
+      wx.navigateTo({
+        url: `/pages/table/table?scene=${encodeURIComponent(scene)}`,
+      });
     } else if (scene && (String(scene).indexOf('sas_') >= 0 || /^[a-f0-9]{16}$/i.test(String(scene)))) {
       let setupScene = String(scene);
       if (setupScene.indexOf('sas_') >= 0) {

@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { parseTableScanResult } = require('../../utils/tableQr');
 const { getVenueId } = require('../../utils/venueStore');
 const { getTierStyle } = require('../../utils/tierIcons');
 const { DEFAULT_AVATAR, resolveDisplayAvatar } = require('../../utils/avatar');
@@ -118,8 +119,15 @@ Page({
 
     this._lobbyLeaveTimer = null;
 
-    const tableId = options.table_id || '';
-    const qrToken = options.qr_token || '';
+    let tableId = options.table_id || '';
+    let qrToken = options.qr_token || '';
+    if (options.scene) {
+      const parsed = parseTableScanResult(decodeURIComponent(options.scene));
+      if (parsed) {
+        tableId = parsed.tableId;
+        qrToken = parsed.qrToken;
+      }
+    }
     const expectedVenueId = options.venue_id || getVenueId();
 
     this.setData({ tableId, qrToken, expectedVenueId });

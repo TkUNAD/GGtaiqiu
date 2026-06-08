@@ -1,4 +1,4 @@
-"""图形验证码（内存，用于登录/申请）"""
+"""图形验证码（登录/申请）；云托管多实例时写入存储共享。"""
 import random
 import secrets
 import string
@@ -8,23 +8,70 @@ from typing import Dict, Optional, Tuple
 
 _captcha_store: Dict[str, Dict] = {}
 CAPTCHA_TTL = 300
+_CAPTCHA_STORE_NAME = "_captchas"
 
 
-def _purge():
+def _purge_store(store: Dict) -> Dict:
     now = time.time()
-    expired = [k for k, v in _captcha_store.items() if v.get("expires_at", 0) <= now]
-    for k in expired:
-        _captcha_store.pop(k, None)
+    return {
+        k: v
+        for k, v in store.items()
+        if isinstance(v, dict) and v.get("expires_at", 0) > now
+    }
+
+
+def _load_store() -> Dict:
+    try:
+        from config import USE_MYSQL
+
+        if USE_MYSQL:
+            from db import load, save
+
+            data = load(_CAPTCHA_STORE_NAME)
+            if not isinstance(data, dict):
+                data = {}
+            data = _purge_store(data)
+            save(_CAPTCHA_STORE_NAME, data)
+            return data
+    except Exception:
+        pass
+    global _captcha_store
+    _captcha_store = _purge_store(_captcha_store)
+    return _captcha_store
+
+
+def _save_store(store: Dict) -> None:
+    try:
+        from config import USE_MYSQL
+
+        if USE_MYSQL:
+            from db import save
+
+            save(_CAPTCHA_STORE_NAME, _purge_store(store))
+            return
+    except Exception:
+        pass
+    global _captcha_store
+    _captcha_store = store
+
+
+def _put_captcha(cid: str, code: str, expires_at: float) -> None:
+    store = _load_store()
+    store[cid] = {"code": code, "expires_at": expires_at}
+    _save_store(store)
+
+
+def _pop_captcha(cid: str) -> Optional[Dict]:
+    store = _load_store()
+    rec = store.pop(cid, None)
+    _save_store(store)
+    return rec
 
 
 def create_captcha() -> Dict:
-    _purge()
     chars = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
     cid = secrets.token_urlsafe(12)
-    _captcha_store[cid] = {
-        "code": chars.upper(),
-        "expires_at": time.time() + CAPTCHA_TTL,
-    }
+    _put_captcha(cid, chars.upper(), time.time() + CAPTCHA_TTL)
     try:
         from PIL import Image, ImageDraw, ImageFont
     except ImportError:
@@ -67,15 +114,17 @@ def create_captcha() -> Dict:
     th = bbox[3] - bbox[1]
     tx = (w - tw) // 2
     ty = (h - th) // 2 - 4
-    draw.text(
-        tx,
-        ty,
-        chars,
-        fill=(255, 252, 240),
-        font=font,
-        stroke_width=2,
-        stroke_fill=(60, 45, 20),
-    )
+    try:
+        draw.text(
+            (tx, ty),
+            chars,
+            fill=(255, 252, 240),
+            font=font,
+            stroke_width=2,
+            stroke_fill=(60, 45, 20),
+        )
+    except TypeError:
+        draw.text((tx, ty), chars, fill=(255, 252, 240), font=font)
     buf = BytesIO()
     img.save(buf, format="PNG")
     import base64
@@ -89,8 +138,7 @@ def create_captcha() -> Dict:
 
 
 def verify_captcha(captcha_id: str, code: str) -> bool:
-    _purge()
-    rec = _captcha_store.pop(captcha_id, None)
+    rec = _pop_captcha(captcha_id)
     if not rec or rec.get("expires_at", 0) <= time.time():
         return False
     return (code or "").strip().upper() == rec.get("code", "")

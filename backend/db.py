@@ -92,8 +92,9 @@ def _default_data(name: str) -> Any:
             "entries": [],
         },
         "mp_admin_entry_allowlist": {"openids": []},
+        "_captchas": {},
     }
-    return defaults.get(name, [])
+    return defaults.get(name, {} if name == "_captchas" else [])
 
 
 def _json_load_unlocked(name: str) -> Any:

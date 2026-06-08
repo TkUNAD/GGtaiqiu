@@ -2250,8 +2250,24 @@ def admin_table_qrcode_png(table_id):
     if not t:
         return jsonify({"code": 1, "msg": "桌台不存在"}), 404
     t = enrich_table(t)
-    text = request.args.get("text") or t.get("qr_link") or default_qr_link(t)
+    use_plain = request.args.get("format") == "plain"
 
+    if not use_plain and config.WECHAT_APPID and config.WECHAT_SECRET:
+        try:
+            from table_util import table_qr_scene
+            from wx_miniprogram_qr import build_miniprogram_qr
+
+            scene = table_qr_scene(t)
+            png, _ = build_miniprogram_qr("pages/table/table", scene)
+            buf = BytesIO(png)
+            buf.seek(0)
+            return send_file(buf, mimetype="image/png", download_name=f"{table_id}-wxacode.png")
+        except ValueError as e:
+            return _err(str(e), 400, 400)
+        except Exception:
+            pass
+
+    text = request.args.get("text") or t.get("qr_link") or default_qr_link(t)
     qr = qrcode.QRCode(version=1, box_size=8, border=2)
     qr.add_data(text)
     qr.make(fit=True)
