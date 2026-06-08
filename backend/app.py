@@ -2198,6 +2198,8 @@ def admin_table_manage(table_id):
                 token = (data.get("qr_token") or "").strip()
                 if token:
                     t["qr_token"] = token
+                    if data.get("qr_link") is None:
+                        t["qr_link"] = default_qr_link(t)
             if data.get("qr_link") is not None:
                 t["qr_link"] = (data.get("qr_link") or "").strip() or default_qr_link(t)
             return ts
@@ -2227,6 +2229,25 @@ def admin_table_manage(table_id):
         return _err(str(e))
     _broadcast()
     return _ok()
+
+
+def _normalize_qr_png_bytes(raw: bytes) -> bytes:
+    """微信接口可能返回 JPEG，统一转为 PNG 供浏览器稳定显示"""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return raw
+    if raw[:3] == b"\xff\xd8\xff":
+        try:
+            from io import BytesIO
+
+            from PIL import Image
+
+            img = Image.open(BytesIO(raw))
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+        except Exception:
+            pass
+    return raw
 
 
 @app.route("/api/admin/table/<table_id>/qrcode.png")
@@ -2259,15 +2280,19 @@ def admin_table_qrcode_png(table_id):
 
             scene = table_qr_scene(t)
             png, _ = build_miniprogram_qr("pages/table/table", scene)
+            png = _normalize_qr_png_bytes(png)
             buf = BytesIO(png)
             buf.seek(0)
             return send_file(buf, mimetype="image/png", download_name=f"{table_id}-wxacode.png")
         except ValueError as e:
             return _err(str(e), 400, 400)
-        except Exception:
-            pass
+        except Exception as e:
+            if not config.DEV_MODE:
+                return _err(f"生成小程序码失败：{e}", 500, 500)
 
-    text = request.args.get("text") or t.get("qr_link") or default_qr_link(t)
+    from table_util import table_qr_scene
+
+    text = table_qr_scene(t)
     qr = qrcode.QRCode(version=1, box_size=8, border=2)
     qr.add_data(text)
     qr.make(fit=True)

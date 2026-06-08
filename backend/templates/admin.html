@@ -75,8 +75,9 @@
     .link-preview { font-size: 12px; color: #5B21B6; word-break: break-all; background: #F5F3FF; padding: 8px; border-radius: 4px; margin-top: 8px; }
     td .btn-group { display: flex; flex-wrap: wrap; gap: 4px; }
     td .btn-group button { padding: 6px 10px; font-size: 12px; }
-    .qr-thumb { width: 72px; height: 72px; cursor: pointer; border: 2px solid #C4B5FD; border-radius: 6px; display: block; }
+    .qr-thumb { width: 72px; height: 72px; cursor: pointer; border: 2px solid #C4B5FD; border-radius: 6px; display: block; object-fit: contain; background: #fff; }
     .qr-thumb:hover { border-color: #6B21A8; box-shadow: 0 2px 8px rgba(107,33,168,0.3); }
+    .qr-thumb.qr-broken { object-fit: cover; background: #FEE2E2; border-color: #EF4444; }
     .table-scroll { overflow-x: auto; }
     h3 { margin-bottom: 16px; color: #333; }
     .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
@@ -289,7 +290,7 @@
           <p id="tablesQrTip" style="color:#6B21A8;font-size:13px;margin-bottom:12px">点击下方<strong>二维码图片</strong>可放大、下载打印（微信扫一扫直达小程序）。若提示二维码无效，请重新下载打印最新码。</p>
           <div class="table-scroll">
           <table><thead><tr>
-            <th>二维码</th><th>编号</th><th>名称</th><th>扫码链接</th><th>开台</th><th>当前对局</th><th>操作</th>
+            <th>二维码</th><th>编号</th><th>名称</th><th>扫码 scene</th><th>开台</th><th>当前对局</th><th>操作</th>
           </tr></thead>
           <tbody id="tableTable"></tbody></table>
           </div>
@@ -1551,13 +1552,14 @@
         }
         var expiredVenue = _venueExpiredMode && adminSession && adminSession.role !== 'super';
         tbody.innerHTML = list.map(t => {
+          const scene = tableQrScene(t);
           const link = t.qr_link || tableDefaultLink(t);
-          const short = link.length > 32 ? link.slice(0, 32) + '...' : link;
+          const short = scene.length > 32 ? scene.slice(0, 32) + '...' : scene;
           const tid = attrEsc(t.id);
-          const qrSrc = qrImageUrl(t.id, link);
+          const qrSrc = qrImageUrl(t.id);
           var qrCell = expiredVenue
-            ? '<img class="qr-thumb qr-view-only" src="' + qrSrc + '" alt="QR" data-act="qr-view" data-tid="' + tid + '" title="点击查看系统二维码">'
-            : '<img class="qr-thumb" src="' + qrSrc + '" alt="QR" data-act="qr" data-tid="' + tid + '" style="cursor:pointer">';
+            ? '<img class="qr-thumb qr-view-only" src="' + qrSrc + '" data-qr-url="' + attrEsc(qrSrc) + '" alt="QR" data-act="qr-view" data-tid="' + tid + '" title="点击查看系统二维码">'
+            : '<img class="qr-thumb" src="' + qrSrc + '" data-qr-url="' + attrEsc(qrSrc) + '" alt="QR" data-act="qr" data-tid="' + tid + '" style="cursor:pointer">';
           var ops = expiredVenue
             ? '<button type="button" data-act="qr-view" data-tid="' + tid + '">查看二维码</button>'
             : '<div class="btn-group">' +
@@ -1570,11 +1572,12 @@
           return '<tr>' +
             '<td>' + qrCell + '</td>' +
             '<td>' + escapeHtml(t.id) + '</td><td>' + escapeHtml(t.name) + '</td>' +
-            '<td title="' + escapeHtml(link) + '"><code style="font-size:11px">' + escapeHtml(short) + '</code></td>' +
+            '<td title="scene: ' + escapeHtml(scene) + '&#10;link: ' + escapeHtml(link) + '"><code style="font-size:11px">' + escapeHtml(short) + '</code></td>' +
             '<td>' + (t.opened ? '<span class="badge badge-green">已开台</span>' : '<span class="badge badge-yellow">未开台</span>') +
             '</td><td>' + escapeHtml(t.current_match_id || '-') + '</td>' +
             '<td>' + ops + '</td></tr>';
         }).join('');
+        tbody.querySelectorAll('img.qr-thumb').forEach(bindQrThumb);
       } catch (e) {
         tbody.innerHTML = '<tr><td colspan="7" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) +
           '<br>请重启 run.bat 并执行: pip install qrcode[pil]</td></tr>';
@@ -1585,24 +1588,59 @@
       return 'pages/table/table?table_id=' + t.id + '&qr_token=' + (t.qr_token || ('table_' + t.id));
     }
 
-    function qrImageUrl(id, text) {
-      let url = API + '/api/admin/table/' + encodeURIComponent(id) + '/qrcode.png?t=' + Date.now();
-      if (text) url += '&text=' + encodeURIComponent(text);
-      return url;
+    function tableQrScene(t) {
+      if (t && t.qr_scene) return t.qr_scene;
+      return t.id + ':' + (t.qr_token || ('table_' + t.id));
+    }
+
+    function qrImageUrl(id) {
+      return API + '/api/admin/table/' + encodeURIComponent(id) + '/qrcode.png?t=' + Date.now();
+    }
+
+    function bindQrThumb(img) {
+      if (!img) return;
+      var url = img.getAttribute('data-qr-url') || img.getAttribute('src') || '';
+      if (!url) return;
+      if (img.dataset.qrUrl === url && img._qrBlobUrl) return;
+      img.dataset.qrUrl = url;
+      fetch(url, { credentials: 'include' })
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.blob();
+        })
+        .then(function(blob) {
+          if (!blob || !blob.size) throw new Error('empty');
+          if (img._qrBlobUrl) URL.revokeObjectURL(img._qrBlobUrl);
+          img._qrBlobUrl = URL.createObjectURL(blob);
+          img.src = img._qrBlobUrl;
+          img.classList.remove('qr-broken');
+        })
+        .catch(function() {
+          img.classList.add('qr-broken');
+          img.alt = '二维码加载失败，请刷新或重新登录';
+        });
     }
 
     function refreshModalQr(id) {
-      const text = document.getElementById('qrLinkInput').value.trim();
+      const link = document.getElementById('qrLinkInput').value.trim();
+      const token = (document.getElementById('qrTokenInput') && document.getElementById('qrTokenInput').value.trim()) || ('table_' + id);
       const img = document.getElementById('qrImg');
-      if (img) img.src = qrImageUrl(id, text);
+      if (img) {
+        var url = qrImageUrl(id);
+        img.setAttribute('data-qr-url', url);
+        bindQrThumb(img);
+      }
       const prev = document.getElementById('qrLinkPreview');
-      if (prev) prev.textContent = text;
+      if (prev) prev.textContent = link;
+      const scenePrev = document.getElementById('qrScenePreview');
+      if (scenePrev) scenePrev.textContent = id + ':' + token;
     }
 
     function showTableQr(id, readOnly) {
       readOnly = readOnly || (_venueExpiredMode && adminSession && adminSession.role !== 'super');
       const t = _tablesCache.find(x => x.id === id);
       if (!t) { alert('请先点击刷新'); return; }
+      const scene = tableQrScene(t);
       const link = t.qr_link || tableDefaultLink(t);
       document.getElementById('modal').classList.remove('hidden');
       document.getElementById('modalContent').className = 'modal-box wide';
@@ -1610,19 +1648,24 @@
         document.getElementById('modalContent').innerHTML =
           '<h3>' + escapeHtml(t.name) + '（' + escapeHtml(t.id) + '）系统二维码</h3>' +
           '<p style="font-size:13px;color:#666;margin-bottom:8px">会员已到期：二维码可正常扫码，不可修改链接或 Token。</p>' +
-          '<div class="qr-wrap"><img id="qrImg" style="width:220px;height:220px" src="' + qrImageUrl(id, link) + '"></div>' +
-          '<p class="qr-label">扫码路径</p>' +
-          '<div class="link-preview" id="qrLinkPreview">' + escapeHtml(link) + '</div>' +
+          '<div class="qr-wrap"><img id="qrImg" class="qr-thumb" style="width:220px;height:220px" src="' + qrImageUrl(id) + '" data-qr-url="' + attrEsc(qrImageUrl(id)) + '"></div>' +
+          '<p class="qr-label">小程序 scene（二维码内容）</p>' +
+          '<div class="link-preview" id="qrLinkPreview">' + escapeHtml(scene) + '</div>' +
+          '<p class="qr-label" style="margin-top:8px">页面参数</p>' +
+          '<div class="link-preview">' + escapeHtml(link) + '</div>' +
           '<div class="qr-actions">' +
           '<button type="button" class="secondary" onclick="copyQrLinkReadOnly()">复制路径</button>' +
           '<button type="button" class="secondary" onclick="downloadQrImageServer(\'' + escapeHtml(id) + '\')">下载图片</button>' +
           '<button type="button" class="secondary" onclick="closeModal()">关闭</button></div>';
+        bindQrThumb(document.getElementById('qrImg'));
         return;
       }
       document.getElementById('modalContent').innerHTML =
         '<h3>' + escapeHtml(t.name) + '（' + escapeHtml(t.id) + '）二维码</h3>' +
-        '<div class="qr-wrap"><img id="qrImg" style="width:220px;height:220px" src="' + qrImageUrl(id, link) + '"></div>' +
-        '<p class="qr-label">扫码链接</p><input id="qrLinkInput" value="' + escapeHtml(link) + '">' +
+        '<p style="font-size:12px;color:#666;margin-bottom:8px">二维码为微信小程序码，内容为 <code>' + escapeHtml(scene) + '</code>；修改 Token 后请重新下载打印。</p>' +
+        '<div class="qr-wrap"><img id="qrImg" class="qr-thumb" style="width:220px;height:220px" src="' + qrImageUrl(id) + '" data-qr-url="' + attrEsc(qrImageUrl(id)) + '"></div>' +
+        '<p class="qr-label">小程序 scene（自动生成）</p><div class="link-preview" id="qrScenePreview">' + escapeHtml(scene) + '</div>' +
+        '<p class="qr-label">页面参数链接</p><input id="qrLinkInput" value="' + escapeHtml(link) + '">' +
         '<p class="qr-label">Token</p><input id="qrTokenInput" value="' + escapeHtml(t.qr_token || '') + '">' +
         '<div class="link-preview" id="qrLinkPreview">' + escapeHtml(link) + '</div>' +
         '<div class="qr-actions">' +
@@ -1632,6 +1675,12 @@
         '<button type="button" class="secondary" onclick="resetTableQrLink(\'' + escapeHtml(id) + '\')">默认</button>' +
         '<button type="button" class="secondary" onclick="closeModal()">关闭</button></div>';
       document.getElementById('qrLinkInput').onblur = function() { refreshModalQr(id); };
+      document.getElementById('qrTokenInput').onblur = function() {
+        var token = document.getElementById('qrTokenInput').value.trim() || ('table_' + id);
+        var sceneEl = document.getElementById('qrScenePreview');
+        if (sceneEl) sceneEl.textContent = id + ':' + token;
+      };
+      bindQrThumb(document.getElementById('qrImg'));
     }
 
     function copyQrLinkReadOnly() {
@@ -1661,11 +1710,8 @@
     }
 
     function downloadQrImageServer(id) {
-      var t = _tablesCache.find(function(x) { return x.id === id; });
-      var text = (document.getElementById('qrLinkInput') && document.getElementById('qrLinkInput').value.trim()) ||
-        (t && (t.qr_link || tableDefaultLink(t))) || '';
       const a = document.createElement('a');
-      a.href = qrImageUrl(id, text);
+      a.href = qrImageUrl(id);
       a.download = id + '-qrcode.png';
       a.click();
     }

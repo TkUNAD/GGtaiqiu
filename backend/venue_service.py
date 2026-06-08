@@ -449,12 +449,17 @@ def ensure_table_qr_tokens():
 
     tables = load("tables")
     changed = False
+    from table_util import qr_link_matches_token, sync_qr_link
+
     for t in tables:
         tok = (t.get("qr_token") or "").strip()
         weak = not tok or any(tok.startswith(p) for p in ("table_", "table_T"))
         if weak:
             t["qr_token"] = secrets.token_urlsafe(16)
-            t["qr_link"] = default_qr_link(t)
+            sync_qr_link(t)
+            changed = True
+        elif not qr_link_matches_token(t):
+            sync_qr_link(t)
             changed = True
     if changed:
         save("tables", tables)

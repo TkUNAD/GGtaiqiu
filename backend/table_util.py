@@ -32,10 +32,26 @@ def parse_table_qr_scene(scene: str) -> Optional[Tuple[str, str]]:
     return tid, token
 
 
+def qr_link_matches_token(table: Dict) -> bool:
+    link = (table.get("qr_link") or "").strip()
+    token = (table.get("qr_token") or "").strip()
+    if not link or not token:
+        return False
+    return f"qr_token={token}" in link
+
+
+def sync_qr_link(table: Dict) -> str:
+    """按当前 qr_token 生成/修正扫码链接，避免链接与 Token 不一致"""
+    link = default_qr_link(table)
+    table["qr_link"] = link
+    return link
+
+
 def enrich_table(table: Dict) -> Dict:
     t = dict(table)
-    if not t.get("qr_link"):
-        t["qr_link"] = default_qr_link(t)
+    if not qr_link_matches_token(t):
+        sync_qr_link(t)
+    t["qr_scene"] = table_qr_scene(t)
     return t
 
 
