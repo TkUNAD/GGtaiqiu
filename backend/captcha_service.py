@@ -34,7 +34,7 @@ def create_captcha() -> Dict:
             "image_base64": "",
             "dev_hint": chars,
         }
-    w, h = 220, 80
+    w, h = 280, 96
     img = Image.new("RGB", (w, h), (20, 24, 42))
     draw = ImageDraw.Draw(img)
     for _ in range(3):
@@ -50,9 +50,10 @@ def create_captcha() -> Dict:
         )
     font = None
     for path, size in (
-        ("C:/Windows/Fonts/arialbd.ttf", 44),
-        ("C:/Windows/Fonts/Arial.ttf", 42),
-        ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40),
+        ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 56),
+        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 54),
+        ("C:/Windows/Fonts/arialbd.ttf", 56),
+        ("C:/Windows/Fonts/Arial.ttf", 54),
     ):
         try:
             font = ImageFont.truetype(path, size)
@@ -64,11 +65,16 @@ def create_captcha() -> Dict:
     bbox = draw.textbbox((0, 0), chars, font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
+    tx = (w - tw) // 2
+    ty = (h - th) // 2 - 4
     draw.text(
-        ((w - tw) // 2, (h - th) // 2 - 3),
+        tx,
+        ty,
         chars,
         fill=(255, 252, 240),
         font=font,
+        stroke_width=2,
+        stroke_fill=(60, 45, 20),
     )
     buf = BytesIO()
     img.save(buf, format="PNG")
