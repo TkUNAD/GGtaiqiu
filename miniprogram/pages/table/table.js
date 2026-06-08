@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const { parseTableScanResult, extractSceneFromOptions, safeDecode } = require('../../utils/tableQr');
-const { setVenueId, getVenueId } = require('../../utils/venueStore');
+const { getVenueId } = require('../../utils/venueStore');
+const { resolveTableQr, applyResolvedVenue } = require('../../utils/tableScanApi');
 const { getTierStyle } = require('../../utils/tierIcons');
 const { DEFAULT_AVATAR, resolveDisplayAvatar } = require('../../utils/avatar');
 
@@ -421,13 +422,9 @@ Page({
     const { tableId, qrToken } = this.data;
     if (!tableId || !qrToken) return false;
     try {
-      const info = await api.request(
-        `/api/table/${encodeURIComponent(tableId)}/qr-resolve?qr_token=${encodeURIComponent(qrToken)}`
-      );
-      if (info && info.venue_id) {
-        setVenueId(info.venue_id, false);
-        this.setData({ expectedVenueId: info.venue_id });
-      }
+      const info = await resolveTableQr(tableId, qrToken);
+      const venueId = applyResolvedVenue(info);
+      this.setData({ expectedVenueId: venueId });
       return true;
     } catch (e) {
       if (!this._destroyed) {

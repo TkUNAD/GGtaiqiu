@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const { getApiBaseUrl } = require('../../utils/config');
 const { parseTableScanResult } = require('../../utils/tableQr');
+const { resolveTableQr, applyResolvedVenue } = require('../../utils/tableScanApi');
 const {
   decorateList,
   padLeaderboardTop,
@@ -276,18 +277,9 @@ Page({
             wx.showToast({ title: '二维码无效，请重新扫描', icon: 'none' });
             return;
           }
-          api
-            .request(
-              `/api/table/${encodeURIComponent(tableId)}/qr-resolve?qr_token=${encodeURIComponent(qrToken)}`
-            )
+          resolveTableQr(tableId, qrToken)
             .then((info) => {
-              const venueId = (info && info.venue_id) || getVenueId();
-              setVenueId(venueId, false);
-              const checkQ = `qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`;
-              return api.request(`/api/table/${encodeURIComponent(tableId)}/scan-check?${checkQ}`);
-            })
-            .then(() => {
-              const venueId = getVenueId();
+              const venueId = applyResolvedVenue(info);
               wx.navigateTo({
                 url: `/pages/table/table?table_id=${encodeURIComponent(tableId)}&qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`,
               });

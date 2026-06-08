@@ -68,18 +68,46 @@ function tryRefreshToken() {
   return _refreshPromise;
 }
 
+function parseResponseBody(raw) {
+  if (raw && typeof raw === 'object') return raw;
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (!text) return null;
+    if (text.charAt(0) === '{' || text.charAt(0) === '[') {
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function responseErrorMessage(res) {
+  const body = parseResponseBody(res.data);
+  if (body && body.msg) return body.msg;
+  if (res.statusCode === 404) return '接口不存在，请更新后端服务后重试';
+  if (res.statusCode >= 500) return `服务器错误(${res.statusCode})，请稍后重试`;
+  if (res.statusCode >= 400) return `请求失败(${res.statusCode})`;
+  return '请求失败';
+}
+
 function request(url, method = 'GET', data = {}, retried = false) {
   const app = getAppSafe();
   const baseUrl = (app && app.globalData.baseUrl) || getApiBaseUrl();
   const upperMethod = (method || 'GET').toUpperCase();
   const useJsonBody = upperMethod === 'POST' || upperMethod === 'PUT' || upperMethod === 'PATCH';
   const token = getAccessToken();
+  const reqData = useJsonBody
+    ? JSON.stringify(data || {})
+    : (data && Object.keys(data).length ? data : undefined);
 
   return new Promise((resolve, reject) => {
     wx.request({
       url: baseUrl + url,
       method: upperMethod,
-      data: useJsonBody ? JSON.stringify(data || {}) : data,
+      data: reqData,
       timeout: 15000,
       header: {
         'Content-Type': 'application/json',
@@ -87,30 +115,31 @@ function request(url, method = 'GET', data = {}, retried = false) {
         'X-Token': token,
       },
       success(res) {
-        const is401 = res.statusCode === 401 || (res.data && res.data.code === 401);
+        const body = parseResponseBody(res.data);
+        const is401 = res.statusCode === 401 || (body && body.code === 401);
         if (is401 && !retried && url !== '/api/auth/refresh') {
           tryRefreshToken()
             .then(() => request(url, method, data, true).then(resolve).catch(reject))
             .catch(() => {
               logout();
-              reject((res.data && res.data.msg) || '登录已失效，请重新登录');
+              reject((body && body.msg) || '登录已失效，请重新登录');
             });
           return;
         }
         if (is401) {
           logout();
-          reject((res.data && res.data.msg) || '登录已失效，请重新登录');
+          reject((body && body.msg) || '登录已失效，请重新登录');
           return;
         }
         if (res.statusCode >= 400) {
-          reject((res.data && res.data.msg) || `请求失败(${res.statusCode})`);
+          reject(responseErrorMessage(res));
           return;
         }
-        if (res.data && res.data.code === 0) {
-          resolve(res.data.data);
+        if (body && body.code === 0) {
+          resolve(body.data);
         } else {
-          const msg = (res.data && res.data.msg) || '请求失败';
-          if (res.data && res.data.code === 401) logout();
+          const msg = responseErrorMessage(res);
+          if (body && body.code === 401) logout();
           reject(msg);
         }
       },

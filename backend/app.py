@@ -141,6 +141,7 @@ def health():
         "status": "ok",
         "admin_staff_api": "/api/admin/staff" in rules,
         "admin_owner_bind_qr_api": "/api/admin/owner-bind-qr" in rules,
+        "table_qr_resolve_api": "/api/table/<table_id>/qr-resolve" in rules,
         "storage": storage_info(),
     }
     mysql_status = ping_mysql()
@@ -862,38 +863,26 @@ def table_detail(table_id):
 @app.route("/api/table/<table_id>/qr-resolve")
 def table_qr_resolve(table_id):
     """校验桌台二维码 Token，返回所属俱乐部（用于扫码后自动切换球房）"""
-    from table_queue import _require_qr_token_match
-    from venue_service import DEFAULT_VENUE_ID, get_venue
+    from table_queue import resolve_table_qr
 
     token = (request.args.get("qr_token") or "").strip()
-    tables = load("tables")
-    t = find_by_id(tables, table_id)
-    if not t:
-        return _err("桌台不存在")
     try:
-        _require_qr_token_match(t, token)
+        return _ok(resolve_table_qr(table_id, token))
     except ValueError as e:
         return _err(str(e))
-    vid = t.get("venue_id") or DEFAULT_VENUE_ID
-    v = get_venue(vid) or {}
-    return _ok(
-        {
-            "table_id": table_id,
-            "table_name": t.get("name", ""),
-            "venue_id": vid,
-            "venue_name": v.get("name", ""),
-        }
-    )
 
 
 @app.route("/api/table/<table_id>/scan-check")
 def table_scan_check(table_id):
-    from table_queue import check_table_scan
+    from table_queue import check_table_scan, resolve_table_qr
     from venue_service import DEFAULT_VENUE_ID
 
-    token = request.args.get("qr_token", "")
-    venue_id = request.args.get("venue_id") or DEFAULT_VENUE_ID
+    token = (request.args.get("qr_token") or "").strip()
+    auto_venue = (request.args.get("auto_venue") or "").lower() in ("1", "true", "yes")
+    venue_id = (request.args.get("venue_id") or "").strip()
     try:
+        if auto_venue or not venue_id:
+            return _ok(resolve_table_qr(table_id, token))
         return _ok(check_table_scan(table_id, token, venue_id))
     except ValueError as e:
         return _err(str(e))

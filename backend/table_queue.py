@@ -111,22 +111,30 @@ def assert_table_belongs_to_venue(table: Dict, venue_id: str) -> None:
         )
 
 
-def check_table_scan(table_id: str, qr_token: str, venue_id: str) -> Dict:
-    """扫码前校验：桌台存在、二维码有效、归属当前俱乐部"""
-    venue_id = _require_venue_id(venue_id)
+def resolve_table_qr(table_id: str, qr_token: str) -> Dict:
+    """仅校验桌台二维码 Token，返回桌台所属俱乐部（不校验用户当前选择的球房）"""
     tables = load("tables")
     table = find_by_id(tables, table_id)
     if not table:
         raise ValueError("桌台不存在")
     _require_qr_token_match(table, qr_token)
-    assert_table_belongs_to_venue(table, venue_id)
-    v = get_venue(_table_venue_id(table)) or {}
+    vid = _table_venue_id(table)
+    v = get_venue(vid) or {}
     return {
         "table_id": table_id,
         "table_name": table.get("name", ""),
-        "venue_id": _table_venue_id(table),
+        "venue_id": vid,
         "venue_name": v.get("name", ""),
     }
+
+
+def check_table_scan(table_id: str, qr_token: str, venue_id: str) -> Dict:
+    """扫码前校验：桌台存在、二维码有效、归属当前俱乐部"""
+    info = resolve_table_qr(table_id, qr_token)
+    venue_id = _require_venue_id(venue_id)
+    table = find_by_id(load("tables"), table_id)
+    assert_table_belongs_to_venue(table, venue_id)
+    return info
 
 
 def join_table(
