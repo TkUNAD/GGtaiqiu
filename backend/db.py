@@ -178,25 +178,14 @@ def ensure_schema(conn=None):
 
 
 def init_storage() -> Dict[str, Any]:
-    """启动时初始化存储；MySQL 为空时自动从 JSON 迁移。"""
+    """启动时初始化存储；MySQL 自动补全缺失的 JSON 集合（已有跳过）。"""
     info = storage_info()
     if not USE_MYSQL:
         _ensure_data_dir()
         return info
-    from mysql_store import collection_count, connect
-
-    conn = connect()
-    try:
-        ensure_schema(conn)
-        count = collection_count(conn)
-        conn.commit()
-    finally:
-        conn.close()
-    info["collections"] = count
-    if count == 0:
-        result = import_json_files_to_mysql()
-        info["migrated_from_json"] = result
-        info["collections"] = result.get("total", 0)
+    result = import_json_files_to_mysql()
+    info["sync_from_json"] = result
+    info["collections"] = result.get("total", 0)
     return info
 
 

@@ -2945,8 +2945,8 @@ if __name__ == "__main__":
     print(f"数据存储: {storage_boot.get('backend', 'json')}", end="")
     if storage_boot.get("database"):
         print(f" ({storage_boot['database']}, collections={storage_boot.get('collections')})", end="")
-    if storage_boot.get("migrated_from_json"):
-        print(f" migrated={storage_boot['migrated_from_json']}", end="")
+    if storage_boot.get("sync_from_json"):
+        print(f" sync={storage_boot['sync_from_json']}", end="")
     print()
     os.makedirs(config.DATA_DIR, exist_ok=True)
     ensure_venues_file()
