@@ -1597,15 +1597,13 @@
       return API + '/api/admin/table/' + encodeURIComponent(id) + '/qrcode.png?t=' + Date.now();
     }
 
-    function bindQrThumb(img) {
-      if (!img) return;
-      var url = img.getAttribute('data-qr-url') || img.getAttribute('src') || '';
-      if (!url) return;
-      if (img.dataset.qrUrl === url && img._qrBlobUrl) return;
-      img.dataset.qrUrl = url;
+    function loadQrImage(img, url, triedPlain) {
+      if (!img || !url) return;
       fetch(url, { credentials: 'include' })
         .then(function(res) {
           if (!res.ok) throw new Error('HTTP ' + res.status);
+          var ctype = (res.headers.get('Content-Type') || '').toLowerCase();
+          if (ctype.indexOf('image/') < 0) throw new Error('not-image');
           return res.blob();
         })
         .then(function(blob) {
@@ -1614,11 +1612,27 @@
           img._qrBlobUrl = URL.createObjectURL(blob);
           img.src = img._qrBlobUrl;
           img.classList.remove('qr-broken');
+          img.alt = 'QR';
         })
         .catch(function() {
-          img.classList.add('qr-broken');
-          img.alt = '二维码加载失败，请刷新或重新登录';
+          if (!triedPlain && url.indexOf('format=plain') < 0) {
+            var plain = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'format=plain';
+            loadQrImage(img, plain, true);
+            return;
+          }
+          img.classList.remove('qr-broken');
+          img.src = url;
+          img.alt = 'QR';
         });
+    }
+
+    function bindQrThumb(img) {
+      if (!img) return;
+      var url = img.getAttribute('data-qr-url') || img.getAttribute('src') || '';
+      if (!url) return;
+      if (img.dataset.qrUrl === url && img._qrBlobUrl) return;
+      img.dataset.qrUrl = url;
+      loadQrImage(img, url, false);
     }
 
     function refreshModalQr(id) {

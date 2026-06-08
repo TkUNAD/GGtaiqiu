@@ -48,6 +48,15 @@ def get_wx_access_token() -> str:
     return _token_cache["token"]
 
 
+def _wx_qr_env_candidates() -> list:
+    fixed = getattr(config, "WX_QR_ENV_VERSION", "") or ""
+    if fixed in ("release", "trial", "develop"):
+        return [fixed]
+    if config.DEV_MODE:
+        return ["develop", "trial", "release"]
+    return ["release", "trial", "develop"]
+
+
 def create_wxacode_png(page: str, scene: str, width: int = 430) -> bytes:
     """
     生成小程序码 PNG 二进制。
@@ -59,23 +68,26 @@ def create_wxacode_png(page: str, scene: str, width: int = 430) -> bytes:
         raise ValueError("缺少小程序页面路径")
     token = get_wx_access_token()
     api = f"https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={token}"
-    env_version = "develop" if config.DEV_MODE else "release"
-    body = {
-        "page": page,
-        "scene": scene,
-        "width": width,
-        "check_path": False,
-        "env_version": env_version,
-    }
-    r = requests.post(api, json=body, timeout=30)
-    ctype = r.headers.get("Content-Type", "")
-    if "json" in ctype or r.content[:1] == b"{":
-        try:
-            err = r.json()
-        except Exception:
-            err = {"errmsg": r.text[:200]}
-        raise ValueError(err.get("errmsg") or f"生成小程序码失败({err.get('errcode')})")
-    return r.content
+    last_err = "生成小程序码失败"
+    for env_version in _wx_qr_env_candidates():
+        body = {
+            "page": page,
+            "scene": scene,
+            "width": width,
+            "check_path": False,
+            "env_version": env_version,
+        }
+        r = requests.post(api, json=body, timeout=30)
+        ctype = r.headers.get("Content-Type", "")
+        if "json" in ctype or r.content[:1] == b"{":
+            try:
+                err = r.json()
+            except Exception:
+                err = {"errmsg": r.text[:200]}
+            last_err = err.get("errmsg") or f"生成小程序码失败({err.get('errcode')})"
+            continue
+        return r.content
+    raise ValueError(last_err)
 
 
 def create_wxacode_fallback_plain(scene: str) -> bytes:

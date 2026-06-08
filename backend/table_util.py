@@ -57,3 +57,17 @@ def enrich_table(table: Dict) -> Dict:
 
 def enrich_tables(tables: list) -> list:
     return [enrich_table(t) for t in tables]
+
+
+def render_plain_qr_png(text: str) -> bytes:
+    """生成普通二维码 PNG（微信接口不可用时的兜底，内容为 scene）"""
+    import qrcode
+    from io import BytesIO
+
+    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr.add_data(text)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#4C1D95", back_color="white")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()

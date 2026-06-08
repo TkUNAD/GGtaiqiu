@@ -96,6 +96,9 @@ if WECHAT_SECRET:
 # 开发模式：无微信 AppID 时可用 code 模拟 openid（正式环境请保持 false 并配置 AppID）
 DEV_MODE = os.environ.get("DEV_MODE", "false").lower() in ("1", "true", "yes")
 
+# 小程序码版本：release / trial / develop；留空则按 release→trial→develop 依次尝试
+WX_QR_ENV_VERSION = (os.environ.get("WX_QR_ENV_VERSION", "") or "").strip().lower()
+
 # 微信云托管容器（Dockerfile 中 WX_CLOUD_RUN=1）；未配齐密钥时先 WARN 避免启动即退出
 WX_CLOUD_RUN = os.environ.get("WX_CLOUD_RUN", "").lower() in ("1", "true", "yes")
 

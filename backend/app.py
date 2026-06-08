@@ -43,7 +43,7 @@ from ladder_settings import (
     sync_venue_ladder_from_global,
 )
 from rating import build_leaderboard, get_tier, get_user_rank
-from table_util import default_qr_link, enrich_table, enrich_tables
+from table_util import default_qr_link, enrich_table, enrich_tables, render_plain_qr_png, table_qr_scene
 from venue_service import (
     DEFAULT_VENUE_ID,
     create_venue,
@@ -2271,36 +2271,32 @@ def admin_table_qrcode_png(table_id):
     if not t:
         return jsonify({"code": 1, "msg": "桌台不存在"}), 404
     t = enrich_table(t)
+    scene = table_qr_scene(t)
     use_plain = request.args.get("format") == "plain"
+    png = None
+    qr_kind = "plain"
 
     if not use_plain and config.WECHAT_APPID and config.WECHAT_SECRET:
         try:
-            from table_util import table_qr_scene
             from wx_miniprogram_qr import build_miniprogram_qr
 
-            scene = table_qr_scene(t)
             png, _ = build_miniprogram_qr("pages/table/table", scene)
             png = _normalize_qr_png_bytes(png)
-            buf = BytesIO(png)
-            buf.seek(0)
-            return send_file(buf, mimetype="image/png", download_name=f"{table_id}-wxacode.png")
-        except ValueError as e:
-            return _err(str(e), 400, 400)
+            qr_kind = "wxacode"
         except Exception as e:
-            if not config.DEV_MODE:
-                return _err(f"生成小程序码失败：{e}", 500, 500)
+            print(f"WARN: table {table_id} wxacode failed, fallback plain QR: {e}")
 
-    from table_util import table_qr_scene
+    if png is None:
+        png = render_plain_qr_png(scene)
+        qr_kind = "plain"
 
-    text = table_qr_scene(t)
-    qr = qrcode.QRCode(version=1, box_size=8, border=2)
-    qr.add_data(text)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="#4C1D95", back_color="white")
-    buf = BytesIO()
-    img.save(buf, format="PNG")
+    buf = BytesIO(png)
     buf.seek(0)
-    return send_file(buf, mimetype="image/png", download_name=f"{table_id}.png")
+    return send_file(
+        buf,
+        mimetype="image/png",
+        download_name=f"{table_id}-{qr_kind}.png",
+    )
 
 
 @app.route("/api/admin/table/<table_id>/open", methods=["POST"])
