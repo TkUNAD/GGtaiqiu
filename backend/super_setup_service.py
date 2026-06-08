@@ -9,26 +9,21 @@ from typing import Dict, Optional
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import config
-from db import DATA_DIR
-
-SETUP_PATH = os.path.join(DATA_DIR, "super_setup.json")
+from db import load, save
 # 微信 getwxacodeunlimit 的 scene 最长 32 字符，使用 16 位十六进制短码
 SCENE_HEX_LEN = 8  # token_hex(8) -> 16 chars
 _LEGACY_PREFIX = "sas_"
 
 
 def _load() -> Dict:
-    os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.path.isfile(SETUP_PATH):
+    data = load("super_setup")
+    if not isinstance(data, dict):
         return {"initialized": False}
-    with open(SETUP_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return data
 
 
 def _save(data: Dict) -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(SETUP_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    save("super_setup", data)
 
 
 def _normalize_incoming(raw: str) -> str:

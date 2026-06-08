@@ -27,7 +27,14 @@ WECHAT_APPID=你的小程序AppID
 WECHAT_SECRET=你的小程序AppSecret
 PUBLIC_URL=https://ggtaiqiu.com
 CORS_ORIGINS=https://ggtaiqiu.com
+MYSQL_HOST=10.4.106.26
+MYSQL_PORT=3306
+MYSQL_USER=ggtaiqiu_app
+MYSQL_PASSWORD=你的密码
+MYSQL_DATABASE=ggtaiqiu
 ```
+
+配置 `MYSQL_*` 后，后端自动使用 MySQL（`app_collections` 表存 JSON 集合）。首次启动若库为空，会从 `backend/data/*.json` 自动导入。
 
 生成随机密钥示例（本地 PowerShell）：
 
@@ -55,8 +62,9 @@ CORS_ORIGINS=https://ggtaiqiu.com
 
 1. 构建状态为 **成功**
 2. 实例为 **运行中**（非 CrashLoopBackOff）
-3. 浏览器访问：`https://ggtaiqiu.com/api/health` 返回 `{"ok":true,...}`
-4. 管理后台：`https://ggtaiqiu.com/admin`
+3. 浏览器访问：`https://ggtaiqiu.com/api/health` 返回 `status: ok`，且 `storage.backend` 为 `mysql`、`mysql.ok` 为 `true`
+4. DMC 中 `ggtaiqiu` 库应有表 **`app_collections`**（数据以 JSON 文档存储，不是 users/matches 分表）
+5. 管理后台：`https://ggtaiqiu.com/admin`
 
 ## 小程序对接
 
@@ -66,4 +74,4 @@ CORS_ORIGINS=https://ggtaiqiu.com
 
 ## 数据说明
 
-业务数据在 `backend/data/*.json`。容器重建可能丢失数据，请定期备份或后续接入 MySQL。
+已配置 `MYSQL_*` 时，业务数据写入 MySQL 表 `app_collections`；未配置时仍使用 `backend/data/*.json`。可手动执行 `python backend/scripts/migrate_json_to_mysql.py` 导入历史 JSON。

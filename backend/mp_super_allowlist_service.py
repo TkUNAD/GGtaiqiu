@@ -1,22 +1,12 @@
 """总后台：授权可在小程序使用总后台权限的微信 openid"""
-import json
-import os
 from typing import Dict, List, Optional
 
-from db import DATA_DIR, find_by_id, load, now_iso
-
-
-def _file_path() -> str:
-    return os.path.join(DATA_DIR, "mp_super_entry_allowlist.json")
+from db import find_by_id, load, now_iso, save
 
 
 def _read_raw() -> Dict:
-    path = _file_path()
-    if not os.path.isfile(path):
-        return {"comment": "总后台授权：列表内微信可在小程序「我的」看到总后台入口并用账号密码登录", "entries": []}
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = load("mp_super_entry_allowlist")
         if not isinstance(data, dict):
             return {"entries": []}
         data.setdefault("entries", [])
@@ -26,10 +16,7 @@ def _read_raw() -> Dict:
 
 
 def _write_raw(data: Dict) -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
-    path = _file_path()
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    save("mp_super_entry_allowlist", data)
 
 
 def _sync_bound_super_openids() -> set:

@@ -134,12 +134,21 @@ def index():
 
 @app.route("/api/health")
 def health():
+    from db import ping_mysql, storage_info
+
     rules = {r.rule for r in app.url_map.iter_rules()}
-    return _ok({
+    payload = {
         "status": "ok",
         "admin_staff_api": "/api/admin/staff" in rules,
         "admin_owner_bind_qr_api": "/api/admin/owner-bind-qr" in rules,
-    })
+        "storage": storage_info(),
+    }
+    mysql_status = ping_mysql()
+    if mysql_status.get("configured"):
+        payload["mysql"] = mysql_status
+        if not mysql_status.get("ok"):
+            payload["status"] = "degraded"
+    return _ok(payload)
 
 
 # ---------- 公开：验证码 / 总后台初始化 / 俱乐部申请 ----------
@@ -2930,6 +2939,15 @@ if __name__ == "__main__":
     if cancelled:
         print(f"已注销 {len(cancelled)} 个超过30天无操作的小程序申请俱乐部账号")
     process_season_and_week()
+    from db import init_storage
+
+    storage_boot = init_storage()
+    print(f"数据存储: {storage_boot.get('backend', 'json')}", end="")
+    if storage_boot.get("database"):
+        print(f" ({storage_boot['database']}, collections={storage_boot.get('collections')})", end="")
+    if storage_boot.get("migrated_from_json"):
+        print(f" migrated={storage_boot['migrated_from_json']}", end="")
+    print()
     os.makedirs(config.DATA_DIR, exist_ok=True)
     ensure_venues_file()
     ensure_table_venue_ids()

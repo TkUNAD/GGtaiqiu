@@ -102,6 +102,42 @@ WX_CLOUD_RUN = os.environ.get("WX_CLOUD_RUN", "").lower() in ("1", "true", "yes"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 5000))
 
+
+def _parse_mysql_address(addr: str):
+    host, port = "", 3306
+    raw = (addr or "").strip()
+    if not raw:
+        return host, port
+    if ":" in raw:
+        host, port_s = raw.rsplit(":", 1)
+        try:
+            port = int(port_s)
+        except ValueError:
+            port = 3306
+    else:
+        host = raw
+    return host.strip(), port
+
+
+_mysql_host = os.environ.get("MYSQL_HOST", "").strip()
+_mysql_port = int(os.environ.get("MYSQL_PORT", "3306") or 3306)
+if not _mysql_host:
+    _addr_host, _addr_port = _parse_mysql_address(os.environ.get("MYSQL_ADDRESS", ""))
+    if _addr_host:
+        _mysql_host = _addr_host
+        _mysql_port = _addr_port
+
+MYSQL_HOST = _mysql_host
+MYSQL_PORT = _mysql_port
+MYSQL_USER = (
+    os.environ.get("MYSQL_USER") or os.environ.get("MYSQL_USERNAME") or ""
+).strip()
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "")
+MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "").strip()
+MYSQL_CONNECT_TIMEOUT = int(os.environ.get("MYSQL_CONNECT_TIMEOUT", "10"))
+_use_mysql_env = os.environ.get("USE_MYSQL", "").lower() in ("1", "true", "yes")
+USE_MYSQL = _use_mysql_env or bool(MYSQL_HOST and MYSQL_USER and MYSQL_DATABASE)
+
 INITIAL_SCORE = 1000
 EXCHANGE_MIN_SCORE = 2000  # 低于此积分不可兑换
 EXCHANGE_DAILY_LIMIT = 1  # 每人每日兑换次数上限
