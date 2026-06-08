@@ -4,7 +4,7 @@ import time
 from io import BytesIO
 from typing import Dict, Optional, Tuple
 
-import requests
+from http_client import get as http_get, post as http_post
 
 import config
 
@@ -31,7 +31,7 @@ def get_wx_access_token() -> str:
     if _token_cache.get("token") and _token_cache.get("expires_at", 0) > now + 60:
         return _token_cache["token"]
     url = "https://api.weixin.qq.com/cgi-bin/token"
-    r = requests.get(
+    r = http_get(
         url,
         params={
             "grant_type": "client_credential",
@@ -77,7 +77,7 @@ def create_wxacode_png(page: str, scene: str, width: int = 430) -> bytes:
             "check_path": False,
             "env_version": env_version,
         }
-        r = requests.post(api, json=body, timeout=30)
+        r = http_post(api, json=body, timeout=30)
         ctype = r.headers.get("Content-Type", "")
         if "json" in ctype or r.content[:1] == b"{":
             try:

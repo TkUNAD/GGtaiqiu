@@ -4,6 +4,7 @@ FROM python:3.9-slim
 # qrcode[pil] / Pillow 需要系统库
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        ca-certificates \
         libjpeg62-turbo zlib1g libfreetype6 \
         fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*

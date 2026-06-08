@@ -1,7 +1,7 @@
 const api = require('../../utils/api');
 const { getApiBaseUrl } = require('../../utils/config');
 const { parseTableScanResult } = require('../../utils/tableQr');
-const { resolveTableQr, applyResolvedVenue } = require('../../utils/tableScanApi');
+const { resolveTableQr, applyResolvedVenue, formatScanError } = require('../../utils/tableScanApi');
 const {
   decorateList,
   padLeaderboardTop,
@@ -287,7 +287,7 @@ Page({
             .catch((err) => {
               wx.showModal({
                 title: '无法扫码',
-                content: String(err),
+                content: formatScanError(err),
                 showCancel: false,
               });
             });

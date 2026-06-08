@@ -14,14 +14,8 @@ function getApiBaseUrl() {
   const manual = wx.getStorageSync('manual_api_base');
   if (manual) return manual;
 
-  try {
-    const sys = wx.getSystemInfoSync();
-    if (sys.platform === 'devtools') {
-      return `http://127.0.0.1:${PORT}`;
-    }
-  } catch (e) {
-    // ignore
-  }
+  // 默认连线上：桌台二维码 token 存于云托管 MySQL，开发者工具若连本地会导致「二维码无效」
+  // 本地联调：控制台执行 require('./utils/config').setManualApiBase('http://127.0.0.1:5000')
   return PROD_API;
 }
 

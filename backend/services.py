@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-import requests
+from http_client import get as http_get
 
 from anti_cheat import (
     add_violation,
@@ -60,7 +60,7 @@ def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
         "grant_type": "authorization_code",
     }
     try:
-        r = requests.get(url, params=params, timeout=10)
+        r = http_get(url, params=params, timeout=10)
         data = r.json()
         if "openid" in data:
             return data["openid"], data.get("session_key")
@@ -74,7 +74,14 @@ def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
             return None, "AppSecret 与 AppID 不匹配，请在 wechat.secret.txt 填写正确密钥后重启后端"
         return None, errmsg
     except Exception as e:
-        return None, str(e)
+        msg = str(e)
+        if "api.weixin.qq.com" in msg and (
+            "CERTIFICATE_VERIFY" in msg or "SSL" in msg.upper()
+        ):
+            return None, "服务器无法连接微信登录服务，请稍后重试或联系管理员更新云托管"
+        if "api.weixin.qq.com" in msg:
+            return None, "微信登录服务暂时不可用，请稍后重试"
+        return None, "微信登录失败，请稍后重试"
 
 
 def log_score(user_id: str, delta: int, reason: str, match_id: str = None):

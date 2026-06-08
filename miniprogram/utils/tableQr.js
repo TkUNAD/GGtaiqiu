@@ -31,8 +31,9 @@ function parseScenePair(text) {
 }
 
 function parseTableScanResult(text) {
-  const s = safeDecode(text);
+  let s = safeDecode(text);
   if (!s) return null;
+  if (s.charAt(0) === '/') s = s.slice(1);
 
   const direct = parseScenePair(s);
   if (direct) return direct;

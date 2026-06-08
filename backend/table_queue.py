@@ -20,7 +20,9 @@ def _require_qr_token_match(table: Dict, qr_token: str) -> None:
     if not expected:
         raise ValueError("该桌台未配置二维码，请联系球房管理员")
     if provided != expected:
-        raise ValueError("二维码无效，请重新扫码")
+        raise ValueError(
+            "二维码无效，请重新扫码。请到俱乐部后台「桌台管理」重新下载最新二维码后再试"
+        )
 
 
 def _require_venue_id(venue_id: str) -> str:

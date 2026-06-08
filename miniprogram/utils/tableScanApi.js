@@ -1,4 +1,5 @@
 const api = require('./api');
+const { getApiBaseUrl } = require('./config');
 const { getVenueId, setVenueId } = require('./venueStore');
 
 function _isMissingApiError(err) {
@@ -37,7 +38,25 @@ function applyResolvedVenue(info) {
   return venueId;
 }
 
+function formatScanError(err) {
+  let content = String(err || '扫码失败');
+  if (content.indexOf('二维码无效') >= 0) {
+    content += '\n\n请到俱乐部后台「桌台管理」重新下载最新桌台二维码后再试（旧版打印码可能已失效）。';
+    try {
+      const sys = wx.getSystemInfoSync();
+      const base = getApiBaseUrl();
+      if (sys.platform === 'devtools' && /127\.0\.0\.1|localhost/i.test(base)) {
+        content += '\n\n开发者工具当前连接本地后端，请改用线上接口 https://ggtaiqiu.com 后再扫码。';
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  return content;
+}
+
 module.exports = {
   resolveTableQr,
   applyResolvedVenue,
+  formatScanError,
 };
