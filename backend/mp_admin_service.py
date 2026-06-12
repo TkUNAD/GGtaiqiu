@@ -86,6 +86,86 @@ def list_admins_by_openid(openid: str) -> List[Dict]:
     return rows
 
 
+def sync_venue_admin_bindings_for_user(user: Dict) -> int:
+    """
+    登录/查入口时同步 venue_admins 与当前微信用户：
+    - user_id 一致 → 更新 openid（AppID 变更）
+    - openid 一致 → 更新 user_id（历史脏数据）
+    - 绑定记录 user_id 已失效且昵称一致 → 整记录迁移到当前用户（AppID 变更且新建了用户）
+    返回更新的记录数。
+    """
+    uid = ((user or {}).get("id") or "").strip()
+    openid = ((user or {}).get("openid") or "").strip()
+    nick = ((user or {}).get("nickname") or "").strip()
+    phone = ((user or {}).get("phone") or "").strip()
+    if not uid or not openid:
+        return 0
+
+    users = load("users")
+    changed = 0
+
+    def _sync(admins):
+        nonlocal changed
+        for a in admins:
+            aid_oid = (a.get("openid") or "").strip()
+            aid_uid = (a.get("user_id") or "").strip()
+            if aid_oid == openid and aid_uid != uid:
+                a["user_id"] = uid
+                changed += 1
+                continue
+            if aid_uid == uid and aid_oid != openid:
+                a["openid"] = openid
+                changed += 1
+                continue
+            if aid_oid == openid or aid_uid == uid:
+                continue
+            if not aid_uid:
+                continue
+            old_user = find_by_id(users, aid_uid)
+            if old_user and (old_user.get("openid") or "").strip() not in ("", openid):
+                continue
+            admin_nick = (a.get("nickname") or "").strip()
+            if nick and admin_nick and admin_nick == nick:
+                a["openid"] = openid
+                a["user_id"] = uid
+                changed += 1
+                continue
+            if phone and old_user and (old_user.get("phone") or "").strip() == phone:
+                a["openid"] = openid
+                a["user_id"] = uid
+                changed += 1
+        return admins
+
+    mutate("venue_admins", _sync)
+    return changed
+
+
+# 兼容旧调用名
+sync_venue_admin_openid_for_user = sync_venue_admin_bindings_for_user
+
+
+def list_admins_for_mp_user(
+    openid: str, user_id: str = "", user: Optional[Dict] = None
+) -> List[Dict]:
+    """小程序「我的」页：先同步再按 openid / user_id 查绑定"""
+    if user:
+        sync_venue_admin_bindings_for_user(user)
+        openid = (user.get("openid") or openid or "").strip()
+        user_id = (user.get("id") or user_id or "").strip()
+    rows = list_admins_by_openid(openid)
+    if rows:
+        return rows
+    uid = (user_id or "").strip()
+    oid = (openid or "").strip()
+    if not uid or not oid:
+        return []
+    rows = [a for a in load("venue_admins") if a.get("user_id") == uid and a.get("id")]
+    if rows:
+        sync_venue_admin_bindings_for_user({"id": uid, "openid": oid})
+        return list_admins_by_openid(oid)
+    return []
+
+
 def get_admin_by_openid(openid: str) -> Optional[Dict]:
     rows = list_admins_by_openid(openid)
     return rows[0] if rows else None
@@ -274,23 +354,29 @@ def _sync_allowlist_from_admins() -> None:
 
 
 def build_profile_console_entries(
-    openid: str, venue_id: Optional[str] = None
+    openid: str,
+    venue_id: Optional[str] = None,
+    user_id: str = "",
+    user: Optional[Dict] = None,
 ) -> List[Dict]:
     """「我的」页管理入口：已绑定免密进入 + 未绑定时的验证入口"""
-    from mp_super_allowlist_service import is_super_mp_allowlisted
+    from mp_super_allowlist_service import is_super_mp_allowlisted, sync_super_allowlist_for_user
 
+    if user:
+        sync_super_allowlist_for_user(user)
     entries: List[Dict] = []
-    for a in list_admins_by_openid(openid):
+    bound_admins = list_admins_for_mp_user(openid, user_id, user)
+    for a in bound_admins:
         item = public_admin_identity(a)
         item["entry_type"] = "bound"
         item["entry_key"] = f"bound_{a.get('id')}"
         entries.append(item)
 
-    has_super = openid_has_super_admin(openid)
-    has_venue = openid_has_venue_admin(openid)
-    on_super_allow = is_super_mp_allowlisted(openid)
+    has_super = any(a.get("role") == "super" for a in bound_admins)
+    has_venue = any(a.get("role") in ("owner", "admin") for a in bound_admins)
+    on_super_allow = is_super_mp_allowlisted(openid, user_id)
     allow = _load_entry_allowlist() | _sync_allowlist_from_admins()
-    on_venue_allow = openid in allow
+    on_venue_allow = (openid in allow) or bool(user_id and bound_admins)
     need_owner = bool(venue_id) and not get_venue_owner(venue_id)
 
     if on_super_allow and not has_super:
@@ -327,12 +413,21 @@ def build_profile_console_entries(
     return entries
 
 
-def check_mp_admin_visibility(openid: str, venue_id: Optional[str] = None) -> Dict:
+def check_mp_admin_visibility(
+    openid: str,
+    venue_id: Optional[str] = None,
+    user_id: str = "",
+    user: Optional[Dict] = None,
+) -> Dict:
     """
     控制小程序「我的」页是否展示管理入口。
     - 已绑定：免密进入（console_entries entry_type=bound）
     - 未绑定总后台/俱乐部：展示对应验证入口（super_auth / venue_auth）
     """
+    if user:
+        sync_venue_admin_bindings_for_user(user)
+        openid = (user.get("openid") or openid or "").strip()
+        user_id = (user.get("id") or user_id or "").strip()
     openid = (openid or "").strip()
     if not openid:
         return {
@@ -346,7 +441,9 @@ def check_mp_admin_visibility(openid: str, venue_id: Optional[str] = None) -> Di
             "show_owner_bind_entry": False,
         }
 
-    console_entries = build_profile_console_entries(openid, venue_id)
+    console_entries = build_profile_console_entries(
+        openid, venue_id, user_id, user=user
+    )
     bound = [e for e in console_entries if e.get("entry_type") == "bound"]
     identities = [e for e in bound]
     is_super = any(i.get("is_super") for i in identities)

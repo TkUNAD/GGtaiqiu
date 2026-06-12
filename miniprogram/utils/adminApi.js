@@ -186,6 +186,14 @@ function checkEligibility(venueId) {
   return userApi.request(url);
 }
 
+function syncBindings(venueId) {
+  let url = '/api/mp-admin/sync-bindings';
+  if (venueId) {
+    url += `?venue_id=${encodeURIComponent(venueId)}`;
+  }
+  return userApi.request(url, 'POST', {});
+}
+
 function applyLoginResult(data) {
   persistAdminTokens(data, data.session);
   return data.session;
@@ -331,6 +339,7 @@ function hasPerm(session, key) {
 module.exports = {
   adminRequest,
   checkEligibility,
+  syncBindings,
   scanLogin,
   relogin,
   switchAdmin,

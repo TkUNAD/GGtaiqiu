@@ -578,6 +578,9 @@ def auth_login():
             user = find_by_id(load("users"), user["id"]) or user
     except ValueError as e:
         return _err(str(e))
+    from mp_admin_service import sync_venue_admin_bindings_for_user
+
+    sync_venue_admin_bindings_for_user(user)
     from auth_tokens import issue_tokens
 
     tier = get_tier(user["score"])
@@ -1431,10 +1434,14 @@ def user_profile():
     d_used = daily.get("count", 0) if daily.get("date") == today else 0
     w_used = weekly.get("count", 0) if weekly.get("week") == week else 0
     exchange_rules = exchange_rules_for_user(user["id"], user.get("score", 1000))
+    from avatar_service import resolve_user_avatar_for_client
     from user_public import sanitize_user_public
 
+    u_pub = sanitize_user_public(user)
+    u_pub["avatar"] = resolve_user_avatar_for_client(user, request)
+
     return _ok({
-        "user": sanitize_user_public(user),
+        "user": u_pub,
         "tier": tier,
         "rank": rank,
         "win_rate": win_rate,
@@ -2677,7 +2684,24 @@ def mp_admin_eligibility(user):
     from mp_admin_service import check_mp_admin_visibility
 
     vid = request.args.get("venue_id") or DEFAULT_VENUE_ID
-    info = check_mp_admin_visibility(user.get("openid", ""), vid)
+    info = check_mp_admin_visibility(
+        user.get("openid", ""), vid, user.get("id", ""), user=user
+    )
+    return _ok(info)
+
+
+@app.route("/api/mp-admin/sync-bindings", methods=["POST"])
+@_user_login_required
+def mp_admin_sync_bindings(user):
+    """主动同步管理绑定（AppID 变更后 openid 不一致时可尝试恢复入口）"""
+    from mp_admin_service import check_mp_admin_visibility, sync_venue_admin_bindings_for_user
+
+    changed = sync_venue_admin_bindings_for_user(user)
+    vid = request.args.get("venue_id") or DEFAULT_VENUE_ID
+    info = check_mp_admin_visibility(
+        user.get("openid", ""), vid, user.get("id", ""), user=user
+    )
+    info["bindings_synced"] = changed
     return _ok(info)
 
 

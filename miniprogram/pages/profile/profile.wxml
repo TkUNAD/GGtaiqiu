@@ -1,6 +1,6 @@
 <view class="container" wx:if="{{profile}}">
   <view class="card profile-card">
-    <image class="avatar" src="{{profile.user.avatar || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+    <image class="avatar" src="{{profile.user.avatar || '/assets/default-avatar.png'}}" mode="aspectFill" binderror="onProfileAvatarError"></image>
     <view class="name">{{profile.user.nickname}}</view>
     <view class="tier-line">
       <image class="tier-img tier-img-lg" src="{{profile.tierImage}}" mode="aspectFit" />
@@ -99,6 +99,9 @@
       <text class="admin-entry-arrow">›</text>
     </view>
     <text class="admin-entry-desc">{{item.hint || item.subtitle}}</text>
+  </view>
+  <view wx:if="{{!consoleEntries.length}}" class="card admin-login-link-card" bindtap="refreshAdminEntries">
+    <text class="admin-login-link-text">曾是管理员？点此恢复管理后台入口 ›</text>
   </view>
   <view class="profile-legal">
     <text class="legal-link" bindtap="openLegal" data-type="user">用户服务协议</text>

@@ -236,25 +236,61 @@
   text-decoration: underline;
 }
 .legal-dot { font-size: 24rpx; color: #6b7280; }
-.auth-fallback { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx dashed rgba(212, 175, 55, 0.2); }
-.avatar-picker { background: transparent; padding: 0; margin: 0 auto 16rpx; display: flex; flex-direction: column; align-items: center; }
-.avatar-picker::after { border: none; }
-.user-avatar { width: 120rpx; height: 120rpx; border-radius: 50%; }
-.avatar-placeholder {
-  width: 120rpx; height: 120rpx; border-radius: 50%;
-  border: 4rpx dashed rgba(212, 175, 55, 0.35);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 49rpx; color: #8b92a8;
+.auth-fallback {
+  margin-top: 32rpx;
+  padding: 36rpx 28rpx 8rpx;
+  border-top: 1rpx dashed rgba(212, 175, 55, 0.2);
+  border-radius: 20rpx;
+  background: rgba(10, 15, 26, 0.35);
 }
-.avatar-tip { font-size: 23rpx; color: #8b92a8; margin-top: 8rpx; }
+.avatar-picker {
+  background: transparent;
+  padding: 0;
+  margin: 0 auto 28rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 200rpx;
+}
+.avatar-picker::after { border: none; }
+.user-avatar {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(212, 175, 55, 0.45);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.25);
+}
+.avatar-placeholder {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 4rpx dashed rgba(212, 175, 55, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64rpx;
+  color: #8b92a8;
+  box-sizing: border-box;
+}
+.avatar-tip {
+  font-size: 26rpx;
+  color: #c9cdd8;
+  margin-top: 16rpx;
+  line-height: 1.4;
+}
 .nickname-input {
-  width: 100%; box-sizing: border-box; margin: 16rpx 0;
-  padding: 24rpx;
-  background: rgba(10, 15, 26, 0.5);
-  border-radius: 14rpx;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 24rpx;
+  padding: 0 32rpx;
+  min-height: 96rpx;
+  line-height: 96rpx;
+  font-size: 30rpx;
+  background: rgba(10, 15, 26, 0.55);
+  border-radius: 18rpx;
   color: #f5f0e1;
   text-align: center;
-  border: 1rpx solid rgba(212, 175, 55, 0.25);
+  border: 2rpx solid rgba(212, 175, 55, 0.3);
 }
 .btn-shop-card {
   text-align: center;

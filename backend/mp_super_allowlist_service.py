@@ -28,14 +28,43 @@ def _sync_bound_super_openids() -> set:
     }
 
 
-def is_super_mp_allowlisted(openid: str) -> bool:
+def sync_super_allowlist_for_user(user: Dict) -> None:
+    """按 user_id 将总后台授权白名单的 openid 同步为当前登录用户"""
+    uid = ((user or {}).get("id") or "").strip()
+    openid = ((user or {}).get("openid") or "").strip()
+    if uid and openid:
+        _sync_allowlist_entry_openid(uid, openid)
+
+
+def _sync_allowlist_entry_openid(user_id: str, openid: str) -> None:
+    uid = (user_id or "").strip()
+    oid = (openid or "").strip()
+    if not uid or not oid:
+        return
+    raw = _read_raw()
+
+    def _merge(data: Dict) -> Dict:
+        for e in data.get("entries") or []:
+            if (e.get("user_id") or "").strip() == uid and (e.get("openid") or "").strip() != oid:
+                e["openid"] = oid
+        return data
+
+    _write_raw(_merge(raw))
+
+
+def is_super_mp_allowlisted(openid: str, user_id: str = "") -> bool:
     openid = (openid or "").strip()
-    if not openid:
-        return False
-    if openid in _sync_bound_super_openids():
+    user_id = (user_id or "").strip()
+    if openid and openid in _sync_bound_super_openids():
         return True
     for e in _read_raw().get("entries") or []:
-        if (e.get("openid") or "").strip() == openid:
+        e_oid = (e.get("openid") or "").strip()
+        e_uid = (e.get("user_id") or "").strip()
+        if openid and e_oid == openid:
+            return True
+        if user_id and e_uid == user_id:
+            if openid and e_oid != openid:
+                _sync_allowlist_entry_openid(user_id, openid)
             return True
     return False
 

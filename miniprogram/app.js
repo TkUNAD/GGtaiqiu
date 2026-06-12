@@ -100,9 +100,15 @@ App({
   },
   refreshProfile() {
     if (!this.globalData.accessToken && !this.globalData.token) return;
+    const { resolveDisplayAvatar } = require('./utils/avatar');
     api.request('/api/user/profile')
       .then((profile) => {
-        const u = { ...profile.user, tier: profile.tier, rank: profile.rank };
+        const u = {
+          ...profile.user,
+          avatar: resolveDisplayAvatar(profile.user && profile.user.avatar),
+          tier: profile.tier,
+          rank: profile.rank,
+        };
         this.globalData.user = u;
         wx.setStorageSync('user', u);
       })

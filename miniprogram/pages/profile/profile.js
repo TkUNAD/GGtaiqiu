@@ -3,6 +3,7 @@ const adminApi = require('../../utils/adminApi');
 const { getTierStyle } = require('../../utils/tierIcons');
 const { attachLoginHandlers } = require('../../utils/loginHelper');
 const { getVenueId } = require('../../utils/venueStore');
+const { DEFAULT_AVATAR, resolveDisplayAvatar } = require('../../utils/avatar');
 const app = getApp();
 
 const EXCHANGE_STATUS = {
@@ -23,6 +24,7 @@ Page({
     consoleEntries: [],
     showConsoleSwitcher: false,
     adminEntering: false,
+    adminSyncTried: false,
   },
 
   onLoad() {
@@ -51,16 +53,21 @@ Page({
         status: EXCHANGE_STATUS[item.status] || item.status,
       }));
       const tierStyle = getTierStyle(profile.tier && profile.tier.tier_index);
+      const user = {
+        ...(profile.user || {}),
+        avatar: resolveDisplayAvatar(profile.user && profile.user.avatar),
+      };
       this.setData({
         profile: {
           ...profile,
+          user,
           ...tierStyle,
           recent_exchanges: recentExchanges,
         },
         user: app.globalData.user,
       });
       if (app.globalData.user) {
-        app.globalData.user = { ...app.globalData.user, ...profile.user };
+        app.globalData.user = { ...app.globalData.user, ...user };
         wx.setStorageSync('user', app.globalData.user);
       }
       this.checkAdminEligibility();
@@ -69,13 +76,28 @@ Page({
     }
   },
 
-  async checkAdminEligibility() {
+  async checkAdminEligibility(options) {
+    const opts = options || {};
     if (!app.globalData.token) {
-      this.setData({ consoleEntries: [] });
+      this.setData({ consoleEntries: [], adminSyncTried: false });
       return;
     }
     try {
-      const info = await adminApi.checkEligibility(getVenueId());
+      let info;
+      if (opts.forceSync) {
+        info = await adminApi.syncBindings(getVenueId());
+      } else {
+        info = await adminApi.checkEligibility(getVenueId());
+        const raw0 = (info && info.console_entries) || [];
+        if (!raw0.length && !this.data.adminSyncTried) {
+          this.setData({ adminSyncTried: true });
+          try {
+            info = await adminApi.syncBindings(getVenueId());
+          } catch (syncErr) {
+            console.warn('sync-bindings failed:', syncErr);
+          }
+        }
+      }
       const raw = (info && info.console_entries) || [];
       const bound = raw.filter((e) => e.entry_type === 'bound');
       const dual = !!(info && (info.has_dual_console || bound.length >= 2));
@@ -115,7 +137,8 @@ Page({
         showConsoleSwitcher: dual,
       });
     } catch (err) {
-      this.setData({ consoleEntries: [], showConsoleSwitcher: false });
+      // 网络或鉴权失败时不强制清空，避免误隐藏已授权的管理入口
+      console.warn('checkAdminEligibility failed:', err);
     }
   },
 
@@ -181,6 +204,30 @@ Page({
     });
   },
 
+  async refreshAdminEntries() {
+    wx.showLoading({ title: '同步中...', mask: true });
+    try {
+      await this.checkAdminEligibility({ forceSync: true });
+      wx.hideLoading();
+      if ((this.data.consoleEntries || []).length) {
+        wx.showToast({ title: '已恢复管理入口', icon: 'success' });
+        return;
+      }
+      wx.showModal({
+        title: '仍未找到管理入口',
+        content: '小程序更换 AppID 后微信 openid 会变化，需在 Web 总后台「授权微信」中重新添加您的账号，或由管理员重新发绑定码扫码。',
+        confirmText: '去扫码绑定',
+        cancelText: '知道了',
+        success: (res) => {
+          if (res.confirm) this.goAdminBind();
+        },
+      });
+    } catch (err) {
+      wx.hideLoading();
+      wx.showToast({ title: String(err), icon: 'none' });
+    }
+  },
+
   goShop() {
     wx.switchTab({ url: '/pages/shop/shop' });
   },
@@ -201,5 +248,16 @@ Page({
     const id = e.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: `/pages/match-result/match-result?match_id=${encodeURIComponent(id)}` });
+  },
+
+  onProfileAvatarError() {
+    const profile = this.data.profile;
+    if (!profile || !profile.user) return;
+    this.setData({
+      profile: {
+        ...profile,
+        user: { ...profile.user, avatar: DEFAULT_AVATAR },
+      },
+    });
   },
 });
