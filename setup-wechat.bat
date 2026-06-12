@@ -15,7 +15,7 @@ echo.
 echo ========================================
 echo  WeChat Mini Program Login Setup
 echo ========================================
-echo AppID (already set): wxebb32eecf61e4970
+echo AppID (already set): wx4056ce1b5ca29798
 echo.
 echo STEP 1: Open mp.weixin.qq.com
 echo         Development - Development Settings - AppSecret

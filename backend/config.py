@@ -5,7 +5,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 ROOT_DIR = os.path.dirname(BASE_DIR)
 
 # 与 miniprogram/project.config.json 中 appid 保持一致
-DEFAULT_WECHAT_APPID = "wxebb32eecf61e4970"
+DEFAULT_WECHAT_APPID = "wx4056ce1b5ca29798"
 
 
 def _load_dotenv():
