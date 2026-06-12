@@ -24,7 +24,6 @@ Page({
     consoleEntries: [],
     showConsoleSwitcher: false,
     adminEntering: false,
-    adminSyncTried: false,
   },
 
   onLoad() {
@@ -76,29 +75,22 @@ Page({
     }
   },
 
-  async checkAdminEligibility(options) {
-    const opts = options || {};
+  async checkAdminEligibility() {
     if (!app.globalData.token) {
-      this.setData({ consoleEntries: [], adminSyncTried: false });
+      this.setData({ consoleEntries: [] });
       return;
     }
     try {
-      let info;
-      if (opts.forceSync) {
-        info = await adminApi.syncBindings(getVenueId());
-      } else {
-        info = await adminApi.checkEligibility(getVenueId());
-        const raw0 = (info && info.console_entries) || [];
-        if (!raw0.length && !this.data.adminSyncTried) {
-          this.setData({ adminSyncTried: true });
-          try {
-            info = await adminApi.syncBindings(getVenueId());
-          } catch (syncErr) {
-            console.warn('sync-bindings failed:', syncErr);
-          }
+      let info = await adminApi.checkEligibility(getVenueId());
+      let raw = (info && info.console_entries) || [];
+      if (!raw.length) {
+        try {
+          info = await adminApi.syncBindings(getVenueId());
+          raw = (info && info.console_entries) || [];
+        } catch (syncErr) {
+          console.warn('sync-bindings failed:', syncErr);
         }
       }
-      const raw = (info && info.console_entries) || [];
       const bound = raw.filter((e) => e.entry_type === 'bound');
       const dual = !!(info && (info.has_dual_console || bound.length >= 2));
 
@@ -194,37 +186,6 @@ Page({
       wx.showToast({ title: String(err), icon: 'none' });
     } finally {
       this.setData({ adminEntering: false });
-    }
-  },
-
-  goAdminBind() {
-    wx.navigateTo({
-      url: '/pages/admin-scan/admin-scan',
-      fail: (e) => wx.showToast({ title: e.errMsg || '打开失败', icon: 'none' }),
-    });
-  },
-
-  async refreshAdminEntries() {
-    wx.showLoading({ title: '同步中...', mask: true });
-    try {
-      await this.checkAdminEligibility({ forceSync: true });
-      wx.hideLoading();
-      if ((this.data.consoleEntries || []).length) {
-        wx.showToast({ title: '已恢复管理入口', icon: 'success' });
-        return;
-      }
-      wx.showModal({
-        title: '仍未找到管理入口',
-        content: '小程序更换 AppID 后微信 openid 会变化，需在 Web 总后台「授权微信」中重新添加您的账号，或由管理员重新发绑定码扫码。',
-        confirmText: '去扫码绑定',
-        cancelText: '知道了',
-        success: (res) => {
-          if (res.confirm) this.goAdminBind();
-        },
-      });
-    } catch (err) {
-      wx.hideLoading();
-      wx.showToast({ title: String(err), icon: 'none' });
     }
   },
 

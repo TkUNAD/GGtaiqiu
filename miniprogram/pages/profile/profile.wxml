@@ -100,9 +100,6 @@
     </view>
     <text class="admin-entry-desc">{{item.hint || item.subtitle}}</text>
   </view>
-  <view wx:if="{{!consoleEntries.length}}" class="card admin-login-link-card" bindtap="refreshAdminEntries">
-    <text class="admin-login-link-text">曾是管理员？点此恢复管理后台入口 ›</text>
-  </view>
   <view class="profile-legal">
     <text class="legal-link" bindtap="openLegal" data-type="user">用户服务协议</text>
     <text class="legal-dot">·</text>
