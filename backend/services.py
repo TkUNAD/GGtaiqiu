@@ -41,31 +41,63 @@ from rating import (
 
 
 def ping_wx_api() -> Dict[str, Any]:
-    """探测本机能否 HTTPS 访问微信开放平台（用于健康检查与部署验证）。"""
+    """探测微信 AppID/Secret 是否配对正确（用于健康检查与部署验证）。"""
     import config as _cfg
 
-    if not _cfg.WECHAT_APPID or not _cfg.WECHAT_SECRET:
-        return {"ok": False, "reason": "wechat_secret_missing"}
-    url = "https://api.weixin.qq.com/sns/jscode2session"
-    params = {
-        "appid": _cfg.WECHAT_APPID,
-        "secret": _cfg.WECHAT_SECRET,
-        "js_code": "health_check_probe",
-        "grant_type": "authorization_code",
+    appid = (_cfg.WECHAT_APPID or "").strip()
+    secret = (_cfg.WECHAT_SECRET or "").strip()
+    out: Dict[str, Any] = {
+        "ok": False,
+        "appid": appid,
+        "secret_len": len(secret),
     }
+    if not appid or not secret:
+        out["reason"] = "wechat_secret_missing"
+        return out
+    if len(secret) != 32:
+        out["reason"] = "secret_len_invalid"
+        return out
     try:
-        r = http_get(url, params=params, timeout=8)
+        tr = http_get(
+            "https://api.weixin.qq.com/cgi-bin/token",
+            params={
+                "grant_type": "client_credential",
+                "appid": appid,
+                "secret": secret,
+            },
+            timeout=8,
+        )
+        tok = tr.json()
+        if not tok.get("access_token"):
+            out["token_ok"] = False
+            out["reason"] = tok.get("errmsg") or "token_failed"
+            return out
+        out["token_ok"] = True
+        r = http_get(
+            "https://api.weixin.qq.com/sns/jscode2session",
+            params={
+                "appid": appid,
+                "secret": secret,
+                "js_code": "health_check_probe",
+                "grant_type": "authorization_code",
+            },
+            timeout=8,
+        )
         data = r.json()
         if isinstance(data, dict) and ("errcode" in data or "openid" in data):
-            return {"ok": True}
-        return {"ok": False, "reason": "unexpected_response"}
+            out["ok"] = True
+            return out
+        out["reason"] = "unexpected_response"
+        return out
     except Exception as e:
         msg = str(e)
         if "api.weixin.qq.com" in msg and (
             "CERTIFICATE_VERIFY" in msg or "SSL" in msg.upper()
         ):
-            return {"ok": False, "reason": "ssl_verify_failed"}
-        return {"ok": False, "reason": msg[:160]}
+            out["reason"] = "ssl_verify_failed"
+        else:
+            out["reason"] = msg[:160]
+        return out
 
 
 def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
@@ -94,10 +126,10 @@ def wx_code_to_openid(code: str) -> Tuple[Optional[str], Optional[str]]:
         if "openid" in data:
             return data["openid"], data.get("session_key")
         errmsg = data.get("errmsg", "微信登录失败")
-        if errmsg == "invalid code":
+        if str(errmsg).startswith("invalid code"):
             return None, (
-                "登录码无效或已过期，请重新点击「微信授权登录」。"
-                "若仍失败，请确认微信公众平台 AppID/Secret 与项目一致，并重启 run.bat"
+                f"登录码无效（小程序 AppID 与服务器不一致或 code 已过期）。"
+                f"请确认开发者工具 AppID 为 {appid}，与云托管 WECHAT_APPID 一致后重新编译登录"
             )
         if "invalid appsecret" in errmsg or errmsg == "invalid signature":
             return None, "AppSecret 与 AppID 不匹配，请在 wechat.secret.txt 填写正确密钥后重启后端"
