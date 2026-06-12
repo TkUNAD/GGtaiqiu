@@ -61,6 +61,10 @@
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
     .modal-overlay { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
     .modal-box { background: #fff; padding: 24px; border-radius: 8px; width: 400px; max-width: 90%; }
+    .renew-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .renew-plan-btn { padding: 12px; border: 1px solid #C4B5FD; border-radius: 8px; background: #F5F3FF; cursor: pointer; text-align: left; }
+    .renew-plan-btn:hover { background: #EDE9FE; }
+    .renew-pay-row { display: flex; gap: 8px; margin-top: 8px; }
     .modal-box.wide { width: 560px; max-height: 90vh; overflow-y: auto; }
     .venue-meta { background: #F5F3FF; border: 1px solid #C4B5FD; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
     .venue-meta h4 { margin: 0 0 10px; color: #5B21B6; font-size: 14px; }
@@ -86,7 +90,50 @@
     .badge-yellow { background: #fff9c4; }
     .rule-desc { width: 100%; min-height: 200px; font-family: inherit; font-size: 13px; line-height: 1.5; background: #F5F3FF; }
     .venue-only-nav.hidden { display: none !important; }
-    .sidebar a.nav-disabled { opacity: 0.4; pointer-events: none; cursor: not-allowed; color: #9ca3af !important; }
+    .sidebar a.nav-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+      cursor: not-allowed;
+      color: #9ca3af !important;
+      background: rgba(0,0,0,0.12) !important;
+      border-left: 3px solid transparent !important;
+      filter: grayscale(0.65);
+    }
+    .sidebar a.nav-disabled:hover,
+    .sidebar a.nav-disabled.active {
+      background: rgba(0,0,0,0.12) !important;
+      color: #9ca3af !important;
+      border-left-color: transparent !important;
+    }
+    .sidebar a.renew-sidebar-btn {
+      background: linear-gradient(90deg, rgba(124,58,237,0.35), rgba(59,130,246,0.35));
+      color: #fff !important;
+      font-weight: 600;
+      margin: 8px 12px;
+      border-radius: 8px;
+      border-left: none !important;
+    }
+    .sidebar a.renew-sidebar-btn:hover { background: linear-gradient(90deg, rgba(124,58,237,0.55), rgba(59,130,246,0.55)); }
+    .btn-renew-sidebar {
+      width: calc(100% - 24px);
+      margin: 0 12px 10px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #7C3AED, #3B82F6);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-renew-sidebar:hover { filter: brightness(1.08); }
+    button.nav-disabled,
+    button:disabled.ops-disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.5);
+      pointer-events: none;
+    }
     .sidebar a .nav-badge { font-size: 10px; background: #ef4444; color: #fff; padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
     .ops-disabled { opacity: 0.45; pointer-events: none; filter: grayscale(0.3); }
     .qr-view-only { cursor: zoom-in; }
@@ -146,9 +193,11 @@
         <a data-tab="products" class="venue-only-nav member-only-nav" onclick="switchTab('products')">兑换商品</a>
         <a data-tab="exchanges" class="venue-only-nav member-only-nav" onclick="switchTab('exchanges')">兑换记录</a>
         <a data-tab="logs" class="venue-only-nav member-only-nav" onclick="switchTab('logs')">积分明细</a>
+        <a href="javascript:void(0)" id="nav-renew" class="venue-only-nav renew-sidebar-btn hidden" onclick="openRenewModal()">会员续费</a>
       </nav>
       <div class="sidebar-footer">
         <button type="button" class="btn-change-pwd super-only hidden" id="btnMpSuperLoginQr" onclick="showMpSuperLoginQr()">生成小程序总后台登录码</button>
+        <button type="button" class="btn-renew-sidebar venue-only-nav hidden" id="btnSidebarRenew" onclick="openRenewModal()">会员续费</button>
         <button type="button" class="btn-change-pwd" onclick="showPasswordModal('logged-in')">修改密码</button>
         <div id="resetAllSection" class="sidebar-reset">
           <h4>危险操作</h4>
@@ -162,6 +211,11 @@
       <div id="tab-dashboard" class="tab-panel">
         <h3 id="dashboardTitle">仪表盘</h3>
         <div class="stats" id="stats"></div>
+        <div id="venueMembershipCard" class="card venue-only-nav hidden" style="margin-top:16px">
+          <h3 style="margin-bottom:8px">俱乐部会员</h3>
+          <p id="venueMembershipStatus" style="font-size:14px;margin-bottom:12px"></p>
+          <button type="button" class="btn-primary" id="btnRenewMembership" onclick="openRenewModal()">续费会员</button>
+        </div>
         <div id="mpSuperWechatWrap" class="card hidden super-only" style="margin-top:16px">
           <h3 style="margin-bottom:8px">小程序总后台授权微信</h3>
           <p style="font-size:13px;color:#666;margin-bottom:12px">仅列表内微信在小程序「我的」可见「总后台登录」，输入总后台账号密码后进入。对方须先完成微信授权登录。</p>
@@ -957,21 +1011,34 @@
       if (isSuper && superHiddenTabs.indexOf(currentTab) >= 0) {
         switchTab('dashboard');
       }
-      var allowedExpired = ['dashboard', 'users', 'tables', 'staff'];
+      var allowedExpired = ['dashboard', 'users', 'tables', 'ladder'];
       document.querySelectorAll('.sidebar a[data-tab]').forEach(function(a) {
         var tab = a.dataset.tab;
         if (isSuper) {
           a.classList.remove('nav-disabled');
+          a.removeAttribute('title');
           return;
         }
         if (_venueExpiredMode && allowedExpired.indexOf(tab) < 0) {
           a.classList.add('nav-disabled');
+          a.setAttribute('title', '会员已到期，续费后可使用');
         } else {
           a.classList.remove('nav-disabled');
+          a.removeAttribute('title');
         }
       });
+      if (_venueExpiredMode && allowedExpired.indexOf(currentTab) < 0) {
+        switchTab('dashboard');
+      }
       var resetSection = document.getElementById('resetAllSection');
       if (resetSection) resetSection.classList.toggle('hidden', isSuper || _venueExpiredMode);
+      var renewNav = document.getElementById('nav-renew');
+      var renewSideBtn = document.getElementById('btnSidebarRenew');
+      var memCard = document.getElementById('venueMembershipCard');
+      if (renewNav) renewNav.classList.toggle('hidden', isSuper);
+      if (renewSideBtn) renewSideBtn.classList.toggle('hidden', isSuper);
+      if (memCard) memCard.classList.toggle('hidden', isSuper);
+      if (!isSuper) loadVenueMembership();
       if (isSuper) {
         document.getElementById('ladderPanelTitle').textContent = '全局默认天梯规则';
         document.getElementById('dashboardTitle').textContent = '总后台仪表盘';
@@ -984,7 +1051,11 @@
       document.getElementById('ladderPermTip').style.display = canLadder ? 'none' : 'block';
       var btnAdd = document.getElementById('btnAddTable');
       var tablesTip = document.getElementById('tablesQrTip');
-      if (btnAdd) btnAdd.style.display = (_venueExpiredMode || !canTable) ? 'none' : '';
+      if (btnAdd) {
+        btnAdd.style.display = '';
+        btnAdd.disabled = _venueExpiredMode || !canTable;
+        btnAdd.classList.toggle('ops-disabled', _venueExpiredMode || !canTable);
+      }
       if (tablesTip) {
         tablesTip.innerHTML = _venueExpiredMode
           ? '会员已到期：二维码<strong>可正常扫码</strong>，可点击放大或下载；不可改名、开台、改链接等操作。'
@@ -993,7 +1064,9 @@
       var userToolbar = document.querySelector('#tab-users .toolbar');
       if (userToolbar) {
         userToolbar.querySelectorAll('button').forEach(function(b) {
-          b.style.display = _venueExpiredMode ? 'none' : '';
+          b.style.display = '';
+          b.disabled = _venueExpiredMode;
+          b.classList.toggle('ops-disabled', _venueExpiredMode);
         });
       }
       var resetDesc = document.getElementById('resetAllDesc');
@@ -1094,6 +1167,7 @@
             '<div class="stat-item"><strong>' + d.pending_exchanges + '</strong>待审核兑换</div>';
           updateReviewNavBadge((d.pending_bonus_reviews || 0) + (d.pending_exchanges || 0));
           if (_venueMemberActive) loadReviewTab();
+          renderVenueMembershipCard(d);
         }
       } catch (e) {
         var statsEl = document.getElementById('stats');
@@ -2352,18 +2426,153 @@
       return body;
     }
 
+    async function loadVenueMembership() {
+      try {
+        var d = await api('/api/admin/membership/summary');
+        renderVenueMembershipCard(d);
+      } catch (e) {
+        var card = document.getElementById('venueMembershipCard');
+        if (card && adminSession && adminSession.role !== 'super') {
+          card.classList.remove('hidden');
+          var statusEl = document.getElementById('venueMembershipStatus');
+          if (statusEl) statusEl.innerHTML = '<span style="color:#c62828">会员信息加载失败，请刷新页面</span>';
+        }
+      }
+    }
+
+    function renderVenueMembershipCard(d) {
+      var card = document.getElementById('venueMembershipCard');
+      var statusEl = document.getElementById('venueMembershipStatus');
+      if (!card || !statusEl) return;
+      card.classList.remove('hidden');
+      var active = !!d.is_member_active;
+      var exp = (d.member_expires_date || (d.member_expires_at || '').slice(0, 10) || '未设置');
+      statusEl.innerHTML = active
+        ? '<span class="badge badge-green">会员有效</span> 到期日：<strong>' + escapeHtml(exp) + '</strong>'
+        : '<span class="badge badge-red">会员已过期</span> 到期日：<strong>' + escapeHtml(exp) + '</strong>，续费后恢复全部功能';
+      window._membershipPlans = d.membership_plans || [];
+    }
+
+    function showGenericModal(title, html) {
+      document.querySelectorAll('.modal-overlay.renew-modal').forEach(function(el) { el.remove(); });
+      var wrap = document.createElement('div');
+      wrap.className = 'modal-overlay renew-modal';
+      wrap.innerHTML =
+        '<div class="modal-box" style="max-width:420px">' +
+        '<h3>' + escapeHtml(title) + '</h3>' + html +
+        '<button type="button" class="btn-primary" style="margin-top:16px;width:100%" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div>';
+      wrap.onclick = function(e) { if (e.target === wrap) wrap.remove(); };
+      document.body.appendChild(wrap);
+      return wrap;
+    }
+
+    async function openRenewModal() {
+      if (!window._membershipPlans || !window._membershipPlans.length) {
+        await loadVenueMembership();
+      }
+      var plans = window._membershipPlans || [];
+      if (!plans.length) {
+        alert('暂无续费套餐，请确认后端已更新并重新登录');
+        return;
+      }
+      window._renewPayChannel = 'wechat_native';
+      var html = '<div class="renew-plans">' + plans.map(function(p) {
+        return '<button type="button" class="renew-plan-btn" onclick="startMembershipPay(\'' + p.id + '\')">' +
+          '<strong>' + escapeHtml(p.label) + '</strong> · ¥' + p.price_yuan + '<br><small>' + escapeHtml(p.desc) + '</small></button>';
+      }).join('') + '</div>' +
+        '<p style="font-size:13px;color:#666;margin-top:12px">先选套餐，再选支付方式：</p>' +
+        '<div class="renew-pay-row">' +
+        '<button type="button" class="secondary" onclick="pickPayChannel(\'wechat_native\')">微信扫码</button>' +
+        '<button type="button" class="secondary" onclick="pickPayChannel(\'alipay_page\')">支付宝</button>' +
+        '</div>' +
+        '<div id="renewQrWrap" class="hidden" style="margin-top:12px;text-align:center"></div>';
+      showGenericModal('续费会员', html);
+      window._renewPlanId = '';
+    }
+
+    function pickPayChannel(ch) {
+      window._renewPayChannel = ch;
+    }
+
+    async function startMembershipPay(planId) {
+      window._renewPlanId = planId;
+      var channel = window._renewPayChannel || 'wechat_native';
+      try {
+        var res = await api('/api/admin/membership/orders', {
+          method: 'POST',
+          body: { plan_id: planId, pay_channel: channel }
+        });
+        if (res.payment && res.payment.dev_mode) {
+          await api('/api/admin/membership/orders/' + encodeURIComponent(res.order.id) + '/mock-pay', { method: 'POST' });
+          alert('开发模式：续费成功');
+          applyAdminSession(adminSession);
+          loadDashboard();
+          return;
+        }
+        if (channel === 'alipay_page' && res.payment.pay_url) {
+          window.open(res.payment.pay_url, '_blank');
+          pollMembershipOrder(res.order.id);
+          return;
+        }
+        if (channel === 'wechat_native' && res.payment.code_url) {
+          var wrap = document.getElementById('renewQrWrap');
+          if (wrap) {
+            wrap.classList.remove('hidden');
+            wrap.innerHTML = '<p>请使用微信扫一扫完成支付</p><img alt="微信支付码" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(res.payment.code_url) + '">';
+          }
+          pollMembershipOrder(res.order.id);
+          return;
+        }
+        alert('支付参数获取失败');
+      } catch (e) { alert(e.message); }
+    }
+
+    function pollMembershipOrder(orderId) {
+      var tries = 0;
+      var timer = setInterval(async function() {
+        tries += 1;
+        try {
+          var o = await api('/api/admin/membership/orders/' + encodeURIComponent(orderId));
+          if (o.status === 'paid') {
+            clearInterval(timer);
+            alert('续费成功，会员已延长');
+            applyAdminSession(adminSession);
+            loadDashboard();
+          }
+        } catch (e) { /* ignore */ }
+        if (tries > 60) clearInterval(timer);
+      }, 3000);
+    }
+
     async function loadLadderSettings() {
       const payload = await api('/api/admin/settings/ladder');
       const rules = payload.rules || payload;
       const tip = document.getElementById('ladderScopeTip');
+      const permTip = document.getElementById('ladderPermTip');
+      const editable = document.querySelector('#tab-ladder .ladder-rules-row');
+      const toolbar = document.querySelector('#tab-ladder .toolbar');
+      const btnSave = document.getElementById('btnSaveLadder');
+      const btnSync = document.getElementById('btnSyncLadder');
       if (payload.scope === 'global') {
-        tip.textContent = '此处为小程序与各球房的默认天梯规则。球房开通/续费会员时将同步本规则；各球房可在自己的后台单独调整。';
+        tip.textContent = '此处为小程序与各球房的默认天梯规则。球房开通/续费会员时将同步本规则。';
+        if (permTip) permTip.style.display = 'none';
+        if (editable) editable.style.display = '';
+        if (toolbar) toolbar.style.display = '';
+        fillLadderForm(rules, payload.description);
       } else {
-        tip.textContent = payload.has_custom_rules
-          ? '当前使用本球房独立规则。可点击「同步总后台默认规则」恢复为全局默认。'
-          : '当前与总后台默认规则一致。保存后将使用本球房独立配置。';
+        tip.textContent = payload.venue_readonly_tip || '俱乐部不可修改天梯规则，以下说明来自总后台默认规则';
+        if (permTip) {
+          permTip.style.display = 'block';
+          permTip.style.color = '#5B21B6';
+          permTip.textContent = '俱乐部仅可查看规则说明，调整请联系总后台';
+        }
+        if (editable) editable.style.display = 'none';
+        if (toolbar) toolbar.style.display = 'none';
+        if (btnSave) btnSave.style.display = 'none';
+        if (btnSync) btnSync.style.display = 'none';
+        var desc = document.getElementById('lr_description_preview');
+        if (desc) desc.value = payload.description || '';
       }
-      fillLadderForm(rules, payload.description);
     }
 
     async function saveLadderSettings() {

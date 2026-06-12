@@ -1,5 +1,6 @@
 const adminApi = require('../../utils/adminApi');
 const ladderForm = require('../../utils/ladderForm');
+const membershipRenew = require('../../utils/membershipRenew');
 
 const MODULE_TITLES = {
   dashboard: '仪表盘',
@@ -74,6 +75,10 @@ Page({
     mpAllowList: [],
     mpAllowQr: '',
     canPromotePlayers: false,
+    membershipActive: true,
+    membershipExpires: '',
+    membershipPlans: [],
+    disabledModuleIds: [],
   },
 
   onLoad(options) {
@@ -93,11 +98,19 @@ Page({
     const preferredId = wx.getStorageSync('admin_preferred_id') || '';
     let session = adminApi.getAdminSession();
     let menuIds = [];
+    let disabledModuleIds = [];
     try {
       await adminApi.ensureAdminSession(preferredId);
       const menuData = await adminApi.fetchMenu();
       session = menuData.session || session;
-      menuIds = (menuData.menu || []).map((x) => x.id);
+      const menuList = menuData.menu || [];
+      menuIds = menuList.map((x) => x.id);
+      disabledModuleIds = menuList.filter((x) => x.disabled).map((x) => x.id);
+      if (disabledModuleIds.indexOf(this.data.module) >= 0) {
+        wx.showToast({ title: '会员已到期，请续费后使用', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 1200);
+        return;
+      }
       if (menuIds.length && menuIds.indexOf(this.data.module) < 0) {
         wx.showToast({ title: '当前后台无此功能', icon: 'none' });
         setTimeout(() => wx.navigateBack(), 1200);
@@ -128,6 +141,7 @@ Page({
       canTable: isSuper || adminApi.hasPerm(session, 'table_manage'),
       canLadder: isSuper || adminApi.hasPerm(session, 'ladder_settings'),
       canPromotePlayers: !isSuper && !!(session && session.can_promote_players),
+      disabledModuleIds,
       loading: true,
     });
     await this.loadModule();
@@ -178,14 +192,26 @@ Page({
       this.setData({ dashItems: items, venueRows: d.venues || [] });
     } else {
       const items = [
-        { key: 't', label: '桌台', val: d.table_count || 0 },
-        { key: 'm', label: '玩家', val: d.member_count || 0 },
+        { key: 'u', label: '注册玩家', val: d.users_count || 0 },
+        { key: 'g', label: '总对局', val: d.matches_count || 0 },
         { key: 'pm', label: '对局待审', val: d.pending_matches || 0 },
         { key: 'pb', label: '炸清待审', val: d.pending_bonus_reviews || 0 },
         { key: 'pe', label: '兑换待审', val: d.pending_exchanges || 0 },
       ];
-      this.setData({ dashItems: items, venueRows: [] });
+      this.setData({
+        dashItems: items,
+        venueRows: [],
+        membershipActive: !!d.is_member_active,
+        membershipExpires: d.member_expires_date || (d.member_expires_at || '').slice(0, 10),
+        membershipPlans: d.membership_plans || [],
+      });
     }
+  },
+
+  openRenewPicker() {
+    membershipRenew.openRenewPicker(this.data.membershipPlans, () => {
+      this.loadDashboard();
+    });
   },
 
   formatReviewTime(m) {
@@ -381,14 +407,15 @@ Page({
     });
     let tip = isGlobal
       ? '全平台默认天梯规则（与各球房同步基准）'
-      : (payload.has_custom_rules ? '本球房独立规则' : '与总后台默认一致');
+      : (payload.venue_readonly_tip || '俱乐部仅可查看总后台规则说明，不可修改');
     this.setData({
-      ladderSections: sections,
+      ladderSections: isGlobal ? sections : [],
       ladderRules: { ...rules },
       ladderTip: tip,
       ladderDesc: payload.description || '',
       ladderHasCustom: !!payload.has_custom_rules,
       ladderIsGlobal: isGlobal,
+      canLadder: isGlobal && this.data.canLadder,
     });
   },
 
@@ -973,6 +1000,11 @@ Page({
   openModuleShortcut(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) return;
+    const locked = (this.data.disabledModuleIds || []).indexOf(id) >= 0;
+    if (locked) {
+      wx.showToast({ title: '会员已到期，请续费后使用', icon: 'none' });
+      return;
+    }
     wx.navigateTo({ url: `/pages/admin-module/admin-module?m=${encodeURIComponent(id)}` });
   },
 

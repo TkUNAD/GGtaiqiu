@@ -9,6 +9,17 @@
         <text class="stat-lbl">{{item.label}}</text>
       </view>
     </view>
+    <view class="membership-card" wx:if="{{!isSuperConsole}}">
+      <view class="membership-row">
+        <text class="membership-label">会员状态</text>
+        <text class="tag {{membershipActive ? '' : 'tag-no'}}">{{membershipActive ? '会员有效' : '已过期'}}</text>
+      </view>
+      <view class="membership-row">
+        <text class="membership-label">到期日</text>
+        <text>{{membershipExpires || '未设置'}}</text>
+      </view>
+      <button class="btn-primary renew-btn" bindtap="openRenewPicker">续费会员</button>
+    </view>
     <view class="quick-nav" wx:if="{{isSuperConsole}}">
       <button size="mini" class="btn-mini-gray" data-id="review" bindtap="openModuleShortcut">审核中心</button>
       <button size="mini" class="btn-mini-gray" data-id="venues" bindtap="openModuleShortcut">球房会员</button>
@@ -198,7 +209,7 @@
   <block wx:elif="{{module === 'ladder'}}">
     <scroll-view scroll-y class="ladder-scroll">
       <view class="admin-tip" style="padding:16rpx 24rpx" wx:if="{{ladderTip}}">{{ladderTip}}</view>
-      <view class="ladder-section" wx:for="{{ladderSections}}" wx:key="id" wx:for-item="sec">
+      <view class="ladder-section" wx:for="{{ladderSections}}" wx:key="id" wx:for-item="sec" wx:if="{{ladderIsGlobal}}">
         <view class="section-title">{{sec.title}}</view>
         <view class="form-row" wx:for="{{sec.fields}}" wx:key="key" wx:for-item="fld">
           <text class="form-label">{{fld.label}}</text>
@@ -209,9 +220,8 @@
         <text class="section-title">规则说明预览</text>
         <text class="rule-desc-text">{{ladderDesc}}</text>
       </view>
-      <view class="toolbar" wx:if="{{canLadder}}">
+      <view class="toolbar" wx:if="{{canLadder && ladderIsGlobal}}">
         <button class="btn-primary" bindtap="saveLadder">保存规则</button>
-        <button size="mini" class="btn-mini-gray" wx:if="{{!ladderIsGlobal && ladderHasCustom}}" bindtap="syncLadder">同步总后台默认</button>
       </view>
     </scroll-view>
   </block>

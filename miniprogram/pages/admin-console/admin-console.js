@@ -1,4 +1,5 @@
 const adminApi = require('../../utils/adminApi');
+const membershipRenew = require('../../utils/membershipRenew');
 
 const ROLE_ZH = { owner: '主管理员', admin: '子管理员', super: '总管理员' };
 
@@ -12,6 +13,9 @@ Page({
     consoleSubtitle: '',
     isVenueConsole: false,
     loading: true,
+    membershipActive: true,
+    membershipExpires: '',
+    membershipPlans: [],
   },
 
   onLoad(options) {
@@ -53,7 +57,7 @@ Page({
       wx.setNavigationBarTitle({
         title: isVenue ? '俱乐部后台' : '总后台',
       });
-      this.setData({
+      const patch = {
         session,
         menu,
         badges,
@@ -62,7 +66,20 @@ Page({
         consoleSubtitle: isVenue ? '俱乐部管理端' : '平台运营管理',
         roleLabel: ROLE_ZH[session.admin_role] || session.admin_role || '',
         loading: false,
-      });
+      };
+      if (isVenue) {
+        try {
+          const mem = await membershipRenew.fetchMembershipSummary();
+          patch.membershipActive = !!mem.is_member_active;
+          patch.membershipExpires = mem.member_expires_date || (mem.member_expires_at || '').slice(0, 10);
+          patch.membershipPlans = mem.plans || [];
+        } catch (e) {
+          patch.membershipActive = !!session.is_member_active;
+          patch.membershipExpires = '';
+          patch.membershipPlans = [];
+        }
+      }
+      this.setData(patch);
     } catch (e) {
       this.setData({ loading: false });
       const wasSuper = adminApi.isSuperSession(adminApi.getAdminSession());
@@ -82,9 +99,33 @@ Page({
     }
   },
 
+  async loadMembership() {
+    if (!this.data.isVenueConsole) return;
+    try {
+      const mem = await membershipRenew.fetchMembershipSummary();
+      this.setData({
+        membershipActive: !!mem.is_member_active,
+        membershipExpires: mem.member_expires_date || (mem.member_expires_at || '').slice(0, 10),
+        membershipPlans: mem.plans || [],
+      });
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
+  onRenewMembership() {
+    membershipRenew.openRenewPicker(this.data.membershipPlans, () => {
+      this.load();
+    });
+  },
+
   openModule(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) return;
+    if (e.currentTarget.dataset.disabled === '1') {
+      wx.showToast({ title: '会员已到期，请续费后使用', icon: 'none' });
+      return;
+    }
     wx.navigateTo({ url: `/pages/admin-module/admin-module?m=${encodeURIComponent(id)}` });
   },
 

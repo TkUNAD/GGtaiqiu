@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { getVenueId } = require('../../utils/venueStore');
 const app = getApp();
 
 const EXCHANGE_STATUS_LABEL = {
@@ -30,7 +31,8 @@ Page({
     const loggedIn = !!(app.globalData && app.globalData.token);
     this.setData({ loggedIn });
     try {
-      const shopData = await api.request('/api/shop/products');
+      const vid = getVenueId();
+      const shopData = await api.request(`/api/shop/products?venue_id=${encodeURIComponent(vid)}`);
       const products = Array.isArray(shopData) ? shopData : (shopData.products || []);
       const exchangeRules = !Array.isArray(shopData) ? (shopData.rules || null) : null;
       this.setData({ products, exchangeRules });
@@ -82,7 +84,7 @@ Page({
       success: (r) => {
         if (!r.confirm) return;
         this.setData({ exchanging: true });
-        api.request('/api/shop/exchange', 'POST', { product_id: id })
+        api.request('/api/shop/exchange', 'POST', { product_id: id, venue_id: getVenueId() })
           .then(() => {
             wx.showToast({ title: '兑换成功，待审核发放' });
             return this.load();

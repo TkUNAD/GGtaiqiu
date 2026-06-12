@@ -108,6 +108,9 @@ def scoped_dashboard_stats(venue_id: Optional[str], is_super: bool) -> Dict:
     pending = [m for m in matches if m.get("status") == "pending_review"]
     bonus_review = [m for m in matches if m.get("needs_bonus_review")]
     ex_pending = [e for e in exchanges if e.get("status") == "pending"]
+    from membership_service import venue_membership_summary
+
+    mem = venue_membership_summary(venue_id) if venue_id else {}
     return {
         "scope": "venue",
         "users_count": len(users),
@@ -115,6 +118,10 @@ def scoped_dashboard_stats(venue_id: Optional[str], is_super: bool) -> Dict:
         "pending_matches": len(pending),
         "pending_bonus_reviews": len(bonus_review),
         "pending_exchanges": len(ex_pending),
+        "is_member_active": mem.get("is_member_active", False),
+        "member_expires_at": mem.get("member_expires_at"),
+        "member_expires_date": mem.get("member_expires_date", ""),
+        "membership_plans": mem.get("plans", []),
     }
 
 

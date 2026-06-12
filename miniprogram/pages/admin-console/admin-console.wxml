@@ -5,6 +5,18 @@
     <view class="admin-tip" wx:if="{{session.member_tip}}">{{session.member_tip}}</view>
   </view>
 
+  <view class="membership-card" wx:if="{{isVenueConsole}}">
+    <view class="membership-row">
+      <text class="membership-label">会员状态</text>
+      <text class="tag {{membershipActive ? '' : 'tag-no'}}">{{membershipActive ? '会员有效' : '已过期'}}</text>
+    </view>
+    <view class="membership-row">
+      <text class="membership-label">到期日</text>
+      <text>{{membershipExpires || '未设置'}}</text>
+    </view>
+    <button class="btn-primary renew-btn" bindtap="onRenewMembership">续费会员</button>
+  </view>
+
   <view class="stats-row" wx:if="{{isVenueConsole && badges}}">
     <view class="stat-box">
       <text class="stat-num">{{badges.pending_matches || 0}}</text>
@@ -22,13 +34,15 @@
 
   <view class="menu-grid">
     <view
-      class="menu-item"
+      class="menu-item {{item.disabled ? 'menu-item-disabled' : ''}}"
       wx:for="{{menu}}"
       wx:key="id"
       bindtap="openModule"
       data-id="{{item.id}}"
+      data-disabled="{{item.disabled ? '1' : ''}}"
     >
-      <text class="menu-badge" wx:if="{{item.badge > 0}}">{{item.badge}}</text>
+      <text class="menu-badge" wx:if="{{item.badge > 0 && !item.disabled}}">{{item.badge}}</text>
+      <text class="menu-lock" wx:if="{{item.disabled}}">已锁定</text>
       <text class="menu-item-title">{{item.title}}</text>
       <text class="menu-item-desc">{{item.desc}}</text>
     </view>

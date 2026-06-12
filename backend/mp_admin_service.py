@@ -506,32 +506,28 @@ def build_admin_menu(session_info: Dict) -> List[Dict]:
             item("settings", "系统设置", "密码·数据重置"),
         ]
 
-    # 俱乐部后台（对应 Web .venue-only-nav，无球房会员）
-    menu: List[Dict] = [
-        item("dashboard", "仪表盘", "本俱乐部数据概览"),
+    # 俱乐部后台：到期后仍展示全部入口，禁用项标 disabled 供前端置灰
+    def venue_item(mid: str, title: str, desc: str = "", badge_key: str = "", *, locked: bool = False):
+        row = item(mid, title, desc, badge_key)
+        row["disabled"] = bool(locked)
+        if locked:
+            row["desc"] = (desc or "") + (" · " if desc else "") + "会员已到期"
+        return row
+
+    table_desc = "开台与二维码" if perms.get("table_manage") else "仅查看"
+    user_desc = "调分·设子管理员" if not expired else "仅查看"
+    return [
+        venue_item("dashboard", "仪表盘", "本俱乐部数据概览"),
+        venue_item("matches", "对局管理", "历史对局", locked=expired),
+        venue_item("users", "玩家管理", user_desc),
+        venue_item("tables", "桌台管理", table_desc),
+        venue_item("review", "对局审核", "待审·审核记录·兑换", "pending_all", locked=expired),
+        venue_item("ladder", "天梯规则", "总后台规则说明"),
+        venue_item("products", "兑换商品", "商品列表", locked=expired),
+        venue_item("exchanges", "兑换记录", "全部记录", locked=expired),
+        venue_item("logs", "积分明细", "变动记录", locked=expired),
+        venue_item("staff", "管理员设置", "子管理员列表(≤3)", locked=expired),
     ]
-    if not expired:
-        menu.append(item("matches", "对局管理", "历史对局"))
-        menu.append(item("users", "玩家管理", "调分·设子管理员"))
-    else:
-        menu.append(item("users", "玩家管理", "查看·设子管理员"))
-    menu.append(
-        item(
-            "tables",
-            "桌台管理",
-            "开台与二维码" if perms.get("table_manage") else "仅查看",
-        )
-    )
-    if not expired:
-        menu.append(item("review", "对局审核", "待审·审核记录·兑换", "pending_all"))
-    if perms.get("ladder_settings"):
-        menu.append(item("ladder", "天梯规则", "本俱乐部规则"))
-    if not expired:
-        menu.append(item("products", "兑换商品", "商品列表"))
-        menu.append(item("exchanges", "兑换记录", "全部记录"))
-        menu.append(item("logs", "积分明细", "变动记录"))
-    menu.append(item("staff", "管理员设置", "子管理员列表(≤3)"))
-    return menu
 
 
 def bind_venue_owner(

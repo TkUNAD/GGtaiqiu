@@ -1438,20 +1438,36 @@ def count_user_exchanges_today(user_id: str) -> int:
     )
 
 
-def exchange_rules_for_user(user_id: str, user_score: int) -> Dict:
+def exchange_rules_for_user(
+    user_id: str, user_score: int, venue_id: str = None
+) -> Dict:
+    from venue_service import DEFAULT_VENUE_ID, get_venue, is_member_active
+
     today_count = count_user_exchanges_today(user_id)
+    vid = (venue_id or DEFAULT_VENUE_ID).strip()
+    venue = get_venue(vid)
+    venue_active = is_member_active(venue) if venue else False
+    base_ok = user_score >= EXCHANGE_MIN_SCORE and today_count < EXCHANGE_DAILY_LIMIT
+    can_exchange = base_ok and venue_active
+    rule_text = f"积分达到{EXCHANGE_MIN_SCORE}分方可兑换，每日限兑{EXCHANGE_DAILY_LIMIT}次"
+    if not venue_active:
+        rule_text = "俱乐部会员已过期，积分兑换已暂停，请联系球房续费"
     return {
         "min_score": EXCHANGE_MIN_SCORE,
         "daily_limit": EXCHANGE_DAILY_LIMIT,
         "user_score": user_score,
         "exchanges_today": today_count,
-        "can_exchange": user_score >= EXCHANGE_MIN_SCORE and today_count < EXCHANGE_DAILY_LIMIT,
-        "rule_text": f"积分达到{EXCHANGE_MIN_SCORE}分方可兑换，每日限兑{EXCHANGE_DAILY_LIMIT}次",
+        "can_exchange": can_exchange,
+        "venue_member_active": venue_active,
+        "rule_text": rule_text,
     }
 
 
-def exchange_product(user_id: str, product_id: str) -> Dict:
+def exchange_product(user_id: str, product_id: str, venue_id: str = None) -> Dict:
     from db import mutate_multi
+    from membership_service import assert_venue_allows_exchange
+
+    assert_venue_allows_exchange(venue_id)
 
     def _exchange_atomic(products, users, exchanges):
         prod = find_by_id(products, product_id)

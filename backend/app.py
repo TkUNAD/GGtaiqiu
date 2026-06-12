@@ -1266,6 +1266,7 @@ def match_bonus_reject(match_id):
 
 @app.route("/api/admin/match/<match_id>/bonus-review", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_bonus_review(match_id):
     from admin_auth import is_super_admin
     from admin_scope import assert_match_in_venue
@@ -1557,16 +1558,30 @@ def bind_phone():
 def shop_products():
     from config import EXCHANGE_DAILY_LIMIT, EXCHANGE_MIN_SCORE, INITIAL_SCORE
     from services import exchange_rules_for_user
+    from venue_service import DEFAULT_VENUE_ID
 
+    venue_id = request.args.get("venue_id") or DEFAULT_VENUE_ID
     products = [p for p in load("products") if p.get("enabled")]
     rules = {
         "min_score": EXCHANGE_MIN_SCORE,
         "daily_limit": EXCHANGE_DAILY_LIMIT,
         "rule_text": f"积分达到{EXCHANGE_MIN_SCORE}分方可兑换，每日限兑{EXCHANGE_DAILY_LIMIT}次",
+        "can_exchange": True,
+        "venue_member_active": True,
     }
     user = _user_from_token()
     if user:
-        rules = exchange_rules_for_user(user["id"], user.get("score", INITIAL_SCORE))
+        rules = exchange_rules_for_user(
+            user["id"], user.get("score", INITIAL_SCORE), venue_id
+        )
+    else:
+        from membership_service import venue_membership_summary
+
+        mem = venue_membership_summary(venue_id)
+        if not mem.get("is_member_active"):
+            rules["can_exchange"] = False
+            rules["venue_member_active"] = False
+            rules["rule_text"] = "俱乐部会员已过期，积分兑换已暂停"
     return _ok({"products": products, "rules": rules})
 
 
@@ -1575,9 +1590,11 @@ def shop_exchange():
     user = _user_from_token()
     if not user:
         return _err("请先登录", 401, 401)
-    product_id = (request.get_json() or {}).get("product_id")
+    data = request.get_json(silent=True) or {}
+    product_id = data.get("product_id")
+    venue_id = data.get("venue_id") or request.args.get("venue_id")
     try:
-        record = exchange_product(user["id"], product_id)
+        record = exchange_product(user["id"], product_id, venue_id)
         _broadcast()
         return _ok(record)
     except ValueError as e:
@@ -1611,7 +1628,10 @@ def admin_get_ladder_settings():
     vid = current_venue_id()
     payload = ladder_rules_payload(vid)
     payload["scope"] = "venue"
-    payload["can_edit"] = has_permission("ladder_settings")
+    payload["can_edit"] = False
+    payload["can_sync"] = False
+    payload["description"] = payload.get("global_description") or payload.get("description")
+    payload["venue_readonly_tip"] = "俱乐部不可修改天梯规则，以下说明来自总后台默认规则"
     return _ok(payload)
 
 
@@ -1624,13 +1644,7 @@ def admin_save_ladder_settings():
         payload = ladder_rules_payload(None)
         payload["scope"] = "global"
         return _ok(payload)
-    vid = current_venue_id()
-    if not vid:
-        return _err("球房会话无效")
-    save_venue_ladder_rules(vid, data)
-    payload = ladder_rules_payload(vid)
-    payload["scope"] = "venue"
-    return _ok(payload)
+    return _err("俱乐部不可修改天梯规则，请联系总后台调整", 403, 403)
 
 
 @app.route("/api/admin/settings/ladder/sync", methods=["POST"])
@@ -1638,11 +1652,7 @@ def admin_save_ladder_settings():
 def admin_sync_ladder_settings():
     if is_super_admin():
         return _err("总后台请直接编辑全局默认规则")
-    vid = current_venue_id()
-    if not vid:
-        return _err("球房会话无效")
-    sync_venue_ladder_from_global(vid)
-    return _ok(ladder_rules_payload(vid))
+    return _err("俱乐部不可同步或修改天梯规则", 403, 403)
 
 
 @app.route("/api/admin/venue-applications", methods=["GET"])
@@ -1748,6 +1758,101 @@ def admin_dashboard():
     return _ok(scoped_dashboard_stats(current_venue_id(), is_super_admin()))
 
 
+@app.route("/api/admin/membership/summary")
+@admin_required
+def admin_membership_summary():
+    from admin_auth import is_super_admin
+    from membership_service import venue_membership_summary
+
+    if is_super_admin():
+        return _err("总后台请在「球房会员」中管理续费", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    return _ok(venue_membership_summary(vid))
+
+
+@app.route("/api/admin/membership/orders", methods=["POST"])
+@admin_required
+def admin_create_membership_order():
+    from admin_auth import is_super_admin
+    from membership_service import create_membership_order
+    from payment_service import init_order_payment, payment_configured
+
+    if is_super_admin():
+        return _err("总后台请手动调整球房会员到期日", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    data = request.get_json(silent=True) or {}
+    plan_id = (data.get("plan_id") or "").strip()
+    channel = (data.get("pay_channel") or "").strip().lower()
+    openid = (data.get("openid") or "").strip()
+    if not payment_configured(channel) and not getattr(config, "PAYMENT_DEV_MODE", False):
+        return _err("支付未配置，请联系平台开通微信支付/支付宝", 503, 503)
+    try:
+        order = create_membership_order(
+            vid,
+            plan_id,
+            channel,
+            created_by=session.get("admin_username", ""),
+            openid=openid,
+        )
+        pay = init_order_payment(order, openid=openid)
+        return _ok({"order": order, "payment": pay})
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/membership/orders/<order_id>")
+@admin_required
+def admin_membership_order_status(order_id):
+    from membership_service import get_membership_order
+
+    order = get_membership_order(order_id)
+    if not order:
+        return _err("订单不存在", 404, 404)
+    if not is_super_admin() and order.get("venue_id") != current_venue_id():
+        return _err("无权查看该订单", 403, 403)
+    return _ok(order)
+
+
+@app.route("/api/admin/membership/orders/<order_id>/mock-pay", methods=["POST"])
+@admin_required
+def admin_membership_mock_pay(order_id):
+    import config as app_config
+    from membership_service import complete_membership_order, get_membership_order
+
+    if not getattr(app_config, "PAYMENT_DEV_MODE", False):
+        return _err("仅开发模式可用", 403, 403)
+    order = get_membership_order(order_id)
+    if not order:
+        return _err("订单不存在", 404, 404)
+    if not is_super_admin() and order.get("venue_id") != current_venue_id():
+        return _err("无权操作", 403, 403)
+    try:
+        result = complete_membership_order(order_id, trade_no="DEV_MOCK")
+        return _ok(result)
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/payment/wechat/notify", methods=["POST"])
+def payment_wechat_notify():
+    from payment_service import handle_wechat_pay_notify
+
+    body = request.get_data(as_text=True) or ""
+    return handle_wechat_pay_notify(body), 200, {"Content-Type": "application/xml"}
+
+
+@app.route("/api/payment/alipay/notify", methods=["POST"])
+def payment_alipay_notify():
+    from payment_service import handle_alipay_notify
+
+    form = {k: v for k, v in request.form.items()}
+    return handle_alipay_notify(form)
+
+
 @app.route("/api/admin/matches")
 @admin_required
 def admin_matches():
@@ -1765,6 +1870,7 @@ def admin_matches():
 
 @app.route("/api/admin/match/<match_id>/review", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_review_match(match_id):
     from admin_auth import is_super_admin
     from admin_scope import assert_match_in_venue
@@ -1966,6 +2072,7 @@ def admin_users():
 
 @app.route("/api/admin/staff")
 @admin_required
+@require_active_venue_member
 def admin_staff_list():
     from mp_admin_service import list_venue_admins
 
@@ -2003,6 +2110,7 @@ def admin_owner_bind_qr():
 
 @app.route("/api/admin/staff/<admin_id>", methods=["DELETE"])
 @admin_required
+@require_active_venue_member
 def admin_staff_remove(admin_id):
     from mp_admin_service import remove_sub_admin
 
@@ -2444,6 +2552,7 @@ def admin_exchanges():
 
 @app.route("/api/admin/exchange/<ex_id>/review", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_review_exchange(ex_id):
     from admin_auth import is_super_admin
     from admin_scope import assert_exchange_in_venue
@@ -2920,6 +3029,7 @@ def mp_admin_pending_summary():
 
 @app.route("/api/admin/user/<user_id>/promote-admin", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_promote_player_admin(user_id):
     from admin_auth import is_super_admin
     from mp_admin_service import promote_player_to_sub_admin
@@ -2950,6 +3060,7 @@ def admin_promote_player_admin(user_id):
 
 @app.route("/api/admin/user/<user_id>/demote-admin", methods=["POST"])
 @admin_required
+@require_active_venue_member
 def admin_demote_player_admin(user_id):
     from admin_auth import is_super_admin
     from mp_admin_service import get_venue_admin_by_user_id, remove_sub_admin
@@ -2975,8 +3086,44 @@ def admin_demote_player_admin(user_id):
         return _err(str(e))
 
 
+@app.route("/api/mp-admin/membership/orders", methods=["POST"])
+@mp_admin_required
+def mp_admin_create_membership_order():
+    from membership_service import create_membership_order
+    from payment_service import init_order_payment, payment_configured
+
+    rec = g.admin_ctx["admin_rec"]
+    vid = rec.get("venue_id")
+    if not vid:
+        return _err("总后台请使用 Web 球房会员管理", 403, 403)
+    data = request.get_json(silent=True) or {}
+    plan_id = (data.get("plan_id") or "").strip()
+    channel = (data.get("pay_channel") or "wechat_jsapi").strip().lower()
+    openid = (rec.get("openid") or "").strip()
+    if not openid:
+        u = find_by_id(load("users"), rec.get("user_id", ""))
+        openid = (u.get("openid") or "").strip() if u else ""
+    if channel == "wechat_jsapi" and not openid:
+        return _err("无法获取微信 openid，请重新登录小程序", 400)
+    if not payment_configured(channel) and not getattr(config, "PAYMENT_DEV_MODE", False):
+        return _err("支付未配置，请联系平台", 503, 503)
+    try:
+        order = create_membership_order(
+            vid,
+            plan_id,
+            channel,
+            created_by=rec.get("id", ""),
+            openid=openid,
+        )
+        pay = init_order_payment(order, openid=openid)
+        return _ok({"order": order, "payment": pay})
+    except ValueError as e:
+        return _err(str(e))
+
+
 @app.route("/api/mp-admin/staff/invite-qr", methods=["POST"])
 @mp_admin_required
+@require_active_venue_member
 def mp_admin_staff_invite_qr():
     from mp_admin_service import create_qr_token, qr_png_base64
 
@@ -2993,6 +3140,7 @@ def mp_admin_staff_invite_qr():
 
 @app.route("/api/mp-admin/staff/<admin_id>", methods=["DELETE"])
 @mp_admin_required
+@require_active_venue_member
 def mp_admin_staff_remove(admin_id):
     from mp_admin_service import remove_sub_admin
 

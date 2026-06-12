@@ -20,6 +20,24 @@
 }
 .menu-item-title { font-size: 30rpx; font-weight: bold; color: #D4AF37; }
 .menu-item-desc { font-size: 22rpx; color: #8b92a8; margin-top: 8rpx; display: block; }
+.menu-item-disabled {
+  opacity: 0.42;
+  filter: grayscale(0.55);
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(168deg, #141a28 0%, #0f1420 100%) !important;
+}
+.menu-item-disabled .menu-item-title { color: #6b7280; }
+.menu-item-disabled .menu-item-desc { color: #4b5563; }
+.menu-lock {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  font-size: 20rpx;
+  color: #9ca3af;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  border: 1rpx solid rgba(156, 163, 175, 0.35);
+}
 .menu-badge {
   position: absolute;
   top: 16rpx;
@@ -138,3 +156,20 @@
 }
 .detail-row-tag { font-size: 22rpx; color: #8b92a8; flex-shrink: 0; }
 .detail-empty { font-size: 24rpx; color: #6b7280; padding: 16rpx 0; }
+.membership-card {
+  margin: 24rpx;
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(168deg, #181f32 0%, #12182a 100%);
+  border: 1rpx solid rgba(212, 175, 55, 0.25);
+}
+.membership-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  font-size: 26rpx;
+  color: #e5e7eb;
+}
+.membership-label { color: #8b92a8; }
+.renew-btn { margin-top: 12rpx; }

@@ -96,6 +96,17 @@ if WECHAT_SECRET:
 # 开发模式：无微信 AppID 时可用 code 模拟 openid（正式环境请保持 false 并配置 AppID）
 DEV_MODE = os.environ.get("DEV_MODE", "false").lower() in ("1", "true", "yes")
 
+# 会员续费支付（微信商户 / 支付宝）
+PAYMENT_DEV_MODE = os.environ.get("PAYMENT_DEV_MODE", "false").lower() in ("1", "true", "yes")
+WECHAT_PAY_MCH_ID = (os.environ.get("WECHAT_PAY_MCH_ID") or "").strip()
+WECHAT_PAY_API_KEY = (os.environ.get("WECHAT_PAY_API_KEY") or "").strip()
+WECHAT_PAY_NOTIFY_URL = f"{PUBLIC_URL}/api/payment/wechat/notify"
+ALIPAY_APP_ID = (os.environ.get("ALIPAY_APP_ID") or "").strip()
+ALIPAY_PRIVATE_KEY = (os.environ.get("ALIPAY_PRIVATE_KEY") or "").replace("\\n", "\n").strip()
+ALIPAY_PUBLIC_KEY = (os.environ.get("ALIPAY_PUBLIC_KEY") or "").replace("\\n", "\n").strip()
+ALIPAY_NOTIFY_URL = f"{PUBLIC_URL}/api/payment/alipay/notify"
+ALIPAY_RETURN_URL = f"{PUBLIC_URL}/admin.html"
+
 # 小程序码版本：release / trial / develop；留空则按 release→trial→develop 依次尝试
 WX_QR_ENV_VERSION = (os.environ.get("WX_QR_ENV_VERSION", "") or "").strip().lower()
 
