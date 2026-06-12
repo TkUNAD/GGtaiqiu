@@ -62,8 +62,20 @@
     .modal-overlay { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
     .modal-box { background: #fff; padding: 24px; border-radius: 8px; width: 400px; max-width: 90%; }
     .renew-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .renew-plan-btn { padding: 12px; border: 1px solid #C4B5FD; border-radius: 8px; background: #F5F3FF; cursor: pointer; text-align: left; }
-    .renew-plan-btn:hover { background: #EDE9FE; }
+    .renew-plan-btn {
+      padding: 12px;
+      border: 1.5px solid #7C3AED;
+      border-radius: 8px;
+      background: #EDE9FE;
+      color: #4C1D95;
+      cursor: pointer;
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .renew-plan-btn strong { color: #5B21B6; font-weight: 700; }
+    .renew-plan-btn small { color: #6D28D9; font-size: 12px; }
+    .renew-plan-btn:hover { background: #DDD6FE; border-color: #6D21A8; }
     .renew-pay-row { display: flex; gap: 8px; margin-top: 8px; }
     .modal-box.wide { width: 560px; max-height: 90vh; overflow-y: auto; }
     .venue-meta { background: #F5F3FF; border: 1px solid #C4B5FD; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
