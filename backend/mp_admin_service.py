@@ -518,6 +518,7 @@ def build_admin_menu(session_info: Dict) -> List[Dict]:
     user_desc = "调分·设子管理员" if not expired else "仅查看"
     return [
         venue_item("dashboard", "仪表盘", "本俱乐部数据概览"),
+        venue_item("venue_location", "球房位置", "地图手动选点·更准确"),
         venue_item("matches", "对局管理", "历史对局", locked=expired),
         venue_item("users", "玩家管理", user_desc),
         venue_item("tables", "桌台管理", table_desc),

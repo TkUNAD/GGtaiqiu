@@ -240,9 +240,9 @@
           <button type="button" class="btn-primary" id="btnRenewMembership" onclick="openRenewModal()">续费会员</button>
         </div>
         <div id="venueLocationCard" class="card venue-only-nav hidden" style="margin-top:16px">
-          <h3 style="margin-bottom:8px">球房位置（小程序定位匹配）</h3>
+          <h3 style="margin-bottom:8px">球房位置（小程序距离匹配）</h3>
           <p id="venueLocationSummary" class="venue-location-status warn">加载中…</p>
-          <p style="font-size:12px;color:#666;margin:12px 0;line-height:1.6">请设置球房地址与地图坐标，顾客打开小程序后将据此匹配最近俱乐部并显示距离。</p>
+          <p style="font-size:12px;color:#666;margin:12px 0;line-height:1.6">请在地图上<strong>手动点击选点</strong>或拖动标记，比「本机定位」更准确。坐标使用 GCJ-02（与微信一致）。</p>
           <button type="button" class="btn-primary" onclick="openVenueLocationEditor()">设置球房位置</button>
         </div>
         <div id="mpSuperWechatWrap" class="card hidden super-only" style="margin-top:16px">
@@ -1008,18 +1008,18 @@
       var lat = (v && v.latitude != null) ? String(v.latitude) : '';
       var lng = (v && v.longitude != null) ? String(v.longitude) : '';
       return '<div class="venue-location-block">' +
-        '<h4>球房位置（小程序自动匹配）</h4>' +
+        '<h4>球房位置（请手动在地图上选点）</h4>' +
         '<label>详细地址<input id="v_address" value="' + escapeHtml((v && v.address) || '') + '" placeholder="如：广州市天河区XX路XX号"></label>' +
         '<div class="venue-coord-row">' +
         '<label>纬度 latitude<input id="v_lat" type="number" step="0.000001" value="' + escapeHtml(lat) + '" placeholder="如 23.129080"></label>' +
         '<label>经度 longitude<input id="v_lng" type="number" step="0.000001" value="' + escapeHtml(lng) + '" placeholder="如 113.264385"></label>' +
         '</div>' +
         '<div class="venue-map-toolbar">' +
-        '<button type="button" class="secondary" onclick="useBrowserLocationForVenue()">使用本机定位</button>' +
         '<a class="secondary" style="padding:6px 12px;font-size:12px;text-decoration:none;display:inline-block" href="https://lbs.amap.com/tools/picker" target="_blank" rel="noopener">高德坐标拾取</a>' +
+        '<button type="button" class="secondary" onclick="useBrowserLocationForVenue()" title="仅供参考，室内常不准">参考本机定位（可能不准）</button>' +
         '</div>' +
         '<div id="venueMapPicker" class="venue-map-wrap"></div>' +
-        '<p class="venue-location-status">点击地图可放置标记；坐标请使用 GCJ-02（国测局坐标，与微信定位一致）。</p>' +
+        '<p class="venue-location-status">在下方地图<strong>点击</strong>或拖动标记选点；坐标请使用 GCJ-02（国测局坐标，与微信定位一致）。</p>' +
         '</div>';
     }
 
@@ -1170,7 +1170,7 @@
         document.getElementById('modalContent').className = 'modal-box wide';
         document.getElementById('modalContent').innerHTML =
           '<h3>设置球房位置</h3>' +
-          '<p style="font-size:12px;color:#666;margin-bottom:10px">用于小程序首页自动匹配俱乐部并显示距离，请尽量在店内使用「本机定位」或高德拾取器获取 GCJ-02 坐标。</p>' +
+          '<p style="font-size:12px;color:#666;margin-bottom:10px">请在地图上<strong>手动点击选点</strong>或拖动标记，比自动定位更准确。也可使用高德拾取器复制 GCJ-02 坐标。</p>' +
           buildVenueLocationFieldsHtml(d) +
           '<button type="button" onclick="saveVenueLocationSelf()">保存</button> ' +
           '<button type="button" class="secondary" onclick="closeModal()">取消</button>';

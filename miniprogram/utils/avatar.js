@@ -40,6 +40,28 @@ function resolveDisplayAvatar(url, options) {
   return DEFAULT_AVATAR;
 }
 
+function pickAvatarInitial(name, fallback) {
+  const raw = String(name || '').replace(/（我）/g, '').trim();
+  const fb = String(fallback || '球').trim();
+  const pick = (!raw || raw === '.' || raw === '…') ? fb : raw;
+  const ch = pick.slice(0, 1);
+  return ch ? ch.toUpperCase() : '球';
+}
+
+function hasRemoteAvatar(url) {
+  const resolved = resolveDisplayAvatar(url);
+  return !!(resolved && resolved !== DEFAULT_AVATAR && !resolved.startsWith('/assets/'));
+}
+
+function buildAvatarDisplay(url, nickname, fallbackName) {
+  const avatar = resolveDisplayAvatar(url);
+  return {
+    avatar,
+    hasAvatar: true,
+    avatarInitial: pickAvatarInitial(nickname, fallbackName),
+  };
+}
+
 /** 本地临时头像转 base64，供登录上传 */
 function readLocalAvatarBase64(filePath) {
   return new Promise((resolve) => {
@@ -64,6 +86,9 @@ function readLocalAvatarBase64(filePath) {
 module.exports = {
   DEFAULT_AVATAR,
   resolveDisplayAvatar,
+  buildAvatarDisplay,
+  hasRemoteAvatar,
+  pickAvatarInitial,
   readLocalAvatarBase64,
   isEphemeralAvatar,
 };

@@ -163,6 +163,24 @@
   background: #1a2236;
   box-shadow: 0 0 32rpx rgba(212, 175, 55, 0.25);
 }
+.fighter-avatar.avatar-fallback,
+.play-avatar.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.18) 0%, transparent 55%),
+    linear-gradient(168deg, #2a3550 0%, #1a2236 100%);
+}
+.avatar-fallback-text {
+  font-size: 48rpx;
+  font-weight: 800;
+  color: #D4AF37;
+  line-height: 1;
+}
+.play-avatar.avatar-fallback .avatar-fallback-text {
+  font-size: 36rpx;
+}
 
 .fighter-name {
   display: block;

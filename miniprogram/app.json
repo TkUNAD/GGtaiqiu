@@ -5,7 +5,7 @@
       "desc": "用于匹配您附近的台球俱乐部并展示本俱乐部桌台与排位服务"
     }
   },
-  "requiredPrivateInfos": ["getLocation"],
+  "requiredPrivateInfos": ["getLocation", "chooseLocation"],
   "pages": [
     "pages/index/index",
     "pages/table/table",

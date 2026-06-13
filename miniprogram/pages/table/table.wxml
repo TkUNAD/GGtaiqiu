@@ -31,7 +31,13 @@
 
     <view class="vs-arena float-surface">
       <view class="fighter-slot">
-        <image class="fighter-avatar" src="{{lobbyP1.avatar}}" mode="aspectFill" binderror="onLobbyAvatarError" data-slot="lobbyP1" />
+        <image
+          class="fighter-avatar"
+          src="{{lobbyP1.avatar || '/assets/default-avatar.png'}}"
+          mode="aspectFill"
+          binderror="onLobbyAvatarError"
+          data-slot="lobbyP1"
+        />
         <text class="fighter-name">{{lobbyP1.nickname}}</text>
         <view class="fighter-tier">
           <image class="tier-img tier-img-sm" src="{{lobbyP1.tierImage}}" mode="aspectFit" />
@@ -49,7 +55,13 @@
       </view>
 
       <view class="fighter-slot">
-        <image class="fighter-avatar" src="{{lobbyP2.avatar}}" mode="aspectFill" binderror="onLobbyAvatarError" data-slot="lobbyP2" />
+        <image
+          class="fighter-avatar"
+          src="{{lobbyP2.avatar || '/assets/default-avatar.png'}}"
+          mode="aspectFill"
+          binderror="onLobbyAvatarError"
+          data-slot="lobbyP2"
+        />
         <text class="fighter-name">{{lobbyP2.nickname}}</text>
         <view class="fighter-tier">
           <image class="tier-img tier-img-sm" src="{{lobbyP2.tierImage}}" mode="aspectFit" />
@@ -92,12 +104,24 @@
 
     <view class="play-fighters float-surface">
       <view class="play-fighter">
-        <image class="play-avatar" src="{{match.p1.avatarUrl}}" mode="aspectFill" binderror="onPlayAvatarError" data-side="p1" />
+        <image
+          class="play-avatar"
+          src="{{match.p1.avatarUrl || '/assets/default-avatar.png'}}"
+          mode="aspectFill"
+          binderror="onPlayAvatarError"
+          data-side="p1"
+        />
         <image class="tier-img tier-img-sm" src="{{match.p1.tierImage}}" mode="aspectFit" />
         <text class="play-tier">{{match.p1.tierName}}</text>
       </view>
       <view class="play-fighter">
-        <image class="play-avatar" src="{{match.p2.avatarUrl}}" mode="aspectFill" binderror="onPlayAvatarError" data-side="p2" />
+        <image
+          class="play-avatar"
+          src="{{match.p2.avatarUrl || '/assets/default-avatar.png'}}"
+          mode="aspectFill"
+          binderror="onPlayAvatarError"
+          data-side="p2"
+        />
         <image class="tier-img tier-img-sm" src="{{match.p2.tierImage}}" mode="aspectFit" />
         <text class="play-tier">{{match.p2.tierName}}</text>
       </view>

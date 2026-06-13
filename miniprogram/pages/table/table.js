@@ -3,7 +3,7 @@ const { parseTableScanResult, extractSceneFromOptions, safeDecode } = require('.
 const { getVenueId } = require('../../utils/venueStore');
 const { resolveTableQr, applyResolvedVenue } = require('../../utils/tableScanApi');
 const { getTierStyle } = require('../../utils/tierIcons');
-const { DEFAULT_AVATAR, resolveDisplayAvatar } = require('../../utils/avatar');
+const { DEFAULT_AVATAR, buildAvatarDisplay } = require('../../utils/avatar');
 
 const app = getApp();
 
@@ -29,14 +29,19 @@ function decorateLobbyPlayer(p, fallbackName) {
     return {
       nickname: fallbackName,
       avatar: DEFAULT_AVATAR,
+      hasAvatar: false,
+      avatarInitial: '待',
       tierImage: getTierStyle(1).tierImage,
       tierName: '等待选手',
     };
   }
   const tier = getTierStyle(p.tier_index || 1);
+  const av = buildAvatarDisplay(p.avatar, p.nickname, fallbackName);
   return {
     nickname: (p.nickname || fallbackName) + (p.is_me ? '（我）' : ''),
-    avatar: resolveDisplayAvatar(p.avatar),
+    avatar: av.avatar,
+    hasAvatar: av.hasAvatar,
+    avatarInitial: av.avatarInitial,
     tierImage: tier.tierImage,
     tierName: p.tier_name ? `${p.tier_name} ${p.star || 1}星` : tier.tierName,
   };
@@ -52,10 +57,13 @@ function decorateMatchPlayer(u, fallback) {
   const tierLabel = raw.tier_name
     ? `${raw.tier_name}${raw.star ? ` ${raw.star}星` : ''}`
     : tier.tierName;
+  const av = buildAvatarDisplay(raw.avatar, raw.nickname, fallback);
   return {
     ...raw,
     nickname: raw.nickname || fallback,
-    avatarUrl: resolveDisplayAvatar(raw.avatar),
+    avatarUrl: av.avatar,
+    hasAvatar: av.hasAvatar,
+    avatarInitial: av.avatarInitial,
     tierImage: tier.tierImage,
     tierName: tierLabel,
   };
@@ -960,14 +968,22 @@ Page({
   onPlayAvatarError(e) {
     const side = e.currentTarget.dataset.side;
     if (!side || !this.data.match) return;
-    const key = `match.${side}.avatarUrl`;
-    this.setData({ [key]: DEFAULT_AVATAR });
+    const player = this.data.match[side] || {};
+    if (player.avatarUrl === DEFAULT_AVATAR) return;
+    this.setData({
+      [`match.${side}.avatarUrl`]: DEFAULT_AVATAR,
+      [`match.${side}.hasAvatar`]: true,
+    });
   },
 
   onLobbyAvatarError(e) {
     const slot = e.currentTarget.dataset.slot;
-    if (!slot) return;
-    this.setData({ [`${slot}.avatar`]: DEFAULT_AVATAR });
+    if (!slot || !this.data[slot]) return;
+    if (this.data[slot].avatar === DEFAULT_AVATAR) return;
+    this.setData({
+      [`${slot}.avatar`]: DEFAULT_AVATAR,
+      [`${slot}.hasAvatar`]: true,
+    });
   },
 
   async onIdleContinue() {

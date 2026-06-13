@@ -152,7 +152,8 @@ def cache_avatar_for_user(user_id: str, stored: str, persist: bool = True) -> st
         return normalized
 
     if local_file.is_file():
-        if persist and normalized != rel:
+        stored_raw = (stored or "").strip()
+        if persist and stored_raw != rel:
             _persist_user_avatar(user_id, rel)
         return rel
 
@@ -231,4 +232,8 @@ def resolve_user_avatar_for_client(user: Optional[Dict], request=None) -> str:
     uid = (user or {}).get("id") or ""
     stored = (user or {}).get("avatar") or ""
     local = cache_avatar_for_user(uid, stored, persist=True) if uid else _normalize_stored_path(stored)
-    return client_avatar_url(local or stored, request)
+    rel = local or _normalize_stored_path(stored)
+    if rel.startswith("/static/uploads/avatars/") and uid:
+        if not (AVATAR_DIR / f"{uid}.jpg").is_file():
+            return ""
+    return client_avatar_url(rel or stored, request)

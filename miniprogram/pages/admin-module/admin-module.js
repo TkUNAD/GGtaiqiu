@@ -14,6 +14,7 @@ const MODULE_TITLES = {
   exchanges: '兑换记录',
   logs: '积分明细',
   staff: '管理员设置',
+  venue_location: '球房位置',
   mp_wechat: '授权微信',
   settings: '系统设置',
 };
@@ -24,7 +25,7 @@ const SUPER_MODULES = new Set([
 ]);
 /** 俱乐部后台可访问模块（与 Web venue-only-nav 一致，含 staff） */
 const VENUE_MODULES = new Set([
-  'dashboard', 'matches', 'users', 'tables', 'review', 'ladder',
+  'dashboard', 'venue_location', 'matches', 'users', 'tables', 'review', 'ladder',
   'products', 'exchanges', 'logs', 'staff',
 ]);
 
@@ -79,6 +80,11 @@ Page({
     membershipExpires: '',
     membershipPlans: [],
     disabledModuleIds: [],
+    venueLocationAddress: '',
+    venueLocationLat: '',
+    venueLocationLng: '',
+    venueLocationHas: false,
+    venueLocationSummary: '',
   },
 
   onLoad(options) {
@@ -151,6 +157,7 @@ Page({
     const { module } = this.data;
     try {
       if (module === 'dashboard') await this.loadDashboard();
+      else if (module === 'venue_location') await this.loadVenueLocation();
       else if (module === 'review') await this.loadReview();
       else if (module === 'matches') await this.loadMatches();
       else if (module === 'users') await this.loadUsers();
@@ -212,6 +219,96 @@ Page({
     membershipRenew.openRenewPicker(this.data.membershipPlans, () => {
       this.loadDashboard();
     });
+  },
+
+  async loadVenueLocation() {
+    try {
+      const d = await adminApi.adminRequest('/api/admin/venue/location');
+      const has = !!d.has_location;
+      this.setData({
+        venueLocationAddress: d.address || '',
+        venueLocationLat: d.latitude != null ? String(d.latitude) : '',
+        venueLocationLng: d.longitude != null ? String(d.longitude) : '',
+        venueLocationHas: has,
+        venueLocationSummary: has
+          ? `${d.address || '未填地址'} · ${Number(d.latitude).toFixed(6)}, ${Number(d.longitude).toFixed(6)}`
+          : '尚未设置坐标，顾客小程序将无法显示距离',
+      });
+    } catch (e) {
+      this.setData({
+        venueLocationHas: false,
+        venueLocationSummary: String(e).indexOf('404') >= 0
+          ? '后端尚未更新，请重新部署后再设置'
+          : `加载失败：${String(e)}`,
+      });
+    }
+  },
+
+  chooseVenueLocationOnMap() {
+    const lat = parseFloat(this.data.venueLocationLat);
+    const lng = parseFloat(this.data.venueLocationLng);
+    const opts = {};
+    if (isFinite(lat) && isFinite(lng)) {
+      opts.latitude = lat;
+      opts.longitude = lng;
+    }
+    wx.chooseLocation({
+      ...opts,
+      success: (res) => {
+        const addr = [res.name, res.address].filter(Boolean).join(' · ') || res.address || '';
+        this.setData({
+          venueLocationAddress: addr,
+          venueLocationLat: Number(res.latitude).toFixed(6),
+          venueLocationLng: Number(res.longitude).toFixed(6),
+        });
+      },
+      fail: (err) => {
+        const msg = (err && err.errMsg) || '';
+        if (msg.indexOf('cancel') >= 0) return;
+        wx.showToast({ title: msg || '选点失败', icon: 'none' });
+      },
+    });
+  },
+
+  onVenueAddressInput(e) {
+    this.setData({ venueLocationAddress: (e.detail && e.detail.value) || '' });
+  },
+
+  onVenueLatInput(e) {
+    this.setData({ venueLocationLat: (e.detail && e.detail.value) || '' });
+  },
+
+  onVenueLngInput(e) {
+    this.setData({ venueLocationLng: (e.detail && e.detail.value) || '' });
+  },
+
+  async saveVenueLocation() {
+    const latRaw = (this.data.venueLocationLat || '').trim();
+    const lngRaw = (this.data.venueLocationLng || '').trim();
+    if (!latRaw || !lngRaw) {
+      wx.showToast({ title: '请先在地图上选点', icon: 'none' });
+      return;
+    }
+    const lat = parseFloat(latRaw);
+    const lng = parseFloat(lngRaw);
+    if (!isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      wx.showToast({ title: '坐标无效，请重新选点', icon: 'none' });
+      return;
+    }
+    wx.showLoading({ title: '保存中...', mask: true });
+    try {
+      await adminApi.adminRequest('/api/admin/venue/location', 'PUT', {
+        address: (this.data.venueLocationAddress || '').trim(),
+        latitude: Number(lat.toFixed(6)),
+        longitude: Number(lng.toFixed(6)),
+      });
+      wx.hideLoading();
+      wx.showToast({ title: '已保存', icon: 'success' });
+      await this.loadVenueLocation();
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: String(e), icon: 'none' });
+    }
   },
 
   formatReviewTime(m) {
