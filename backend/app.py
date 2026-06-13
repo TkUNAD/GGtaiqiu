@@ -373,7 +373,7 @@ def admin_login():
         touch_venue_activity(venue["id"])
         info = build_admin_session_info()
         if not is_member_active(venue):
-            info["member_tip"] = "球房会员已过期，仅可查看基础数据；开通后可管理桌台、修改天梯规则、屏蔽手机端广告"
+            info["member_tip"] = "球房会员已过期，桌台管理与玩家管理仍可使用；续费后可使用对局审核、兑换等功能"
         return _ok(info)
 
     return _err(record_login_failure(ip))
@@ -1369,7 +1369,6 @@ def admin_review_log_re_review(log_id):
 
 @app.route("/api/admin/user/<user_id>/review-auto-flags", methods=["PUT"])
 @admin_required
-@require_active_venue_member
 def admin_user_review_auto_flags(user_id):
     from admin_auth import is_super_admin
     from admin_scope import assert_user_in_venue
@@ -2266,7 +2265,6 @@ def admin_staff_remove(admin_id):
 
 @app.route("/api/admin/user/<user_id>/score", methods=["POST"])
 @admin_required
-@require_active_venue_member
 def admin_adjust_score(user_id):
     from admin_scope import assert_user_in_venue
     from admin_auth import is_super_admin
@@ -2288,7 +2286,6 @@ def admin_adjust_score(user_id):
 
 @app.route("/api/admin/user/<user_id>/punish", methods=["POST"])
 @admin_required
-@require_active_venue_member
 def admin_punish(user_id):
     from admin_scope import assert_user_in_venue
     from admin_auth import is_super_admin
@@ -2323,7 +2320,6 @@ def admin_punish(user_id):
 
 @app.route("/api/admin/user/<user_id>", methods=["DELETE"])
 @admin_required
-@require_active_venue_member
 def admin_delete_user(user_id):
     from admin_scope import assert_user_in_venue
     from admin_auth import is_super_admin
@@ -2391,7 +2387,7 @@ def admin_tables():
         )
         return _ok(enrich_tables(tables))
     if not has_permission("table_manage"):
-        return _err("球房未开通会员，无法管理桌台", 403, 403)
+        return _err("无权管理桌台", 403, 403)
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     if not name:
@@ -2446,7 +2442,7 @@ def _assert_table_access(table: dict):
     if is_super_admin():
         return
     if not has_permission("table_manage"):
-        raise ValueError("球房未开通会员，无法管理桌台")
+        raise ValueError("无权管理桌台")
 
 
 @app.route("/api/admin/table/<table_id>", methods=["PUT", "DELETE"])
@@ -2571,7 +2567,6 @@ def admin_table_qrcode_png(table_id):
 
 @app.route("/api/admin/table/<table_id>/open", methods=["POST"])
 @admin_required
-@require_active_venue_member
 def admin_open_table(table_id):
     t = find_by_id(load("tables"), table_id)
     if t:
@@ -3162,7 +3157,6 @@ def mp_admin_pending_summary():
 
 @app.route("/api/admin/user/<user_id>/promote-admin", methods=["POST"])
 @admin_required
-@require_active_venue_member
 def admin_promote_player_admin(user_id):
     from admin_auth import is_super_admin
     from mp_admin_service import promote_player_to_sub_admin
@@ -3193,7 +3187,6 @@ def admin_promote_player_admin(user_id):
 
 @app.route("/api/admin/user/<user_id>/demote-admin", methods=["POST"])
 @admin_required
-@require_active_venue_member
 def admin_demote_player_admin(user_id):
     from admin_auth import is_super_admin
     from mp_admin_service import get_venue_admin_by_user_id, remove_sub_admin
@@ -3273,7 +3266,6 @@ def mp_admin_staff_invite_qr():
 
 @app.route("/api/mp-admin/venue/join-qr", methods=["POST"])
 @mp_admin_required
-@require_active_venue_member
 def mp_admin_venue_join_qr():
     from mp_admin_service import create_venue_join_qr
 

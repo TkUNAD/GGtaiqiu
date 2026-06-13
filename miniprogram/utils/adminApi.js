@@ -330,6 +330,12 @@ function canWrite(session) {
   return !!session.is_member_active;
 }
 
+/** 玩家管理：会员到期后仍可使用全部功能 */
+function canManageUsers(session) {
+  if (!session) return false;
+  return isSuperSession(session) || session.role === 'venue' || session.console_type === 'venue';
+}
+
 function hasPerm(session, key) {
   if (!session) return false;
   if (isSuperSession(session)) return true;
@@ -357,5 +363,6 @@ module.exports = {
   persistAdminTokens,
   getAdminAccessToken,
   canWrite,
+  canManageUsers,
   hasPerm,
 };

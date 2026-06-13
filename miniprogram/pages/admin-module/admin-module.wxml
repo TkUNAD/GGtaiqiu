@@ -47,17 +47,7 @@
       <view class="list-meta">{{venueLocationSummary || '加载中…'}}</view>
       <view class="venue-loc-field">
         <text class="venue-loc-label">详细地址</text>
-        <input class="venue-loc-input" placeholder="如：广州市天河区XX路XX号" value="{{venueLocationAddress}}" bindinput="onVenueAddressInput" />
-      </view>
-      <view class="venue-loc-coord-row">
-        <view class="venue-loc-field venue-loc-half">
-          <text class="venue-loc-label">纬度</text>
-          <input class="venue-loc-input" type="digit" placeholder="23.129080" value="{{venueLocationLat}}" bindinput="onVenueLatInput" />
-        </view>
-        <view class="venue-loc-field venue-loc-half">
-          <text class="venue-loc-label">经度</text>
-          <input class="venue-loc-input" type="digit" placeholder="113.264385" value="{{venueLocationLng}}" bindinput="onVenueLngInput" />
-        </view>
+        <textarea class="venue-loc-textarea" placeholder="如：广州市天河区XX路XX号" value="{{venueLocationAddress}}" bindinput="onVenueAddressInput" auto-height maxlength="200" />
       </view>
       <view class="row-actions venue-loc-actions">
         <button class="btn-primary venue-loc-btn" bindtap="chooseVenueLocationOnMap">在地图上选点</button>
@@ -169,10 +159,10 @@
 
   <!-- 玩家管理 -->
   <block wx:elif="{{module === 'users'}}">
-    <view class="toolbar" wx:if="{{!isSuperConsole && canWrite}}">
+    <view class="toolbar" wx:if="{{!isSuperConsole && canManageUsers}}">
       <button size="mini" class="btn-mini-ok" bindtap="showVenueJoinQr">生成加入二维码</button>
     </view>
-    <view class="admin-tip" wx:if="{{!isSuperConsole && canWrite}}" style="padding:0 24rpx 16rpx">
+    <view class="admin-tip" wx:if="{{!isSuperConsole && canManageUsers}}" style="padding:0 24rpx 16rpx">
       玩家扫描「加入二维码」后将自动打开小程序并加入本俱乐部，随后可在本列表中管理。
     </view>
     <view class="admin-tip" wx:if="{{canPromotePlayers && !isSuperConsole}}" style="padding:16rpx 24rpx">
@@ -189,7 +179,7 @@
       <view class="list-meta">ID {{item.id}}</view>
       <view class="list-meta" wx:if="{{item.adminRoleLabel}}">身份：{{item.adminRoleLabel}}</view>
       <view class="list-meta" wx:elif="{{!item.has_wechat && canPromotePlayers}}">未微信授权，暂不可设为管理员</view>
-      <view class="list-meta" wx:if="{{!isSuperConsole && canWrite}}">
+      <view class="list-meta" wx:if="{{!isSuperConsole && canManageUsers}}">
         自动审核：
         <text class="auto-flag {{item.auto_review_bonus ? 'on' : ''}}" data-id="{{item.id}}" data-kind="bonus" bindtap="toggleUserAutoReview">炸接清{{item.auto_review_bonus ? '开' : '关'}}</text>
         <text class="auto-flag {{item.auto_review_shutout ? 'on' : ''}}" data-id="{{item.id}}" data-kind="shutout" bindtap="toggleUserAutoReview">零封{{item.auto_review_shutout ? '开' : '关'}}</text>
@@ -212,7 +202,7 @@
           bindtap="demotePlayer"
         >取消子管理员</button>
       </view>
-      <view class="row-actions" wx:if="{{canWrite}}">
+      <view class="row-actions" wx:if="{{canManageUsers}}">
         <button size="mini" class="btn-mini-ok" wx:if="{{isSuperConsole && item.openid && !item.mp_super_allowlisted}}" data-id="{{item.id}}" bindtap="grantMpSuperWechat">授权总后台</button>
         <button size="mini" class="btn-mini-gray" data-id="{{item.id}}" bindtap="adjustScore">调分</button>
         <button size="mini" class="btn-mini-no" data-id="{{item.id}}" data-action="ban" bindtap="punishUser">封禁</button>

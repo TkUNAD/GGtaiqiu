@@ -43,6 +43,7 @@ Page({
     isSuperConsole: false,
     loading: true,
     canWrite: false,
+    canManageUsers: false,
     canReview: true,
     canTable: false,
     canLadder: false,
@@ -145,6 +146,7 @@ Page({
       session,
       isSuperConsole: isSuper,
       canWrite,
+      canManageUsers: adminApi.canManageUsers(session),
       canReview: isSuper || (!expired),
       canTable: isSuper || adminApi.hasPerm(session, 'table_manage'),
       canLadder: isSuper || adminApi.hasPerm(session, 'ladder_settings'),
@@ -233,7 +235,7 @@ Page({
         venueLocationLng: d.longitude != null ? String(d.longitude) : '',
         venueLocationHas: has,
         venueLocationSummary: has
-          ? `${d.address || '未填地址'} · ${Number(d.latitude).toFixed(6)}, ${Number(d.longitude).toFixed(6)}`
+          ? (d.address || '未填地址')
           : '尚未设置坐标，顾客小程序将无法显示距离',
       });
     } catch (e) {
@@ -274,14 +276,6 @@ Page({
 
   onVenueAddressInput(e) {
     this.setData({ venueLocationAddress: (e.detail && e.detail.value) || '' });
-  },
-
-  onVenueLatInput(e) {
-    this.setData({ venueLocationLat: (e.detail && e.detail.value) || '' });
-  },
-
-  onVenueLngInput(e) {
-    this.setData({ venueLocationLng: (e.detail && e.detail.value) || '' });
   },
 
   async saveVenueLocation() {
@@ -439,7 +433,7 @@ Page({
   async toggleUserAutoReview(e) {
     const { id, kind } = e.currentTarget.dataset;
     const u = (this.data.userList || []).find((x) => x.id === id);
-    if (!u || !this.data.canWrite) return;
+    if (!u || !this.data.canManageUsers) return;
     const body = {};
     if (kind === 'bonus') body.auto_review_bonus = !u.auto_review_bonus;
     else body.auto_review_shutout = !u.auto_review_shutout;

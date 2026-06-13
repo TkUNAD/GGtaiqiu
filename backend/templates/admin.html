@@ -189,7 +189,14 @@
     .venue-map-wrap { height: 280px; border-radius: 8px; overflow: hidden; border: 1px solid #C4B5FD; margin: 10px 0; background: #EDE9FE; }
     .venue-map-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
     .venue-map-toolbar button { padding: 6px 12px; font-size: 12px; }
-    .venue-coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .venue-coord-row { display: none; }
+    .venue-location-block textarea#v_address {
+      width: 100%;
+      min-height: 88px;
+      box-sizing: border-box;
+      resize: vertical;
+      line-height: 1.5;
+    }
     .venue-location-status { font-size: 12px; color: #666; margin-top: 6px; }
     .venue-location-status.ok { color: #2E7D32; }
     .venue-location-status.warn { color: #c62828; }
@@ -1034,15 +1041,7 @@
         (v.note ? '<dt>备注</dt><dd>' + escapeHtml(v.note) + '</dd>' : '') +
         (v.cancel_reason ? '<dt>注销原因</dt><dd>' + escapeHtml(v.cancel_reason) + '</dd>' : '') +
         '<dt>球房地址</dt><dd>' + escapeHtml(v.address || '未设置') + '</dd>' +
-        '<dt>地图坐标</dt><dd>' + formatVenueCoordText(v.latitude, v.longitude) + '</dd>' +
         '</dl></div>';
-    }
-
-    function formatVenueCoordText(lat, lng) {
-      if (lat == null || lng == null || lat === '' || lng === '') {
-        return '<span style="color:#c62828">未设置（小程序无法显示距离）</span>';
-      }
-      return '<span class="pwd-val">' + Number(lat).toFixed(6) + ', ' + Number(lng).toFixed(6) + '</span>';
     }
 
     function buildVenueLocationFieldsHtml(v) {
@@ -1050,11 +1049,9 @@
       var lng = (v && v.longitude != null) ? String(v.longitude) : '';
       return '<div class="venue-location-block">' +
         '<h4>球房位置（请手动在地图上选点）</h4>' +
-        '<label>详细地址<input id="v_address" value="' + escapeHtml((v && v.address) || '') + '" placeholder="如：广州市天河区XX路XX号"></label>' +
-        '<div class="venue-coord-row">' +
-        '<label>纬度 latitude<input id="v_lat" type="number" step="0.000001" value="' + escapeHtml(lat) + '" placeholder="如 23.129080"></label>' +
-        '<label>经度 longitude<input id="v_lng" type="number" step="0.000001" value="' + escapeHtml(lng) + '" placeholder="如 113.264385"></label>' +
-        '</div>' +
+        '<label>详细地址<textarea id="v_address" rows="3" placeholder="如：广州市天河区XX路XX号">' + escapeHtml((v && v.address) || '') + '</textarea></label>' +
+        '<input type="hidden" id="v_lat" value="' + escapeHtml(lat) + '">' +
+        '<input type="hidden" id="v_lng" value="' + escapeHtml(lng) + '">' +
         '<div class="venue-map-toolbar">' +
         '<a class="secondary" style="padding:6px 12px;font-size:12px;text-decoration:none;display:inline-block" href="https://lbs.amap.com/tools/picker" target="_blank" rel="noopener">高德坐标拾取</a>' +
         '<button type="button" class="secondary" onclick="useBrowserLocationForVenue()" title="仅供参考，室内常不准">参考本机定位（可能不准）</button>' +
@@ -1168,7 +1165,7 @@
       var lat = parseFloat(latRaw);
       var lng = parseFloat(lngRaw);
       if (!isFinite(lat) || !isFinite(lng)) {
-        throw new Error('请填写有效的纬度与经度，或在地图上点击选点');
+        throw new Error('请在地图上点击选点');
       }
       if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
         throw new Error('经纬度超出有效范围');
@@ -1187,8 +1184,7 @@
         var d = await api('/api/admin/venue/location');
         if (d.has_location) {
           summary.className = 'venue-location-status ok';
-          summary.textContent = '已设置：' + (d.address || '（未填地址）') + ' · ' +
-            Number(d.latitude).toFixed(6) + ', ' + Number(d.longitude).toFixed(6);
+          summary.textContent = '已设置：' + (d.address || '（未填地址）');
         } else {
           summary.className = 'venue-location-status warn';
           summary.textContent = '尚未设置坐标，请点击下方按钮配置；顾客打开小程序后将无法显示距离。';
@@ -1315,20 +1311,18 @@
       var tablesTip = document.getElementById('tablesQrTip');
       if (btnAdd) {
         btnAdd.style.display = '';
-        btnAdd.disabled = _venueExpiredMode || !canTable;
-        btnAdd.classList.toggle('ops-disabled', _venueExpiredMode || !canTable);
+        btnAdd.disabled = !canTable;
+        btnAdd.classList.toggle('ops-disabled', !canTable);
       }
       if (tablesTip) {
-        tablesTip.innerHTML = _venueExpiredMode
-          ? '会员已到期：二维码<strong>可正常扫码</strong>，可点击放大或下载；不可改名、开台、改链接等操作。'
-          : '点击下方<strong>二维码图片</strong>可放大、改链接、下载打印';
+        tablesTip.innerHTML = '点击下方<strong>二维码图片</strong>可放大、改链接、下载打印';
       }
       var userToolbar = document.querySelector('#tab-users .toolbar');
       if (userToolbar) {
         userToolbar.querySelectorAll('button').forEach(function(b) {
           b.style.display = '';
-          b.disabled = _venueExpiredMode;
-          b.classList.toggle('ops-disabled', _venueExpiredMode);
+          b.disabled = false;
+          b.classList.remove('ops-disabled');
         });
       }
       var resetDesc = document.getElementById('resetAllDesc');
@@ -1712,50 +1706,43 @@
             ? '<span class="badge badge-red">' + vcount + '次</span>'
             : (vcount > 0 ? '<span class="badge badge-yellow">' + vcount + '次</span>' : '0');
           var ops = '';
-          if (_venueExpiredMode && adminSession && adminSession.role !== 'super') {
-            ops = '<span class="ops-disabled" style="font-size:12px;color:#999">会员已到期，不可操作</span>';
+          ops = '<div class="btn-group">';
+          ops += '<button type="button" data-act="adjust" data-uid="' + uid + '">调分</button> ';
+          if (u.status === 'banned' || u.ban_permanent) {
+            ops += '<button type="button" data-act="unban" data-uid="' + uid + '">解封</button> ';
           } else {
-            ops = '<div class="btn-group">';
-            ops += '<button type="button" data-act="adjust" data-uid="' + uid + '">调分</button> ';
-            if (u.status === 'banned' || u.ban_permanent) {
-              ops += '<button type="button" data-act="unban" data-uid="' + uid + '">解封</button> ';
-            } else {
-              ops += '<button type="button" class="danger" data-act="cheat" data-uid="' + uid + '">记作弊</button> ';
-              ops += '<button type="button" class="danger" data-act="perm" data-uid="' + uid + '">永久封禁</button> ';
-              ops += '<button type="button" data-act="ban" data-uid="' + uid + '">封禁</button> ';
-              ops += '<button type="button" data-act="reset" data-uid="' + uid + '">重置积分</button> ';
-            }
-            ops += '<button type="button" class="danger" data-act="delete" data-uid="' + uid + '">删除</button>';
-            if (adminSession && adminSession.role === 'super' && u.openid && !u.mp_super_allowlisted) {
-              ops += ' <button type="button" data-act="mp-super-allow" data-uid="' + uid + '">授权小程序总后台</button>';
-            }
-            if (adminSession && adminSession.role === 'venue') {
-              if (u.can_promote) {
-                ops += ' <button type="button" data-act="promote-admin" data-uid="' + uid + '">设为子管理员</button>';
-              } else if (u.venue_admin_role === 'owner') {
-                ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">主管理员</span>';
-              } else if (u.is_venue_admin) {
-                ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">已是管理员</span>';
-              } else if (!u.has_wechat) {
-                ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">未微信授权</span>';
-              }
-              if (u.can_demote_admin) {
-                ops += ' <button type="button" class="danger" data-act="demote-admin" data-uid="' + uid + '">取消子管理员</button>';
-              }
-            }
-            ops += '</div>';
+            ops += '<button type="button" class="danger" data-act="cheat" data-uid="' + uid + '">记作弊</button> ';
+            ops += '<button type="button" class="danger" data-act="perm" data-uid="' + uid + '">永久封禁</button> ';
+            ops += '<button type="button" data-act="ban" data-uid="' + uid + '">封禁</button> ';
+            ops += '<button type="button" data-act="reset" data-uid="' + uid + '">重置积分</button> ';
           }
+          ops += '<button type="button" class="danger" data-act="delete" data-uid="' + uid + '">删除</button>';
+          if (adminSession && adminSession.role === 'super' && u.openid && !u.mp_super_allowlisted) {
+            ops += ' <button type="button" data-act="mp-super-allow" data-uid="' + uid + '">授权小程序总后台</button>';
+          }
+          if (adminSession && adminSession.role === 'venue') {
+            if (u.can_promote) {
+              ops += ' <button type="button" data-act="promote-admin" data-uid="' + uid + '">设为子管理员</button>';
+            } else if (u.venue_admin_role === 'owner') {
+              ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">主管理员</span>';
+            } else if (u.is_venue_admin) {
+              ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">已是管理员</span>';
+            } else if (!u.has_wechat) {
+              ops += ' <span class="ops-disabled" style="font-size:12px;color:#999">未微信授权</span>';
+            }
+            if (u.can_demote_admin) {
+              ops += ' <button type="button" class="danger" data-act="demote-admin" data-uid="' + uid + '">取消子管理员</button>';
+            }
+          }
+          ops += '</div>';
           var autoCol = '';
-          if (adminSession && adminSession.role === 'venue' && !_venueExpiredMode) {
+          if (adminSession && adminSession.role === 'venue') {
             var bOn = u.auto_review_bonus ? 'on' : '';
             var sOn = u.auto_review_shutout ? 'on' : '';
             autoCol = '<td class="venue-only-col"><button type="button" class="toggle-pill ' + bOn + '" data-act="auto-bonus" data-uid="' + uid + '" title="炸清/接清自动通过">炸接清</button> ' +
               '<button type="button" class="toggle-pill ' + sOn + '" data-act="auto-shutout" data-uid="' + uid + '" title="零封结束自动通过">零封</button></td>';
-          } else if (adminSession && adminSession.role === 'venue') {
-            autoCol = '<td class="venue-only-col">-</td>';
           }
-          var userCb = (_venueExpiredMode && adminSession && adminSession.role !== 'super')
-            ? '<td></td>' : '<td><input type="checkbox" class="user-cb" data-id="' + uid + '" onchange="updateUserSelectHint()"></td>';
+          var userCb = '<td><input type="checkbox" class="user-cb" data-id="' + uid + '" onchange="updateUserSelectHint()"></td>';
           return '<tr>' + userCb +
             '<td>' + escapeHtml(u.nickname) + '</td><td>' + escapeHtml(u.phone || '-') + '</td><td>' + (u.score != null ? u.score : 0) + '</td>' +
             '<td>' + escapeHtml(u.tier ? u.tier.tier_name : '') + '</td><td>' + u.rank + '</td>' +
@@ -1917,19 +1904,14 @@
           tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">暂无桌台</td></tr>';
           return;
         }
-        var expiredVenue = _venueExpiredMode && adminSession && adminSession.role !== 'super';
         tbody.innerHTML = list.map(t => {
           const scene = tableQrScene(t);
           const link = t.qr_link || tableDefaultLink(t);
           const short = scene.length > 32 ? scene.slice(0, 32) + '...' : scene;
           const tid = attrEsc(t.id);
           const qrSrc = qrImageUrl(t.id);
-          var qrCell = expiredVenue
-            ? '<img class="qr-thumb qr-view-only" src="' + qrSrc + '" data-qr-url="' + attrEsc(qrSrc) + '" alt="QR" data-act="qr-view" data-tid="' + tid + '" title="点击查看系统二维码">'
-            : '<img class="qr-thumb" src="' + qrSrc + '" data-qr-url="' + attrEsc(qrSrc) + '" alt="QR" data-act="qr" data-tid="' + tid + '" style="cursor:pointer">';
-          var ops = expiredVenue
-            ? '<button type="button" data-act="qr-view" data-tid="' + tid + '">查看二维码</button>'
-            : '<div class="btn-group">' +
+          var qrCell = '<img class="qr-thumb" src="' + qrSrc + '" data-qr-url="' + attrEsc(qrSrc) + '" alt="QR" data-act="qr" data-tid="' + tid + '" style="cursor:pointer">';
+          var ops = '<div class="btn-group">' +
               '<button type="button" data-act="qr" data-tid="' + tid + '">二维码</button>' +
               '<button type="button" data-act="edit" data-tid="' + tid + '">改名</button>' +
               (t.opened ? '<button type="button" class="secondary" data-act="toggle-close" data-tid="' + tid + '">关台</button>' :
@@ -2018,7 +2000,7 @@
     }
 
     function showTableQr(id, readOnly) {
-      readOnly = readOnly || (_venueExpiredMode && adminSession && adminSession.role !== 'super');
+      readOnly = false;
       const t = _tablesCache.find(x => x.id === id);
       if (!t) { alert('请先点击刷新'); return; }
       const scene = tableQrScene(t);
@@ -2743,7 +2725,7 @@
       var exp = (d.member_expires_date || (d.member_expires_at || '').slice(0, 10) || '未设置');
       statusEl.innerHTML = active
         ? '<span class="badge badge-green">会员有效</span> 到期日：<strong>' + escapeHtml(exp) + '</strong>'
-        : '<span class="badge badge-red">会员已过期</span> 到期日：<strong>' + escapeHtml(exp) + '</strong>，续费后恢复全部功能';
+        : '<span class="badge badge-red">会员已过期</span> 到期日：<strong>' + escapeHtml(exp) + '</strong>，桌台与玩家管理仍可用，续费后恢复全部功能';
       window._membershipPlans = d.membership_plans || [];
     }
 

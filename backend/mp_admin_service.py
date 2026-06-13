@@ -301,7 +301,7 @@ def build_mp_admin_session_info(admin_rec: Dict) -> Dict:
         "console_type": "venue",
     }
     if not active and venue:
-        info["member_tip"] = "俱乐部会员已过期：仅可查看仪表盘、玩家、桌台"
+        info["member_tip"] = "俱乐部会员已过期：桌台管理与玩家管理仍可使用，续费后恢复全部功能"
     return info
 
 
@@ -515,7 +515,7 @@ def build_admin_menu(session_info: Dict) -> List[Dict]:
         return row
 
     table_desc = "开台与二维码" if perms.get("table_manage") else "仅查看"
-    user_desc = "调分·设子管理员" if not expired else "仅查看"
+    user_desc = "调分·设子管理员"
     return [
         venue_item("dashboard", "仪表盘", "本俱乐部数据概览"),
         venue_item("venue_location", "球房位置", "地图手动选点·更准确"),

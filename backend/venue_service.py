@@ -58,7 +58,7 @@ def is_member_active(venue: Dict) -> bool:
 def venue_permissions(venue: Dict) -> Dict[str, bool]:
     active = is_member_active(venue)
     return {
-        PERM_TABLE_MANAGE: active,
+        PERM_TABLE_MANAGE: True,
         PERM_LADDER_SETTINGS: active,
         PERM_AD_BLOCK: active,
     }
