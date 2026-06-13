@@ -77,6 +77,23 @@
   margin: 0 auto 16rpx;
   border: 4rpx solid rgba(212, 175, 55, 0.45);
   box-shadow: 0 8rpx 28rpx rgba(212, 175, 55, 0.18);
+  display: block;
+}
+.avatar-picker-btn {
+  padding: 0;
+  margin: 0 auto 8rpx;
+  background: transparent;
+  border: none;
+  line-height: 1;
+  width: 120rpx;
+  height: 120rpx;
+}
+.avatar-picker-btn::after { border: none; }
+.avatar-change-tip {
+  display: block;
+  font-size: 22rpx;
+  color: #8b92a8;
+  margin-bottom: 12rpx;
 }
 .avatar-fallback {
   display: flex;

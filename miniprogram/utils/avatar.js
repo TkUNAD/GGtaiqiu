@@ -21,22 +21,33 @@ function _toHttpsIfProdHost(url) {
   return url;
 }
 
+function _ownServerAvatarUrl(u) {
+  if (!u) return '';
+  if (u.startsWith('/assets/')) return u;
+  const base = getApiBaseUrl().replace(/\/$/, '');
+  const prod = (PROD_API || 'https://ggtaiqiu.com').replace(/\/$/, '');
+  if (u.startsWith('/static/')) return base + u;
+  let remote = u;
+  if (remote.startsWith('http://')) remote = _toHttpsIfProdHost(remote);
+  if (!remote.startsWith('https://')) return '';
+  const host = remote.replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+  const prodHost = prod.replace(/^https?:\/\//i, '').toLowerCase();
+  if ((host === prodHost || host.endsWith('.' + prodHost)) && remote.indexOf('/static/') >= 0) {
+    return remote;
+  }
+  return '';
+}
+
 function resolveDisplayAvatar(url, options) {
   const opts = options || {};
   let u = (url || '').trim();
+  const own = _ownServerAvatarUrl(u);
+  if (own) return own;
   if (!u || isEphemeralAvatar(u)) {
     if (opts.allowLocal && u && !isEphemeralAvatar(u)) return u;
     return DEFAULT_AVATAR;
   }
-
-  const base = getApiBaseUrl().replace(/\/$/, '');
-  const prod = (PROD_API || 'https://ggtaiqiu.com').replace(/\/$/, '');
-  u = u.replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, prod);
-
-  if (u.startsWith('/assets/')) return u;
-  if (u.startsWith('/static/')) return base + u;
-  if (u.startsWith('http://')) return _toHttpsIfProdHost(u);
-  if (u.startsWith('https://')) return u;
+  // 微信 CDN 等外链不在 downloadFile 白名单，统一回退默认图
   return DEFAULT_AVATAR;
 }
 

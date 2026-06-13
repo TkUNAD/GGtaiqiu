@@ -72,8 +72,8 @@ Page({
         user: app.globalData.user,
       });
       if (app.globalData.user) {
-        app.globalData.user = { ...app.globalData.user, ...user };
-        wx.setStorageSync('user', app.globalData.user);
+        const merged = { ...app.globalData.user, ...user };
+        app.setUser(merged, app.globalData.token, app.globalData.refreshToken);
       }
       this.checkAdminEligibility();
     } catch (e) {
@@ -228,5 +228,39 @@ Page({
         user: { ...profile.user, avatar: DEFAULT_AVATAR },
       },
     });
+  },
+
+  async onChangeAvatar(e) {
+    const url = e.detail && e.detail.avatarUrl;
+    if (!url || !app.globalData.token) return;
+    wx.showLoading({ title: '上传头像...', mask: true });
+    try {
+      const data = await api.updateAvatar(url);
+      const nickname = (this.data.profile && this.data.profile.user && this.data.profile.user.nickname) || '球友';
+      const av = buildAvatarDisplay(data.avatar || url, nickname, '球友');
+      const user = {
+        ...(app.globalData.user || {}),
+        ...(data.user || {}),
+        avatar: av.avatar,
+        nickname,
+      };
+      app.setUser(user, app.globalData.token, app.globalData.refreshToken);
+      const profile = this.data.profile;
+      if (profile) {
+        this.setData({
+          profile: {
+            ...profile,
+            user,
+            hasAvatar: av.hasAvatar,
+            avatarInitial: av.avatarInitial,
+          },
+        });
+      }
+      wx.hideLoading();
+      wx.showToast({ title: '头像已更新', icon: 'success' });
+    } catch (err) {
+      wx.hideLoading();
+      wx.showToast({ title: String(err), icon: 'none' });
+    }
   },
 });

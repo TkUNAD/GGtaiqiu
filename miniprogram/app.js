@@ -121,11 +121,15 @@ App({
       });
   },
   setUser(user, accessToken, refreshToken) {
-    this.globalData.user = user;
+    const { resolveDisplayAvatar } = require('./utils/avatar');
+    const normalized = user
+      ? { ...user, avatar: resolveDisplayAvatar(user.avatar) }
+      : user;
+    this.globalData.user = normalized;
     this.globalData.accessToken = accessToken || '';
     this.globalData.token = accessToken || '';
     if (refreshToken) this.globalData.refreshToken = refreshToken;
-    wx.setStorageSync('user', user);
+    wx.setStorageSync('user', normalized);
     wx.setStorageSync('access_token', accessToken || '');
     wx.setStorageSync('token', accessToken || '');
     if (refreshToken) wx.setStorageSync('refresh_token', refreshToken);

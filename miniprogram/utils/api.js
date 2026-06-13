@@ -1,5 +1,5 @@
 const { getApiBaseUrl } = require('./config');
-const { readLocalAvatarBase64, isEphemeralAvatar } = require('./avatar');
+const { readLocalAvatarBase64, isEphemeralAvatar, resolveDisplayAvatar, DEFAULT_AVATAR } = require('./avatar');
 
 function getAppSafe() {
   return getApp();
@@ -165,11 +165,21 @@ function hasWxProfileAuthorized() {
   return !!wx.getStorageSync(WX_PROFILE_AUTH_KEY);
 }
 
+function normalizeUserAvatar(user) {
+  if (!user) return user;
+  return {
+    ...user,
+    avatar: resolveDisplayAvatar(user.avatar),
+  };
+}
+
 function saveLastProfile(user) {
   if (!user || !user.nickname) return;
+  const av = (user.avatar || '').trim();
+  const storedAv = av && av !== DEFAULT_AVATAR && !av.startsWith('/assets/') ? av : '';
   wx.setStorageSync(WX_LAST_PROFILE_KEY, {
     nickname: user.nickname,
-    avatar: user.avatar || '',
+    avatar: storedAv,
   });
 }
 
@@ -231,8 +241,9 @@ function loginWithProfile(nickname, avatar) {
             .then((data) => {
               const app = getAppSafe();
               persistTokens(data);
-              if (app) app.setUser(data.user, data.access_token, data.refresh_token);
-              saveLastProfile(data.user);
+              const user = normalizeUserAvatar(data.user);
+              if (app) app.setUser(user, data.access_token, data.refresh_token);
+              saveLastProfile(user);
               markWxProfileAuthorized();
               wx.hideLoading();
               resolve(data);
@@ -242,8 +253,15 @@ function loginWithProfile(nickname, avatar) {
               reject(err);
             });
         };
-        if (isEphemeralAvatar(av)) {
-          readLocalAvatarBase64(av).then((b64) => sendLogin(prepareBody(b64)));
+        if (av && isEphemeralAvatar(av)) {
+          readLocalAvatarBase64(av).then((b64) => {
+            if (!b64) {
+              wx.hideLoading();
+              reject('头像读取失败，请重新选择头像后登录');
+              return;
+            }
+            sendLogin(prepareBody(b64));
+          });
         } else {
           sendLogin(prepareBody(''));
         }
@@ -329,7 +347,11 @@ function login() {
       wx.showLoading({ title: '登录中...', mask: true });
       request('/api/user/profile')
         .then((profile) => {
-          const u = { ...profile.user, tier: profile.tier, rank: profile.rank };
+          const u = normalizeUserAvatar({
+            ...profile.user,
+            tier: profile.tier,
+            rank: profile.rank,
+          });
           if (app) app.setUser(u, token, refresh);
           saveLastProfile(u);
           markWxProfileAuthorized();
@@ -370,6 +392,22 @@ function ping() {
   return request('/api/health');
 }
 
+function updateAvatar(avatar) {
+  const av = (avatar || '').trim();
+  const send = (avatarBase64) => {
+    const body = { avatar: av };
+    if (avatarBase64) {
+      body.avatar_base64 = avatarBase64;
+      if (isEphemeralAvatar(av)) body.avatar = '';
+    }
+    return request('/api/user/avatar', 'POST', body);
+  };
+  if (isEphemeralAvatar(av)) {
+    return readLocalAvatarBase64(av).then((b64) => send(b64));
+  }
+  return send('');
+}
+
 module.exports = {
   request,
   login,
@@ -378,6 +416,7 @@ module.exports = {
   loginWithProfile,
   logout,
   ping,
+  updateAvatar,
   hasWxProfileAuthorized,
   markWxProfileAuthorized,
   tryRefreshToken,

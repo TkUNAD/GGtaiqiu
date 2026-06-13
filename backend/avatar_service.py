@@ -195,8 +195,45 @@ def normalize_stored_avatar(user_id: str, avatar: str, avatar_base64: str = "") 
         try:
             return cache_avatar_for_user(user_id, a, persist=True)
         except Exception:
-            return sanitize_avatar_for_storage(a)
+            return ""
     return ""
+
+
+def persist_login_profile(
+    user_id: str,
+    nickname: str = "",
+    avatar: str = "",
+    avatar_base64: str = "",
+) -> None:
+    """登录时把昵称与头像写入用户表，头像文件保存到 static/uploads/avatars。"""
+    from db import find_by_id, mutate, now_iso
+
+    nick = (nickname or "").strip()
+    av = (avatar or "").strip()
+    b64 = (avatar_base64 or "").strip()
+    stored_av = normalize_stored_avatar(user_id, av, avatar_base64=b64)
+
+    def _fn(users):
+        u = find_by_id(users, user_id)
+        if not u:
+            raise ValueError("用户不存在")
+        if nick:
+            u["nickname"] = nick
+        if stored_av:
+            u["avatar"] = stored_av
+        elif b64:
+            pass
+        elif _is_ephemeral_avatar(av):
+            if _is_ephemeral_avatar(u.get("avatar") or ""):
+                u["avatar"] = ""
+        elif av:
+            clean = sanitize_avatar_for_storage(av)
+            if clean:
+                u["avatar"] = clean
+        u["updated_at"] = now_iso()
+        return users
+
+    mutate("users", _fn)
 
 
 def sanitize_avatar_for_storage(url: str) -> str:
@@ -213,27 +250,23 @@ def sanitize_avatar_for_storage(url: str) -> str:
 
 def client_avatar_url(stored: str, request=None) -> str:
     u = _normalize_stored_path(stored)
-    if not u:
+    if not u or not u.startswith("/static/"):
         return ""
     base = _public_base_url(request)
-    if u.startswith("/static/"):
-        return f"{base}{u}"
-    if u.startswith("http://"):
-        host = urlparse(u).netloc.lower()
-        if host == _public_host():
-            return "https://" + u[7:]
-        return u
-    if u.startswith("https://"):
-        return u
-    return ""
+    return f"{base}{u}"
 
 
 def resolve_user_avatar_for_client(user: Optional[Dict], request=None) -> str:
     uid = (user or {}).get("id") or ""
     stored = (user or {}).get("avatar") or ""
+    if not uid and not stored:
+        return ""
     local = cache_avatar_for_user(uid, stored, persist=True) if uid else _normalize_stored_path(stored)
     rel = local or _normalize_stored_path(stored)
     if rel.startswith("/static/uploads/avatars/") and uid:
-        if not (AVATAR_DIR / f"{uid}.jpg").is_file():
-            return ""
-    return client_avatar_url(rel or stored, request)
+        if (AVATAR_DIR / f"{uid}.jpg").is_file():
+            return client_avatar_url(rel, request)
+        return ""
+    if rel.startswith("/static/"):
+        return client_avatar_url(rel, request)
+    return ""

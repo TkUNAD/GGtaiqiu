@@ -563,7 +563,6 @@ def admin_reset_data(
 
 def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone: str = "", ip: str = "") -> Dict:
     from anti_cheat import check_user_allowed
-    from avatar_service import is_ephemeral_avatar, sanitize_avatar_for_storage
 
     ok, msg = check_ip_limit(ip, openid)
     if not ok:
@@ -582,12 +581,7 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
             u["last_login_at"] = now_iso()
             if nickname:
                 u["nickname"] = nickname
-            if avatar:
-                clean = sanitize_avatar_for_storage(avatar)
-                if clean:
-                    u["avatar"] = clean
-                elif is_ephemeral_avatar(u.get("avatar") or ""):
-                    u["avatar"] = ""
+                u["updated_at"] = now_iso()
             if phone:
                 okp, msgp = check_phone_unique(phone, u["id"])
                 if not okp:
@@ -605,7 +599,7 @@ def get_or_create_user(openid: str, nickname: str = "", avatar: str = "", phone:
             "id": new_id("U"),
             "openid": openid,
             "nickname": nickname or f"球友{openid[-4:]}",
-            "avatar": sanitize_avatar_for_storage(avatar) if avatar else "",
+            "avatar": "",
             "phone": phone or "",
             "score": INITIAL_SCORE,
             "wins": 0,

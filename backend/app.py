@@ -547,37 +547,18 @@ def auth_login():
         user = get_or_create_user(
             openid,
             nickname=nickname,
-            avatar=avatar,
             phone=data.get("phone", ""),
             ip=_client_ip(),
         )
-        from avatar_service import normalize_stored_avatar
+        from avatar_service import persist_login_profile
 
-        stored_av = normalize_stored_avatar(
-            user["id"], avatar, avatar_base64=avatar_base64
+        persist_login_profile(
+            user["id"],
+            nickname=nickname,
+            avatar=avatar,
+            avatar_base64=avatar_base64,
         )
-        from avatar_service import is_ephemeral_avatar
-
-        if stored_av and stored_av != user.get("avatar"):
-
-            def _set_av(users):
-                u = find_by_id(users, user["id"])
-                if u:
-                    u["avatar"] = stored_av
-                return users
-
-            mutate("users", _set_av)
-            user = find_by_id(load("users"), user["id"]) or user
-        elif is_ephemeral_avatar(user.get("avatar") or ""):
-
-            def _clear_av(users):
-                u = find_by_id(users, user["id"])
-                if u:
-                    u["avatar"] = ""
-                return users
-
-            mutate("users", _clear_av)
-            user = find_by_id(load("users"), user["id"]) or user
+        user = find_by_id(load("users"), user["id"]) or user
     except ValueError as e:
         return _err(str(e))
     from mp_admin_service import sync_venue_admin_bindings_for_user
@@ -1525,6 +1506,36 @@ def update_nickname():
     tier = get_tier(u["score"])
     rank = get_user_rank(users, u["id"])
     return _ok({"user": {**u, "tier": tier, "rank": rank}})
+
+
+@app.route("/api/user/avatar", methods=["POST"])
+def update_user_avatar():
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    data = request.get_json(silent=True) or {}
+    avatar = (data.get("avatar") or "").strip()
+    avatar_base64 = (data.get("avatar_base64") or "").strip()
+    from avatar_service import normalize_stored_avatar, resolve_user_avatar_for_client
+
+    stored_av = normalize_stored_avatar(user["id"], avatar, avatar_base64=avatar_base64)
+
+    def _fn(users):
+        u = find_by_id(users, user["id"])
+        if not u:
+            raise ValueError("用户不存在")
+        u["avatar"] = stored_av
+        u["updated_at"] = now_iso()
+        return users
+
+    try:
+        mutate("users", _fn)
+    except ValueError as e:
+        return _err(str(e))
+    users = load("users")
+    u = find_by_id(users, user["id"]) or user
+    av = resolve_user_avatar_for_client(u, request)
+    return _ok({"avatar": av, "user": {**u, "avatar": av}})
 
 
 @app.route("/api/user/bind-phone", methods=["POST"])

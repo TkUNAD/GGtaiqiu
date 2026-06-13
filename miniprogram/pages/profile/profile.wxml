@@ -1,11 +1,14 @@
 <view class="container" wx:if="{{profile}}">
   <view class="card profile-card">
-    <image
-      class="avatar"
-      src="{{profile.user.avatar || '/assets/default-avatar.png'}}"
-      mode="aspectFill"
-      binderror="onProfileAvatarError"
-    />
+    <button class="avatar-picker-btn" open-type="chooseAvatar" bind:chooseavatar="onChangeAvatar">
+      <image
+        class="avatar"
+        src="{{profile.user.avatar || '/assets/default-avatar.png'}}"
+        mode="aspectFill"
+        binderror="onProfileAvatarError"
+      />
+    </button>
+    <text class="avatar-change-tip">点击头像可更换</text>
     <view class="name">{{profile.user.nickname}}</view>
     <view class="tier-line">
       <image class="tier-img tier-img-lg" src="{{profile.tierImage}}" mode="aspectFit" />
