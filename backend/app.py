@@ -51,8 +51,10 @@ from venue_service import (
     ensure_table_venue_ids,
     ensure_venues_file,
     filter_tables_for_session,
+    list_deleted_venues,
     list_venues,
     mobile_venue_status,
+    restore_venue,
     update_venue,
     authenticate_venue,
     get_venue_admin_detail,
@@ -1758,6 +1760,21 @@ def admin_update_venue(venue_id):
     data = request.get_json(silent=True) or {}
     try:
         return _ok(update_venue(venue_id, data))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/venues/deleted", methods=["GET"])
+@super_admin_required
+def admin_list_deleted_venues():
+    return _ok(list_deleted_venues())
+
+
+@app.route("/api/admin/venue/<venue_id>/restore", methods=["POST"])
+@super_admin_required
+def admin_restore_venue(venue_id):
+    try:
+        return _ok(restore_venue(venue_id))
     except ValueError as e:
         return _err(str(e))
 

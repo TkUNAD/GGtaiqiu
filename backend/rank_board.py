@@ -6,7 +6,7 @@ from admin_scope import users_linked_to_venue
 from db import find_by_id, load
 from db import _current_season_id
 from rating import build_leaderboard, get_tier
-from venue_service import DEFAULT_VENUE_ID
+from venue_service import DEFAULT_VENUE_ID, is_venue_deleted
 
 
 def _month_key() -> str:
@@ -176,6 +176,8 @@ def _user_venue_label(user_id: str) -> str:
     """选手主要所属俱乐部（用于全平台榜展示，不参与排名计算）"""
     names = []
     for v in load("venues"):
+        if is_venue_deleted(v):
+            continue
         vid = v.get("id", DEFAULT_VENUE_ID)
         if user_id in users_linked_to_venue(vid):
             names.append(v.get("name") or vid)

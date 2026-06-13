@@ -132,6 +132,7 @@ def super_dashboard_stats() -> Dict:
         ensure_table_venue_ids,
         ensure_venues_file,
         is_member_active,
+        is_venue_deleted,
     )
 
     ensure_venues_file()
@@ -149,6 +150,8 @@ def super_dashboard_stats() -> Dict:
     total_tables = 0
 
     for v in venues:
+        if is_venue_deleted(v):
+            continue
         vid = v["id"]
         tids = venue_table_ids(vid)
         all_table_ids |= tids
@@ -189,9 +192,9 @@ def super_dashboard_stats() -> Dict:
 
     return {
         "scope": "super",
-        "venues_count": len(venues),
+        "venues_count": len(venue_rows),
         "active_venues_count": active_venues,
-        "expired_venues_count": len(venues) - active_venues,
+        "expired_venues_count": len(venue_rows) - active_venues,
         "total_tables": total_tables,
         "total_member_count": len(all_member_ids),
         "total_member_score": total_member_score,
@@ -205,5 +208,5 @@ def super_dashboard_stats() -> Dict:
         "venues": venue_rows,
         # 兼容旧字段
         "total_score": total_member_score,
-        "products_count": len(venues),
+        "products_count": len(venue_rows),
     }

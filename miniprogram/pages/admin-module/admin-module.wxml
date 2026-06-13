@@ -261,6 +261,7 @@
   <block wx:elif="{{module === 'venues'}}">
     <view class="tabs">
       <text class="tab {{venueTab === 'list' ? 'active' : ''}}" data-tab="list" bindtap="switchVenueTab">球房列表</text>
+      <text class="tab {{venueTab === 'deleted' ? 'active' : ''}}" data-tab="deleted" bindtap="switchVenueTab">已删除</text>
       <text class="tab {{venueTab === 'apply' ? 'active' : ''}}" data-tab="apply" bindtap="switchVenueTab">申请审核</text>
     </view>
     <view class="toolbar" wx:if="{{venueTab === 'list' && canWrite}}">
@@ -284,6 +285,24 @@
         </view>
       </view>
       <view wx:if="{{!venueList.length}}" class="empty-hint">暂无球房</view>
+    </block>
+    <block wx:elif="{{venueTab === 'deleted'}}">
+      <view class="admin-tip" style="padding:16rpx 24rpx">删除后从小程序隐藏，桌台数据保留，可在此恢复</view>
+      <view class="toolbar">
+        <button size="mini" class="btn-mini-gray" bindtap="loadDeletedVenueList">刷新</button>
+      </view>
+      <view class="list-card" wx:for="{{deletedVenueList}}" wx:key="id">
+        <view class="list-head">
+          <text class="list-title">{{item.name}}</text>
+          <text class="tag tag-no">已删除</text>
+        </view>
+        <view class="list-meta">账号 {{item.username}} · 桌台 {{item.table_count || 0}} · 会员 {{item.member_count || 0}}</view>
+        <view class="list-meta">删除于 {{item.deletedShort}}</view>
+        <view class="row-actions" wx:if="{{canWrite}}">
+          <button size="mini" class="btn-mini-ok" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="restoreVenue">恢复</button>
+        </view>
+      </view>
+      <view wx:if="{{!deletedVenueList.length}}" class="empty-hint">暂无已删除会员</view>
     </block>
     <block wx:else>
       <view class="list-card" wx:for="{{venueAppList}}" wx:key="id">

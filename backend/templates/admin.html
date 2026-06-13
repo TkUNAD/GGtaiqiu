@@ -504,6 +504,15 @@
           <table><thead><tr><th>球房</th><th>手机号</th><th>登录密码</th><th>来源</th><th>账号状态</th><th>最后操作</th><th>台桌</th><th>会员数</th><th>到期</th><th>会员</th><th>操作</th></tr></thead>
             <tbody id="venueTable"></tbody></table>
         </div>
+        <div class="card" style="margin-top:16px">
+          <h3>已删除会员</h3>
+          <p style="font-size:13px;color:#666;margin-bottom:8px">删除后球房从小程序与会员列表隐藏，桌台数据保留；可在此恢复。</p>
+          <div class="toolbar">
+            <button type="button" class="secondary" onclick="loadDeletedVenues()">刷新</button>
+          </div>
+          <table><thead><tr><th>球房</th><th>手机号</th><th>台桌</th><th>会员数</th><th>删除时间</th><th>操作</th></tr></thead>
+            <tbody id="venueDeletedTable"></tbody></table>
+        </div>
       </div>
       <div id="tab-logs" class="tab-panel hidden">
         <div class="card">
@@ -1346,7 +1355,7 @@
       if (tab === 'tables') { bindTableTableEvents(); loadTables(); }
       if (tab === 'review') { bindReviewTabEvents(); loadReviewTab(); }
       if (tab === 'ladder') loadLadderSettings();
-      if (tab === 'venues') { bindVenueAppEvents(); bindVenueTableEvents(); loadVenueApplications(); loadVenues(); }
+      if (tab === 'venues') { bindVenueAppEvents(); bindVenueTableEvents(); bindVenueDeletedTableEvents(); loadVenueApplications(); loadVenues(); loadDeletedVenues(); }
       if (tab === 'products') loadProducts();
       if (tab === 'exchanges') { bindExchangeTableEvents(); loadExchanges(); }
       if (tab === 'logs') { bindLogTableEvents(); loadLogs(); }
@@ -2816,6 +2825,7 @@
     }
 
     var _venueTableBound = false;
+    var _venueDeletedTableBound = false;
 
     function bindVenueAppEvents() {
       var tbody = document.getElementById('venueAppTable');
@@ -2857,6 +2867,51 @@
         else if (act === 'venue-edit') editVenue(vid);
         else if (act === 'venue-delete') deleteVenue(vid);
       });
+    }
+
+    function bindVenueDeletedTableEvents() {
+      var tbody = document.getElementById('venueDeletedTable');
+      if (!tbody || _venueDeletedTableBound) return;
+      _venueDeletedTableBound = true;
+      tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn || !btn.dataset.vid) return;
+        if (btn.dataset.act === 'venue-restore') restoreVenue(btn.dataset.vid);
+      });
+    }
+
+    async function loadDeletedVenues() {
+      var tbody = document.getElementById('venueDeletedTable');
+      if (!tbody) return;
+      try {
+        var list = await api('/api/admin/venues/deleted');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="padding:12px;color:#666">暂无已删除会员</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(function(v) {
+          var vid = attrEsc(v.id);
+          var phone = v.apply_phone || v.username || '-';
+          var deletedAt = (v.deleted_at || '').slice(0, 19).replace('T', ' ') || '-';
+          return '<tr><td>' + escapeHtml(v.name) + '</td><td>' + escapeHtml(phone) +
+            '</td><td>' + (v.table_count || 0) + '</td><td>' + (v.member_count || 0) +
+            '</td><td>' + escapeHtml(deletedAt) + '</td><td>' +
+            '<button type="button" data-act="venue-restore" data-vid="' + vid + '">恢复</button></td></tr>';
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:red;padding:12px">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+      }
+    }
+
+    async function restoreVenue(id) {
+      if (!id) return;
+      if (!confirm('确定恢复该球房会员？恢复后将重新出现在会员列表与小程序。')) return;
+      try {
+        await api('/api/admin/venue/' + encodeURIComponent(id) + '/restore', { method: 'POST' });
+        loadVenues();
+        loadDeletedVenues();
+        alert('球房已恢复');
+      } catch (e) { alert(e.message || String(e)); }
     }
 
     async function loadVenues() {
@@ -2978,10 +3033,11 @@
 
     async function deleteVenue(id) {
       if (!id) return;
-      if (!confirm('确定删除该球房？\n须先删除该球房下所有桌台，默认球房不可删除。')) return;
+      if (!confirm('确定删除该球房会员？\n删除后可到「已删除会员」中查看或恢复，桌台数据会保留。')) return;
       try {
         await api('/api/admin/venue/' + encodeURIComponent(id), { method: 'DELETE' });
         loadVenues();
+        loadDeletedVenues();
         alert('球房已删除');
       } catch (e) { alert(e.message || String(e)); }
     }

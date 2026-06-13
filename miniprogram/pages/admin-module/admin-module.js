@@ -71,6 +71,7 @@ Page({
     inviteQr: '',
     venueTab: 'list',
     venueAppList: [],
+    deletedVenueList: [],
     venueDetailVisible: false,
     venueDetail: null,
     mpAllowList: [],
@@ -559,11 +560,22 @@ Page({
     const tab = e.currentTarget.dataset.tab || 'list';
     this.setData({ venueTab: tab });
     if (tab === 'apply') this.loadVenueApplications();
+    else if (tab === 'deleted') this.loadDeletedVenueList();
     else this.loadVenueList();
   },
 
   async loadVenues() {
-    await Promise.all([this.loadVenueList(), this.loadVenueApplications()]);
+    await Promise.all([this.loadVenueList(), this.loadVenueApplications(), this.loadDeletedVenueList()]);
+  },
+
+  async loadDeletedVenueList() {
+    const list = await adminApi.adminRequest('/api/admin/venues/deleted');
+    this.setData({
+      deletedVenueList: (list || []).map((v) => ({
+        ...v,
+        deletedShort: (v.deleted_at || '').slice(0, 19).replace('T', ' ') || '-',
+      })),
+    });
   },
 
   async loadVenueList() {
@@ -726,13 +738,34 @@ Page({
     const name = e.currentTarget.dataset.name || '';
     wx.showModal({
       title: '删除球房',
-      content: `确定删除「${name}」？不可恢复`,
+      content: `确定删除「${name}」？删除后可到「已删除」中恢复，桌台数据会保留。`,
       success: async (res) => {
         if (!res.confirm) return;
         try {
           await adminApi.adminRequest(`/api/admin/venue/${id}`, 'DELETE');
           wx.showToast({ title: '已删除', icon: 'success' });
           this.loadVenueList();
+          this.loadDeletedVenueList();
+        } catch (err) {
+          wx.showToast({ title: String(err), icon: 'none' });
+        }
+      },
+    });
+  },
+
+  restoreVenue(e) {
+    const id = e.currentTarget.dataset.id;
+    const name = e.currentTarget.dataset.name || '';
+    wx.showModal({
+      title: '恢复球房',
+      content: `确定恢复「${name}」？恢复后将重新出现在会员列表与小程序。`,
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await adminApi.adminRequest(`/api/admin/venue/${id}/restore`, 'POST');
+          wx.showToast({ title: '已恢复', icon: 'success' });
+          this.loadVenueList();
+          this.loadDeletedVenueList();
         } catch (err) {
           wx.showToast({ title: String(err), icon: 'none' });
         }

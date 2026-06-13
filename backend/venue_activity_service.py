@@ -55,6 +55,9 @@ def purge_inactive_mp_applied_venues() -> List[str]:
             continue
         if v.get("account_status") == "cancelled":
             continue
+        from venue_service import is_venue_deleted
+        if is_venue_deleted(v):
+            continue
         last = _parse_dt(v.get("last_activity_at") or v.get("approved_at") or v.get("created_at"))
         if not last or last >= cutoff:
             continue

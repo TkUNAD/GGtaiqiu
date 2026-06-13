@@ -20,6 +20,15 @@ ALL_PERMISSIONS = [PERM_TABLE_MANAGE, PERM_LADDER_SETTINGS, PERM_AD_BLOCK]
 VENUE_DISTANCE_WARN_METERS = 50
 
 
+def is_venue_deleted(venue: Optional[Dict]) -> bool:
+    return bool((venue or {}).get("deleted_at"))
+
+
+def get_venue_any(venue_id: str) -> Optional[Dict]:
+    ensure_venues_file()
+    return find_by_id(load("venues"), venue_id)
+
+
 def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """两点球面距离（米），坐标系 gcj02"""
     r = 6371000.0
@@ -97,6 +106,8 @@ def list_venues() -> List[Dict]:
     ensure_venues_file()
     result = []
     for v in load("venues"):
+        if is_venue_deleted(v):
+            continue
         row = venue_public_view(v, admin=True)
         tc, mc = _venue_counts(v["id"])
         row["table_count"] = tc
@@ -105,17 +116,35 @@ def list_venues() -> List[Dict]:
     return result
 
 
+def list_deleted_venues() -> List[Dict]:
+    ensure_venues_file()
+    result = []
+    for v in load("venues"):
+        if not is_venue_deleted(v):
+            continue
+        row = venue_public_view(v, admin=True)
+        row["deleted_at"] = v.get("deleted_at", "")
+        tc, mc = _venue_counts(v["id"])
+        row["table_count"] = tc
+        row["member_count"] = mc
+        result.append(row)
+    result.sort(key=lambda x: x.get("deleted_at") or "", reverse=True)
+    return result
+
+
 def find_venue_by_username(username: str) -> Optional[Dict]:
     ensure_venues_file()
     for v in load("venues"):
-        if v.get("username") == username:
+        if v.get("username") == username and not is_venue_deleted(v):
             return v
     return None
 
 
 def get_venue(venue_id: str) -> Optional[Dict]:
-    ensure_venues_file()
-    return find_by_id(load("venues"), venue_id)
+    v = get_venue_any(venue_id)
+    if v and is_venue_deleted(v):
+        return None
+    return v
 
 
 def verify_venue_security_code(username: str, code: str) -> bool:
@@ -171,6 +200,7 @@ def venue_public_view(venue: Dict, admin: bool = False) -> Dict:
         row["approved_at"] = venue.get("approved_at", "")
         row["cancelled_at"] = venue.get("cancelled_at", "")
         row["cancel_reason"] = venue.get("cancel_reason", "")
+        row["deleted_at"] = venue.get("deleted_at", "")
         row["address"] = venue.get("address", "")
         row["latitude"] = venue.get("latitude")
         row["longitude"] = venue.get("longitude")
@@ -183,6 +213,8 @@ def list_mobile_venues(latitude: float = None, longitude: float = None) -> List[
     ensure_venues_file()
     rows = []
     for v in load("venues"):
+        if is_venue_deleted(v):
+            continue
         lat_v = v.get("latitude")
         lng_v = v.get("longitude")
         dist = None
@@ -396,7 +428,7 @@ def get_venue_admin_detail(venue_id: str) -> Dict:
     from admin_scope import users_linked_to_venue
     from rating import build_leaderboard, get_tier
 
-    v = get_venue(venue_id)
+    v = get_venue_any(venue_id)
     if not v:
         raise ValueError("球房不存在")
     ensure_table_venue_ids()
@@ -446,19 +478,44 @@ def get_venue_admin_detail(venue_id: str) -> Dict:
 
 
 def delete_venue(venue_id: str):
-    if venue_id == DEFAULT_VENUE_ID:
-        raise ValueError("默认球房不可删除")
+    """软删除：移入已删除列表，可恢复；不校验桌台。"""
 
     def _fn(venues):
         v = find_by_id(venues, venue_id)
         if not v:
             raise ValueError("球房不存在")
-        tables = load("tables")
-        if any(t.get("venue_id") == venue_id for t in tables):
-            raise ValueError("该球房下仍有桌台，请先删除或迁移桌台")
-        return [x for x in venues if x.get("id") != venue_id]
+        if is_venue_deleted(v):
+            raise ValueError("该球房已删除")
+        v["deleted_at"] = now_iso()
+        v["updated_at"] = now_iso()
+        return venues
 
     mutate("venues", _fn)
+
+
+def restore_venue(venue_id: str) -> Dict:
+    def _fn(venues):
+        v = find_by_id(venues, venue_id)
+        if not v:
+            raise ValueError("球房不存在")
+        if not is_venue_deleted(v):
+            raise ValueError("该球房未被删除")
+        uname = (v.get("username") or "").strip()
+        if uname:
+            for other in venues:
+                if other.get("id") == venue_id:
+                    continue
+                if other.get("username") == uname and not is_venue_deleted(other):
+                    raise ValueError("登录账号已被其他球房占用，请先修改账号再恢复")
+        v.pop("deleted_at", None)
+        v["updated_at"] = now_iso()
+        return venues
+
+    mutate("venues", _fn)
+    v = get_venue(venue_id)
+    if not v:
+        raise ValueError("恢复失败")
+    return venue_public_view(v, admin=True)
 
 
 def ensure_table_venue_ids():
