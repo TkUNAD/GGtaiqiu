@@ -158,6 +158,15 @@
     .toggle-pill.on { background: #E8F5E9; color: #2E7D32; border-color: #81C784; }
     .super-console .venue-only-col { display: none; }
     .venue-form label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+    .venue-location-block { margin-top: 14px; padding-top: 14px; border-top: 1px dashed #C4B5FD; }
+    .venue-location-block h4 { margin: 0 0 10px; color: #5B21B6; font-size: 14px; }
+    .venue-map-wrap { height: 280px; border-radius: 8px; overflow: hidden; border: 1px solid #C4B5FD; margin: 10px 0; background: #EDE9FE; }
+    .venue-map-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    .venue-map-toolbar button { padding: 6px 12px; font-size: 12px; }
+    .venue-coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .venue-location-status { font-size: 12px; color: #666; margin-top: 6px; }
+    .venue-location-status.ok { color: #2E7D32; }
+    .venue-location-status.warn { color: #c62828; }
     .ladder-rules-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 16px; }
     .ladder-rules-col { flex: 1; min-width: 300px; }
     .ladder-rules-col .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -168,6 +177,8 @@
     .mp-super-name { font-weight: 500; color: #333; }
     .mp-super-sub { font-size: 11px; color: #888; margin-top: 2px; word-break: break-all; }
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
   <div id="loginPage" class="login-wrap">
@@ -227,6 +238,12 @@
           <h3 style="margin-bottom:8px">俱乐部会员</h3>
           <p id="venueMembershipStatus" style="font-size:14px;margin-bottom:12px"></p>
           <button type="button" class="btn-primary" id="btnRenewMembership" onclick="openRenewModal()">续费会员</button>
+        </div>
+        <div id="venueLocationCard" class="card venue-only-nav hidden" style="margin-top:16px">
+          <h3 style="margin-bottom:8px">球房位置（小程序定位匹配）</h3>
+          <p id="venueLocationSummary" class="venue-location-status warn">加载中…</p>
+          <p style="font-size:12px;color:#666;margin:12px 0;line-height:1.6">请设置球房地址与地图坐标，顾客打开小程序后将据此匹配最近俱乐部并显示距离。</p>
+          <button type="button" class="btn-primary" onclick="openVenueLocationEditor()">设置球房位置</button>
         </div>
         <div id="mpSuperWechatWrap" class="card hidden super-only" style="margin-top:16px">
           <h3 style="margin-bottom:8px">小程序总后台授权微信</h3>
@@ -975,7 +992,35 @@
         '<dt>创建 / 更新</dt><dd>' + escapeHtml(created) + ' / ' + escapeHtml(updated) + '</dd>' +
         (v.note ? '<dt>备注</dt><dd>' + escapeHtml(v.note) + '</dd>' : '') +
         (v.cancel_reason ? '<dt>注销原因</dt><dd>' + escapeHtml(v.cancel_reason) + '</dd>' : '') +
+        '<dt>球房地址</dt><dd>' + escapeHtml(v.address || '未设置') + '</dd>' +
+        '<dt>地图坐标</dt><dd>' + formatVenueCoordText(v.latitude, v.longitude) + '</dd>' +
         '</dl></div>';
+    }
+
+    function formatVenueCoordText(lat, lng) {
+      if (lat == null || lng == null || lat === '' || lng === '') {
+        return '<span style="color:#c62828">未设置（小程序无法显示距离）</span>';
+      }
+      return '<span class="pwd-val">' + Number(lat).toFixed(6) + ', ' + Number(lng).toFixed(6) + '</span>';
+    }
+
+    function buildVenueLocationFieldsHtml(v) {
+      var lat = (v && v.latitude != null) ? String(v.latitude) : '';
+      var lng = (v && v.longitude != null) ? String(v.longitude) : '';
+      return '<div class="venue-location-block">' +
+        '<h4>球房位置（小程序自动匹配）</h4>' +
+        '<label>详细地址<input id="v_address" value="' + escapeHtml((v && v.address) || '') + '" placeholder="如：广州市天河区XX路XX号"></label>' +
+        '<div class="venue-coord-row">' +
+        '<label>纬度 latitude<input id="v_lat" type="number" step="0.000001" value="' + escapeHtml(lat) + '" placeholder="如 23.129080"></label>' +
+        '<label>经度 longitude<input id="v_lng" type="number" step="0.000001" value="' + escapeHtml(lng) + '" placeholder="如 113.264385"></label>' +
+        '</div>' +
+        '<div class="venue-map-toolbar">' +
+        '<button type="button" class="secondary" onclick="useBrowserLocationForVenue()">使用本机定位</button>' +
+        '<a class="secondary" style="padding:6px 12px;font-size:12px;text-decoration:none;display:inline-block" href="https://lbs.amap.com/tools/picker" target="_blank" rel="noopener">高德坐标拾取</a>' +
+        '</div>' +
+        '<div id="venueMapPicker" class="venue-map-wrap"></div>' +
+        '<p class="venue-location-status">点击地图可放置标记；坐标请使用 GCJ-02（国测局坐标，与微信定位一致）。</p>' +
+        '</div>';
     }
 
     function buildVenueFormHtml(v, isEdit) {
@@ -989,7 +1034,161 @@
         '<label>登录密码（可见，保存后同步到上方信息）<input id="v_pass" type="text" autocomplete="new-password" value="' + pwdVal + '" placeholder="' + (isEdit ? '不修改请保持原值或留空' : '必填') + '"></label>' +
         '<label>安全码（忘记密码核实）<input id="v_sec" type="text" autocomplete="off" value="' + secVal + '" placeholder="' + (isEdit ? '不修改请保持原值或留空' : '必填，请告知球房保管') + '"></label>' +
         '<label>会员到期日期<input id="v_exp" type="date" value="' + escapeHtml(exp) + '"></label>' +
-        '<label>联系电话<input id="v_phone" value="' + escapeHtml((v && v.contact_phone) || '') + '" placeholder="可选"></label></div>';
+        '<label>联系电话<input id="v_phone" value="' + escapeHtml((v && v.contact_phone) || '') + '" placeholder="可选"></label>' +
+        buildVenueLocationFieldsHtml(v) + '</div>';
+    }
+
+    var _venueMapPicker = null;
+    var _venueMapMarker = null;
+
+    function destroyVenueMapPicker() {
+      if (_venueMapPicker) {
+        _venueMapPicker.remove();
+        _venueMapPicker = null;
+        _venueMapMarker = null;
+      }
+    }
+
+    function readVenueCoordInputs() {
+      var lat = parseFloat(document.getElementById('v_lat').value);
+      var lng = parseFloat(document.getElementById('v_lng').value);
+      if (!isFinite(lat) || !isFinite(lng)) return null;
+      return { latitude: lat, longitude: lng };
+    }
+
+    function writeVenueCoordInputs(lat, lng) {
+      var latEl = document.getElementById('v_lat');
+      var lngEl = document.getElementById('v_lng');
+      if (!latEl || !lngEl) return;
+      latEl.value = Number(lat).toFixed(6);
+      lngEl.value = Number(lng).toFixed(6);
+    }
+
+    function setVenueMapMarker(lat, lng, pan) {
+      if (!_venueMapPicker) return;
+      if (_venueMapMarker) {
+        _venueMapMarker.setLatLng([lat, lng]);
+      } else {
+        _venueMapMarker = L.marker([lat, lng], { draggable: true }).addTo(_venueMapPicker);
+        _venueMapMarker.on('dragend', function() {
+          var p = _venueMapMarker.getLatLng();
+          writeVenueCoordInputs(p.lat, p.lng);
+        });
+      }
+      if (pan) _venueMapPicker.setView([lat, lng], Math.max(_venueMapPicker.getZoom(), 15));
+    }
+
+    function initVenueMapPicker() {
+      destroyVenueMapPicker();
+      var el = document.getElementById('venueMapPicker');
+      if (!el || typeof L === 'undefined') return;
+      var coord = readVenueCoordInputs();
+      var center = coord ? [coord.latitude, coord.longitude] : [23.12908, 113.264385];
+      var zoom = coord ? 15 : 11;
+      _venueMapPicker = L.map(el, { zoomControl: true }).setView(center, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(_venueMapPicker);
+      _venueMapPicker.on('click', function(e) {
+        writeVenueCoordInputs(e.latlng.lat, e.latlng.lng);
+        setVenueMapMarker(e.latlng.lat, e.latlng.lng, false);
+      });
+      if (coord) setVenueMapMarker(coord.latitude, coord.longitude, false);
+      setTimeout(function() { if (_venueMapPicker) _venueMapPicker.invalidateSize(); }, 200);
+    }
+
+    function useBrowserLocationForVenue() {
+      if (!navigator.geolocation) {
+        alert('当前浏览器不支持定位');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        writeVenueCoordInputs(pos.coords.latitude, pos.coords.longitude);
+        initVenueMapPicker();
+      }, function(err) {
+        alert('定位失败：' + (err.message || '请检查浏览器定位权限'));
+      }, { enableHighAccuracy: true, timeout: 12000 });
+    }
+
+    function collectVenueLocationBody(body) {
+      var addrEl = document.getElementById('v_address');
+      var latEl = document.getElementById('v_lat');
+      var lngEl = document.getElementById('v_lng');
+      if (!addrEl || !latEl || !lngEl) return body;
+      body.address = addrEl.value.trim();
+      var latRaw = latEl.value.trim();
+      var lngRaw = lngEl.value.trim();
+      if (!latRaw && !lngRaw) {
+        body.latitude = null;
+        body.longitude = null;
+        return body;
+      }
+      var lat = parseFloat(latRaw);
+      var lng = parseFloat(lngRaw);
+      if (!isFinite(lat) || !isFinite(lng)) {
+        throw new Error('请填写有效的纬度与经度，或在地图上点击选点');
+      }
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        throw new Error('经纬度超出有效范围');
+      }
+      body.latitude = Number(lat.toFixed(6));
+      body.longitude = Number(lng.toFixed(6));
+      return body;
+    }
+
+    async function loadVenueLocationCard() {
+      var card = document.getElementById('venueLocationCard');
+      var summary = document.getElementById('venueLocationSummary');
+      if (!card || !summary || !adminSession || adminSession.role === 'super') return;
+      card.classList.remove('hidden');
+      try {
+        var d = await api('/api/admin/venue/location');
+        if (d.has_location) {
+          summary.className = 'venue-location-status ok';
+          summary.textContent = '已设置：' + (d.address || '（未填地址）') + ' · ' +
+            Number(d.latitude).toFixed(6) + ', ' + Number(d.longitude).toFixed(6);
+        } else {
+          summary.className = 'venue-location-status warn';
+          summary.textContent = '尚未设置坐标，小程序顾客将无法显示距离与自动匹配球房';
+        }
+      } catch (e) {
+        summary.className = 'venue-location-status warn';
+        summary.textContent = '加载失败：' + e.message;
+      }
+    }
+
+    async function openVenueLocationEditor() {
+      try {
+        var d = await api('/api/admin/venue/location');
+        document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('modalContent').className = 'modal-box wide';
+        document.getElementById('modalContent').innerHTML =
+          '<h3>设置球房位置</h3>' +
+          '<p style="font-size:12px;color:#666;margin-bottom:10px">用于小程序首页自动匹配俱乐部并显示距离，请尽量在店内使用「本机定位」或高德拾取器获取 GCJ-02 坐标。</p>' +
+          buildVenueLocationFieldsHtml(d) +
+          '<button type="button" onclick="saveVenueLocationSelf()">保存</button> ' +
+          '<button type="button" class="secondary" onclick="closeModal()">取消</button>';
+        initVenueMapPicker();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    async function saveVenueLocationSelf() {
+      try {
+        var body = collectVenueLocationBody({});
+        await api('/api/admin/venue/location', { method: 'PUT', body: body });
+        closeModal();
+        loadVenueLocationCard();
+        alert('球房位置已保存');
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    }
+
+    function scheduleVenueMapInit() {
+      setTimeout(function() { initVenueMapPicker(); }, 120);
     }
 
     function applyAdminSession() {
@@ -1180,6 +1379,7 @@
           updateReviewNavBadge((d.pending_bonus_reviews || 0) + (d.pending_exchanges || 0));
           if (_venueMemberActive) loadReviewTab();
           renderVenueMembershipCard(d);
+          loadVenueLocationCard();
         }
       } catch (e) {
         var statsEl = document.getElementById('stats');
@@ -2335,6 +2535,7 @@
     }
 
     function closeModal() {
+      destroyVenueMapPicker();
       document.getElementById('modal').classList.add('hidden');
     }
 
@@ -2677,24 +2878,28 @@
 
     function showVenueForm() {
       document.getElementById('modal').classList.remove('hidden');
-      document.getElementById('modalContent').className = 'modal-box';
+      document.getElementById('modalContent').className = 'modal-box wide';
       document.getElementById('modalContent').innerHTML =
         '<h3>新增球房</h3>' + buildVenueFormHtml(null, false) +
         '<button type="button" onclick="saveNewVenue()">创建</button> <button type="button" class="secondary" onclick="closeModal()">取消</button>';
+      scheduleVenueMapInit();
     }
 
     async function saveNewVenue() {
-      await api('/api/admin/venues', { method: 'POST', body: {
-        name: document.getElementById('v_name').value,
-        manager_name: document.getElementById('v_manager').value,
-        username: document.getElementById('v_user').value,
-        password: document.getElementById('v_pass').value,
-        security_code: document.getElementById('v_sec').value,
-        member_expires_at: dateInputToExpiry(document.getElementById('v_exp').value),
-        contact_phone: document.getElementById('v_phone').value,
-      }});
-      closeModal();
-      loadVenues();
+      try {
+        var body = collectVenueLocationBody({
+          name: document.getElementById('v_name').value,
+          manager_name: document.getElementById('v_manager').value,
+          username: document.getElementById('v_user').value,
+          password: document.getElementById('v_pass').value,
+          security_code: document.getElementById('v_sec').value,
+          member_expires_at: dateInputToExpiry(document.getElementById('v_exp').value),
+          contact_phone: document.getElementById('v_phone').value,
+        });
+        await api('/api/admin/venues', { method: 'POST', body: body });
+        closeModal();
+        loadVenues();
+      } catch (e) { alert(e.message || String(e)); }
     }
 
     async function editVenue(id) {
@@ -2710,26 +2915,29 @@
           '<p style="font-size:12px;color:#666;margin-bottom:10px">下方可修改资料；密码/安全码保存后会更新上方「账号与开通信息」。</p>' +
           buildVenueFormHtml(v, true) +
           '<button type="button" onclick="updateVenue(\'' + id + '\')">保存</button> <button type="button" class="secondary" onclick="closeModal()">取消</button>';
+        scheduleVenueMapInit();
       } catch (e) {
         alert(e.message || String(e));
       }
     }
 
     async function updateVenue(id) {
-      const body = {
-        name: document.getElementById('v_name').value,
-        manager_name: document.getElementById('v_manager').value,
-        username: document.getElementById('v_user').value,
-        member_expires_at: dateInputToExpiry(document.getElementById('v_exp').value),
-        contact_phone: document.getElementById('v_phone').value,
-      };
-      const pw = document.getElementById('v_pass').value;
-      const sec = document.getElementById('v_sec').value;
-      if (pw) body.password = pw;
-      if (sec) body.security_code = sec;
-      await api('/api/admin/venue/' + id, { method: 'PUT', body });
-      closeModal();
-      loadVenues();
+      try {
+        const body = collectVenueLocationBody({
+          name: document.getElementById('v_name').value,
+          manager_name: document.getElementById('v_manager').value,
+          username: document.getElementById('v_user').value,
+          member_expires_at: dateInputToExpiry(document.getElementById('v_exp').value),
+          contact_phone: document.getElementById('v_phone').value,
+        });
+        const pw = document.getElementById('v_pass').value;
+        const sec = document.getElementById('v_sec').value;
+        if (pw) body.password = pw;
+        if (sec) body.security_code = sec;
+        await api('/api/admin/venue/' + id, { method: 'PUT', body: body });
+        closeModal();
+        loadVenues();
+      } catch (e) { alert(e.message || String(e)); }
     }
 
     async function showVenueDetail(id) {

@@ -171,6 +171,10 @@ def venue_public_view(venue: Dict, admin: bool = False) -> Dict:
         row["approved_at"] = venue.get("approved_at", "")
         row["cancelled_at"] = venue.get("cancelled_at", "")
         row["cancel_reason"] = venue.get("cancel_reason", "")
+        row["address"] = venue.get("address", "")
+        row["latitude"] = venue.get("latitude")
+        row["longitude"] = venue.get("longitude")
+        row["has_location"] = venue.get("latitude") is not None and venue.get("longitude") is not None
     return row
 
 
@@ -253,6 +257,31 @@ def _normalize_member_expires(val) -> str:
     return s
 
 
+def _parse_optional_coord(val, field: str):
+    if val is None or val == "":
+        return None
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field}格式无效")
+    if field == "latitude" and not (-90 <= f <= 90):
+        raise ValueError("纬度需在 -90 到 90 之间")
+    if field == "longitude" and not (-180 <= f <= 180):
+        raise ValueError("经度需在 -180 到 180 之间")
+    return round(f, 6)
+
+
+def venue_location_payload(venue: Dict) -> Dict:
+    lat = venue.get("latitude")
+    lng = venue.get("longitude")
+    return {
+        "address": venue.get("address", ""),
+        "latitude": lat,
+        "longitude": lng,
+        "has_location": lat is not None and lng is not None,
+    }
+
+
 def create_venue(data: Dict) -> Dict:
     name = (data.get("name") or "").strip()
     username = (data.get("username") or "").strip()
@@ -277,6 +306,9 @@ def create_venue(data: Dict) -> Dict:
         "apply_phone": (data.get("apply_phone") or data.get("contact_phone") or username).strip(),
         "member_expires_at": _normalize_member_expires(data.get("member_expires_at")),
         "contact_phone": data.get("contact_phone", ""),
+        "address": (data.get("address") or "").strip(),
+        "latitude": _parse_optional_coord(data.get("latitude"), "latitude") if "latitude" in data else None,
+        "longitude": _parse_optional_coord(data.get("longitude"), "longitude") if "longitude" in data else None,
         "note": data.get("note", ""),
         "apply_source": (data.get("apply_source") or "").strip(),
         "last_activity_at": data.get("last_activity_at") or now_iso(),
@@ -311,12 +343,12 @@ def update_venue(venue_id: str, data: Dict) -> Dict:
             v["contact_phone"] = data.get("contact_phone", "")
         if data.get("note") is not None:
             v["note"] = data.get("note", "")
-        if data.get("address") is not None:
+        if "address" in data:
             v["address"] = (data.get("address") or "").strip()
-        if data.get("latitude") is not None:
-            v["latitude"] = data.get("latitude")
-        if data.get("longitude") is not None:
-            v["longitude"] = data.get("longitude")
+        if "latitude" in data:
+            v["latitude"] = _parse_optional_coord(data.get("latitude"), "latitude")
+        if "longitude" in data:
+            v["longitude"] = _parse_optional_coord(data.get("longitude"), "longitude")
         if data.get("member_expires_at") is not None:
             v["member_expires_at"] = _normalize_member_expires(data.get("member_expires_at"))
         if data.get("security_code"):

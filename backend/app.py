@@ -1720,6 +1720,38 @@ def admin_create_venue():
         return _err(str(e))
 
 
+@app.route("/api/admin/venue/location", methods=["GET", "PUT"])
+@admin_required
+def admin_venue_location_self():
+    from venue_service import get_venue, update_venue, venue_location_payload
+
+    ctx = g.admin_ctx
+    if ctx.get("is_super"):
+        return _err("总后台请使用「球房会员」编辑球房位置", 400)
+    venue_id = ctx.get("venue_id")
+    if not venue_id:
+        return _err("未绑定球房", 400)
+    v = get_venue(venue_id)
+    if not v:
+        return _err("球房不存在", 404)
+    if request.method == "GET":
+        return _ok(venue_location_payload(v))
+    data = request.get_json(silent=True) or {}
+    try:
+        update_venue(
+            venue_id,
+            {
+                "address": data.get("address"),
+                "latitude": data.get("latitude"),
+                "longitude": data.get("longitude"),
+            },
+        )
+        v2 = get_venue(venue_id)
+        return _ok(venue_location_payload(v2))
+    except ValueError as e:
+        return _err(str(e))
+
+
 @app.route("/api/admin/venue/<venue_id>", methods=["PUT"])
 @super_admin_required
 def admin_update_venue(venue_id):

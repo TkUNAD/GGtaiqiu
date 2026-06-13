@@ -1,5 +1,65 @@
 /* 首页：布局与动效（颜色由 app.wxss 统一） */
 
+.custom-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: rgba(10, 15, 26, 0.94);
+  border-bottom: 1rpx solid rgba(212, 175, 55, 0.18);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.35);
+}
+.custom-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  position: relative;
+  z-index: 2;
+}
+.brand-cue {
+  font-size: 44rpx;
+  font-weight: 900;
+  font-style: italic;
+  color: #D4AF37;
+  letter-spacing: 4rpx;
+  text-shadow:
+    0 0 24rpx rgba(212, 175, 55, 0.55),
+    0 2rpx 8rpx rgba(0, 0, 0, 0.45);
+}
+.brand-accent {
+  width: 3rpx;
+  height: 32rpx;
+  margin: 0 4rpx;
+  border-radius: 2rpx;
+  background: linear-gradient(180deg, transparent, #f5e6b8, #D4AF37, transparent);
+  box-shadow: 0 0 12rpx rgba(212, 175, 55, 0.6);
+}
+.brand-jj {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #f5f0e1;
+  letter-spacing: 10rpx;
+  text-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.4);
+}
+.brand-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 6rpx;
+  transform: translateX(-50%);
+  width: 180rpx;
+  height: 6rpx;
+  border-radius: 6rpx;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.75), transparent);
+  opacity: 0.85;
+}
+
 .venue-bar {
   margin-top: 8rpx;
   padding: 24rpx 28rpx !important;
@@ -31,6 +91,27 @@
   color: #f5f0e1;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.venue-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+.venue-name-row .venue-name {
+  flex: 1;
+  min-width: 0;
+}
+.venue-distance-badge {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1rpx solid rgba(147, 197, 253, 0.35);
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
   white-space: nowrap;
 }
 .venue-name-muted { color: #8b92a8; font-weight: normal; font-size: 29rpx; }

@@ -20,6 +20,7 @@ const {
   ensureLocation,
   pickVenueFromList,
   buildDistanceState,
+  enrichVenuesWithDistance,
   WARN_M,
 } = require('../../utils/locationHelper');
 const app = getApp();
@@ -45,6 +46,18 @@ Page({
     distanceText: '',
     distanceWarning: false,
     venueList: [],
+    statusBarHeight: 20,
+    navBarHeight: 64,
+    navContentHeight: 44,
+  },
+
+  onLoad() {
+    const sys = wx.getSystemInfoSync();
+    const menu = wx.getMenuButtonBoundingClientRect();
+    const statusBarHeight = sys.statusBarHeight || 20;
+    const navContentHeight = (menu.top - statusBarHeight) * 2 + menu.height;
+    const navBarHeight = statusBarHeight + navContentHeight;
+    this.setData({ statusBarHeight, navBarHeight, navContentHeight });
   },
 
   onShow() {
@@ -79,9 +92,9 @@ Page({
     this.setData({ venueLocating: true, venueLocateFail: false });
     return app
       .ensureLocation()
-      .then((loc) => this.fetchVenues(loc))
-      .catch(() => this.fetchVenues(null))
-      .then((venues) => {
+      .then((loc) => this.fetchVenues(loc).then((venues) => ({ venues, loc })))
+      .catch(() => this.fetchVenues(null).then((venues) => ({ venues, loc: null })))
+      .then(({ venues, loc }) => {
         if (!venues.length) {
           this.setData({
             venueLocating: false,
@@ -90,15 +103,15 @@ Page({
           });
           return;
         }
+        const list = enrichVenuesWithDistance(venues, loc);
         const manual = isManualPick();
         const storedId = getVenueId();
-        let selected = pickVenueFromList(venues, storedId, manual);
+        let selected = pickVenueFromList(list, storedId, manual);
         if (!manual && selected) {
           setVenueId(selected.id, false);
         } else if (selected) {
           app.globalData.venueId = selected.id;
         }
-        const loc = app.globalData.location;
         const dist = buildDistanceState(selected, loc);
         this.setData({
           venueLocating: false,
@@ -106,7 +119,7 @@ Page({
           venueId: selected.id,
           venueName: selected.name,
           venueManual: manual,
-          venueList: venues,
+          venueList: list,
           distanceText: dist.distanceText,
           distanceWarning: dist.distanceWarning,
         });

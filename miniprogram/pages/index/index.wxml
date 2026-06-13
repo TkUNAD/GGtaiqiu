@@ -1,17 +1,30 @@
-<view class="container">
+<view class="custom-nav" style="height: {{navBarHeight}}px;">
+  <view class="custom-nav-inner" style="padding-top: {{statusBarHeight}}px; height: {{navContentHeight}}px;">
+    <view class="brand-wrap">
+      <text class="brand-cue">Cue</text>
+      <view class="brand-accent"></view>
+      <text class="brand-jj">竞界</text>
+    </view>
+    <view class="brand-glow"></view>
+  </view>
+</view>
+
+<view class="container" style="padding-top: {{navBarHeight}}px;">
   <view class="venue-bar card" bindtap="onTapVenueBar">
     <view class="venue-bar-main">
       <text class="venue-pin">📍</text>
       <view class="venue-bar-text">
         <text class="venue-label">当前俱乐部</text>
-        <text class="venue-name" wx:if="{{!venueLocating}}">{{venueName}}</text>
+        <view class="venue-name-row" wx:if="{{!venueLocating}}">
+          <text class="venue-name">{{venueName}}</text>
+          <text class="venue-distance-badge" wx:if="{{distanceText}}">{{distanceText}}</text>
+        </view>
         <text class="venue-name venue-name-muted" wx:else>正在定位…</text>
       </view>
       <text class="venue-switch">切换 ›</text>
     </view>
-    <text class="venue-distance" wx:if="{{distanceText && !venueLocating}}">{{distanceText}}</text>
     <text class="venue-distance venue-distance-muted" wx:if="{{venueLocateFail && !venueLocating}}">未获取定位，请点击选择球房</text>
-    <text class="venue-distance venue-distance-muted" wx:if="{{venueManual}}">已手动选择</text>
+    <text class="venue-distance venue-distance-muted" wx:elif="{{venueManual && !distanceText && !venueLocating}}">已手动选择</text>
   </view>
 
   <view class="venue-warn card" wx:if="{{distanceWarning}}">
