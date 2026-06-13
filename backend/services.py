@@ -494,6 +494,10 @@ def reset_venue_data(venue_id: str, confirm_username: str, confirm_password: str
 
     mutate("score_logs", _logs)
 
+    from venue_player_service import clear_venue_players
+
+    clear_venue_players(venue_id)
+
     delete_user_ids = {uid for uid in affected_users if uid not in users_with_other_matches}
 
     def _users(us):

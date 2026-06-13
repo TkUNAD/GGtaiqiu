@@ -28,6 +28,7 @@ FILES = {
     "mp_super_entry_allowlist": "mp_super_entry_allowlist.json",
     "mp_admin_entry_allowlist": "mp_admin_entry_allowlist.json",
     "membership_orders": "membership_orders.json",
+    "venue_players": "venue_players.json",
 }
 
 
@@ -94,6 +95,7 @@ def _default_data(name: str) -> Any:
         },
         "mp_admin_entry_allowlist": {"openids": []},
         "membership_orders": [],
+        "venue_players": [],
         "_captchas": {},
     }
     return defaults.get(name, {} if name == "_captchas" else [])

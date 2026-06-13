@@ -147,6 +147,49 @@ def get_venue(venue_id: str) -> Optional[Dict]:
     return v
 
 
+def ensure_venue_join_token(venue_id: str) -> str:
+    import secrets
+
+    holder: Dict = {}
+
+    def _fn(venues):
+        v = find_by_id(venues, venue_id)
+        if not v or is_venue_deleted(v):
+            raise ValueError("俱乐部不存在")
+        tok = (v.get("join_token") or "").strip()
+        if not tok:
+            tok = secrets.token_urlsafe(14)
+            v["join_token"] = tok
+            v["updated_at"] = now_iso()
+        holder["token"] = tok
+        return venues
+
+    mutate("venues", _fn)
+    return holder["token"]
+
+
+def parse_join_token(raw: str) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    if s.startswith("vjo_"):
+        return s[4:]
+    return s
+
+
+def venue_id_by_join_token(token: str) -> Optional[str]:
+    tok = (token or "").strip()
+    if not tok:
+        return None
+    ensure_venues_file()
+    for v in load("venues"):
+        if is_venue_deleted(v):
+            continue
+        if (v.get("join_token") or "").strip() == tok:
+            return v.get("id")
+    return None
+
+
 def verify_venue_security_code(username: str, code: str) -> bool:
     v = find_venue_by_username(username)
     if not v or not code:

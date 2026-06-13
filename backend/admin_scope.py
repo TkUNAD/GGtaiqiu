@@ -14,9 +14,11 @@ def venue_table_ids(venue_id: str) -> Set[str]:
 
 
 def users_linked_to_venue(venue_id: str) -> Set[str]:
-    """与该球房桌台有过对局或正在等候的用户"""
+    """与该球房桌台有过对局、正在等候，或扫码加入俱乐部的用户"""
+    from venue_player_service import venue_player_user_ids
+
+    user_ids: Set[str] = set(venue_player_user_ids(venue_id))
     tids = venue_table_ids(venue_id)
-    user_ids: Set[str] = set()
     for m in load("matches"):
         if m.get("table_id") in tids:
             if m.get("player1_id"):

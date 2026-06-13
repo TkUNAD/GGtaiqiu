@@ -837,6 +837,29 @@ def create_owner_bind_qr(venue_id: str, created_by: str = "") -> Dict:
     }
 
 
+def create_venue_join_qr(venue_id: str) -> Dict:
+    """俱乐部玩家加入码（长期有效，扫码打开小程序并加入俱乐部）"""
+    from venue_service import ensure_venue_join_token, get_venue
+
+    if not venue_id:
+        raise ValueError("缺少俱乐部")
+    token = ensure_venue_join_token(venue_id)
+    scene = f"vjo_{token}"
+    venue = get_venue(venue_id) or {}
+    hint = (
+        "玩家用微信扫一扫本码，将自动打开小程序并加入本俱乐部。\n"
+        "首次使用需完成微信授权登录；加入后可在「玩家管理」中查看。"
+    )
+    return {
+        "token": token,
+        "scene": scene,
+        "venue_id": venue_id,
+        "venue_name": venue.get("name", ""),
+        "qr_base64": qr_png_base64(scene, "pages/venue-join/venue-join"),
+        "hint": hint,
+    }
+
+
 def qr_png_base64(text: str, page: str = "") -> str:
     """生成二维码 PNG 的 data URL；若配置微信 Secret 且提供 page 则生成小程序码"""
     import base64

@@ -57,9 +57,34 @@
         "token_hash": "a826e3e44674d4d42c81d89282bf83ef22567f4c68d10d24515547745318dca3",
         "expires_at": "2026-07-08T21:02:04.859376",
         "created_at": "2026-06-08T21:02:04.859383"
+      },
+      {
+        "token_hash": "a4b2e471eb4b9cdd67227f0afc81540fb908f8e3629191684f18da6366eab6d8",
+        "expires_at": "2026-07-09T00:31:14.684380",
+        "created_at": "2026-06-09T00:31:14.684385"
+      },
+      {
+        "token_hash": "3add91724b98761dd44813b8c5cf3f83f3bfe949adace6d1a5031464150beed7",
+        "expires_at": "2026-07-09T01:33:47.844779",
+        "created_at": "2026-06-09T01:33:47.844788"
+      },
+      {
+        "token_hash": "8beea1c61a5b9de1070748ad7947f2688c1e585a81115ec846d5815b91ef2bd4",
+        "expires_at": "2026-07-09T02:07:06.068517",
+        "created_at": "2026-06-09T02:07:06.068522"
+      },
+      {
+        "token_hash": "2c7ad7a3bbf16d721540328986c0b2d26b28d6a7da7085f41e6f453ebc1f66e2",
+        "expires_at": "2026-07-09T02:20:25.362062",
+        "created_at": "2026-06-09T02:20:25.362067"
+      },
+      {
+        "token_hash": "5ceb1f0278740003d349e7314ac9fcfdb5940273ea08041671a9cb90b92d957f",
+        "expires_at": "2026-07-12T21:27:49.737003",
+        "created_at": "2026-06-12T21:27:49.737007"
       }
     ],
-    "updated_at": "2026-06-08T21:02:04.859959"
+    "updated_at": "2026-06-12T21:27:49.737629"
   },
   {
     "id": "u86d6e195b5f3",
@@ -2480,15 +2505,15 @@
     "id": "Ud59aff410c63",
     "openid": "oqb843fvsHzGruHND91CRrX3Fe-U",
     "nickname": ".",
-    "avatar": "/static/uploads/avatars/Ud59aff410c63.jpg",
+    "avatar": "http://127.0.0.1:5000/static/uploads/avatars/Ud59aff410c63.jpg",
     "phone": "",
     "score": 1000,
     "wins": 0,
     "losses": 0,
     "status": "active",
     "created_at": "2026-05-27T14:40:58.994163",
-    "updated_at": "2026-06-08T21:02:14.605841",
-    "last_login_at": "2026-05-27T14:40:58.994169",
+    "updated_at": "2026-06-09T02:41:22.571920",
+    "last_login_at": "2026-06-09T02:41:22.567146",
     "last_battle_at": null,
     "last_ip": "127.0.0.1",
     "daily_ranked_count": {},
@@ -2496,9 +2521,14 @@
     "open_table_hours": 0,
     "refresh_tokens": [
       {
-        "token_hash": "37a461798ea678b25605523be2ef1e93829c262861d4ff202561ab483feeeeaf",
-        "expires_at": "2026-07-08T21:02:14.605834",
-        "created_at": "2026-06-08T21:02:14.605839"
+        "token_hash": "0e3bcca24510421e1a3e2bc71a49710ea1707f1752fdd917d73148d993366939",
+        "expires_at": "2026-07-09T00:31:18.403250",
+        "created_at": "2026-06-09T00:31:18.403256"
+      },
+      {
+        "token_hash": "01192b638dfd7f3b5b7a0592766995793e70497ce5d50acb0533092725159388",
+        "expires_at": "2026-07-09T02:41:22.571252",
+        "created_at": "2026-06-09T02:41:22.571258"
       }
     ]
   },
@@ -3049,5 +3079,311 @@
     "wins": 0,
     "losses": 0,
     "openid": "o_u73747cb2ace3"
+  },
+  {
+    "id": "u243982045b4a",
+    "nickname": "t",
+    "score": 1005,
+    "status": "active",
+    "wins": 1,
+    "losses": 0,
+    "openid": "o_u243982045b4a",
+    "last_battle_at": "2026-06-09T00:31:14.576330",
+    "updated_at": "2026-06-09T00:31:14.576330"
+  },
+  {
+    "id": "u79c7ccc94518",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 1,
+    "openid": "o_u79c7ccc94518",
+    "last_battle_at": "2026-06-09T00:31:14.576330",
+    "updated_at": "2026-06-09T00:31:14.576330"
+  },
+  {
+    "id": "ueac1b6d00081",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ueac1b6d00081"
+  },
+  {
+    "id": "u1262fa423108",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u1262fa423108"
+  },
+  {
+    "id": "u43072ff900f8",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u43072ff900f8"
+  },
+  {
+    "id": "uba09e1b02322",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uba09e1b02322"
+  },
+  {
+    "id": "u204862d2fc84",
+    "nickname": "t",
+    "score": 1005,
+    "status": "active",
+    "wins": 1,
+    "losses": 0,
+    "openid": "o_u204862d2fc84",
+    "last_battle_at": "2026-06-09T01:33:47.725733",
+    "updated_at": "2026-06-09T01:33:47.725733"
+  },
+  {
+    "id": "uacae4abdf8f8",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 1,
+    "openid": "o_uacae4abdf8f8",
+    "last_battle_at": "2026-06-09T01:33:47.725733",
+    "updated_at": "2026-06-09T01:33:47.725733"
+  },
+  {
+    "id": "uffd2c75947aa",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uffd2c75947aa"
+  },
+  {
+    "id": "ub999757e4f2f",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub999757e4f2f"
+  },
+  {
+    "id": "u2ab305ac4cae",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u2ab305ac4cae"
+  },
+  {
+    "id": "u1d0439747403",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u1d0439747403"
+  },
+  {
+    "id": "u71f4c5e411e5",
+    "nickname": "t",
+    "score": 1005,
+    "status": "active",
+    "wins": 1,
+    "losses": 0,
+    "openid": "o_u71f4c5e411e5",
+    "last_battle_at": "2026-06-09T02:07:05.949725",
+    "updated_at": "2026-06-09T02:07:05.949725"
+  },
+  {
+    "id": "ucef84d9af5ad",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 1,
+    "openid": "o_ucef84d9af5ad",
+    "last_battle_at": "2026-06-09T02:07:05.949725",
+    "updated_at": "2026-06-09T02:07:05.949725"
+  },
+  {
+    "id": "u389d2c9aab23",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u389d2c9aab23"
+  },
+  {
+    "id": "uda6fd3dec8fc",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uda6fd3dec8fc"
+  },
+  {
+    "id": "u05037c542be6",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u05037c542be6"
+  },
+  {
+    "id": "uda126491abf5",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uda126491abf5"
+  },
+  {
+    "id": "u57c48d6a6c48",
+    "nickname": "t",
+    "score": 1005,
+    "status": "active",
+    "wins": 1,
+    "losses": 0,
+    "openid": "o_u57c48d6a6c48",
+    "last_battle_at": "2026-06-09T02:20:25.243251",
+    "updated_at": "2026-06-09T02:20:25.243251"
+  },
+  {
+    "id": "u9c1d738c4373",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 1,
+    "openid": "o_u9c1d738c4373",
+    "last_battle_at": "2026-06-09T02:20:25.243251",
+    "updated_at": "2026-06-09T02:20:25.243251"
+  },
+  {
+    "id": "uc53037dc5250",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc53037dc5250"
+  },
+  {
+    "id": "u378f79579eb9",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u378f79579eb9"
+  },
+  {
+    "id": "ua433b7931afe",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ua433b7931afe"
+  },
+  {
+    "id": "u89b6c4dafad9",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u89b6c4dafad9"
+  },
+  {
+    "id": "u0961e936e0c4",
+    "nickname": "t",
+    "score": 1005,
+    "status": "active",
+    "wins": 1,
+    "losses": 0,
+    "openid": "o_u0961e936e0c4",
+    "last_battle_at": "2026-06-12T21:27:49.612973",
+    "updated_at": "2026-06-12T21:27:49.612973"
+  },
+  {
+    "id": "uec13834b7519",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 1,
+    "openid": "o_uec13834b7519",
+    "last_battle_at": "2026-06-12T21:27:49.612973",
+    "updated_at": "2026-06-12T21:27:49.612973"
+  },
+  {
+    "id": "ub9dfa2524e1b",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ub9dfa2524e1b",
+    "daily_ranked_count": {
+      "date": "2026-06-12",
+      "count": 1
+    },
+    "weekly_ranked_count": {
+      "week": "2026-W23",
+      "count": 1
+    }
+  },
+  {
+    "id": "ue6da4fdc7f04",
+    "nickname": "t",
+    "score": 2000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_ue6da4fdc7f04",
+    "daily_ranked_count": {
+      "date": "2026-06-12",
+      "count": 1
+    },
+    "weekly_ranked_count": {
+      "week": "2026-W23",
+      "count": 1
+    }
+  },
+  {
+    "id": "u322fe44c0621",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_u322fe44c0621"
+  },
+  {
+    "id": "uc8901b5ee9c5",
+    "nickname": "t",
+    "score": 1000,
+    "status": "active",
+    "wins": 0,
+    "losses": 0,
+    "openid": "o_uc8901b5ee9c5"
   }
 ]

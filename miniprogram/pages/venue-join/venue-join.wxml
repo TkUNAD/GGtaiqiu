@@ -1,0 +1,61 @@
+<view class="container">
+  <view class="card" wx:if="{{loadError}}">
+    <text class="hint-error">{{loadError}}</text>
+    <button class="btn-secondary" bindtap="goHome">返回首页</button>
+  </view>
+
+  <view class="card" wx:elif="{{joined}}">
+    <view class="title">加入成功</view>
+    <view class="sub">您已加入</view>
+    <view class="venue-name">{{venueName}}</view>
+    <view class="sub">可在首页查看本俱乐部桌台，或使用「扫码开台」开始对局。</view>
+    <button class="btn-primary" bindtap="goHome">进入首页</button>
+  </view>
+
+  <view class="card" wx:elif="{{needLogin}}">
+    <view class="title">加入 {{venueName || '俱乐部'}}</view>
+    <view class="sub">请先完成微信授权登录，登录后将自动加入本俱乐部。</view>
+    <view class="login-wrap">
+      <view class="agree-row" bindtap="onToggleAgree">
+        <view class="agree-check {{agreedToTerms ? 'agree-check-on' : ''}}">
+          <text class="agree-check-icon" wx:if="{{agreedToTerms}}">✓</text>
+        </view>
+        <view class="agree-text">
+          <text>我已阅读并同意</text>
+          <text class="agree-link" catchtap="openAgreement" data-type="user">《用户服务协议》</text>
+          <text class="agree-link" catchtap="openAgreement" data-type="privacy">《隐私政策》</text>
+        </view>
+      </view>
+      <button
+        class="btn-primary btn-wx-login {{agreedToTerms ? '' : 'btn-wx-login-disabled'}}"
+        bindtap="onLogin"
+        disabled="{{logging || !agreedToTerms}}"
+      >{{logging ? '登录中...' : '微信授权登录'}}</button>
+      <view class="auth-fallback" wx:if="{{showAuthFallback}}">
+        <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+          <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />
+          <view wx:else class="avatar-placeholder">+</view>
+          <text class="avatar-tip">点击选择头像</text>
+        </button>
+        <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{pendingNickname}}" bind:change="onNicknameInput" />
+        <button
+          class="btn-primary btn-wx-login {{agreedToTerms ? '' : 'btn-wx-login-disabled'}}"
+          bindtap="onConfirmProfileLogin"
+          disabled="{{logging || !agreedToTerms}}"
+        >确认授权并登录</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:elif="{{venueName}}">
+    <view class="title">加入俱乐部</view>
+    <view class="sub">您即将加入</view>
+    <view class="venue-name">{{venueName}}</view>
+    <button class="btn-primary" bindtap="doJoin" loading="{{joining}}">确认加入</button>
+    <button class="btn-secondary" bindtap="goHome">暂不加入</button>
+  </view>
+
+  <view class="card" wx:else>
+    <view class="sub">正在加载俱乐部信息…</view>
+  </view>
+</view>

@@ -4,6 +4,7 @@ const { getVenueId } = require('../../utils/venueStore');
 const { resolveTableQr, applyResolvedVenue } = require('../../utils/tableScanApi');
 const { getTierStyle } = require('../../utils/tierIcons');
 const { DEFAULT_AVATAR, buildAvatarDisplay } = require('../../utils/avatar');
+const { attachLoginHandlers } = require('../../utils/loginHelper');
 
 const app = getApp();
 
@@ -105,6 +106,12 @@ Page({
     idleUi: { active: false },
     idleCountdownTimer: null,
     expectedVenueId: '',
+    needLogin: false,
+    logging: false,
+    showAuthFallback: false,
+    pendingNickname: '',
+    pendingAvatar: '',
+    agreedToTerms: false,
 
   },
 
@@ -128,19 +135,27 @@ Page({
 
     this._lobbyLeaveTimer = null;
 
-    let tableId = safeDecode(options.table_id || '');
-    let qrToken = safeDecode(options.qr_token || '');
     const sceneRaw = extractSceneFromOptions(options);
     if (sceneRaw) {
       const parsed = parseTableScanResult(sceneRaw);
       if (parsed) {
-        tableId = parsed.tableId;
-        qrToken = parsed.qrToken;
+        app.globalData.pendingTableScan = {
+          tableId: parsed.tableId,
+          qrToken: parsed.qrToken,
+          scene: sceneRaw,
+        };
+        wx.switchTab({ url: '/pages/index/index' });
+        return;
       }
     }
+
+    let tableId = safeDecode(options.table_id || '');
+    let qrToken = safeDecode(options.qr_token || '');
     const expectedVenueId = options.venue_id || getVenueId();
 
     this.setData({ tableId, qrToken, expectedVenueId });
+
+    attachLoginHandlers(this, () => this.onLoginSuccess());
 
     if (!tableId || !qrToken) {
       this.setData({
@@ -703,6 +718,16 @@ Page({
 
 
 
+  async onLoginSuccess() {
+    this.setData({
+      needLogin: false,
+      logging: false,
+      showAuthFallback: false,
+      loadError: '',
+    });
+    await this.init();
+  },
+
   async ensureLogin() {
 
     const token = app.globalData.accessToken || app.globalData.token || wx.getStorageSync('access_token');
@@ -717,23 +742,9 @@ Page({
 
     }
 
-    try {
+    this.setData({ needLogin: true, pageReady: true, loadError: '' });
 
-      await api.login();
-
-      return true;
-
-    } catch (e) {
-
-      this.setData({ loadError: '请先在「我的」完成微信授权登录' });
-
-      wx.showToast({ title: String(e), icon: 'none' });
-
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1500);
-
-      return false;
-
-    }
+    return false;
 
   },
 

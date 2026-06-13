@@ -36,4 +36,5 @@ module.exports = {
   resetPassword: (body) => publicRequest('/api/public/venue-reset/confirm', 'POST', body),
   verifySuperToken: (token) => publicRequest('/api/public/super-setup/verify', 'POST', { token }),
   completeSuperSetup: (body) => publicRequest('/api/public/super-setup/complete', 'POST', body),
+  getVenueJoinPreview: (token) => publicRequest(`/api/venue/join-preview?token=${encodeURIComponent(token)}`),
 };

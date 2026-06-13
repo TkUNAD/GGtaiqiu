@@ -517,6 +517,38 @@ def venues_list_mobile():
     )
 
 
+@app.route("/api/venue/join-preview")
+def venue_join_preview_api():
+    from venue_player_service import join_preview_by_token
+    from venue_service import parse_join_token
+
+    token = parse_join_token(request.args.get("token") or request.args.get("scene") or "")
+    if not token:
+        return _err("缺少加入码")
+    try:
+        return _ok(join_preview_by_token(token))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/venue/join", methods=["POST"])
+def venue_join_api():
+    user = _user_from_token()
+    if not user:
+        return _err("请先登录", 401, 401)
+    data = request.get_json(silent=True) or {}
+    from venue_player_service import join_venue_by_token
+    from venue_service import parse_join_token
+
+    token = parse_join_token(data.get("token") or data.get("scene") or "")
+    if not token:
+        return _err("缺少加入码")
+    try:
+        return _ok(join_venue_by_token(user["id"], token))
+    except ValueError as e:
+        return _err(str(e))
+
+
 @app.route("/api/settings/ladder")
 def public_ladder_rules():
     venue_id = request.args.get("venue_id", DEFAULT_VENUE_ID)
@@ -2168,6 +2200,47 @@ def admin_owner_bind_qr():
         return _err(str(e))
 
 
+@app.route("/api/admin/venue/join-qr", methods=["POST"])
+@admin_required
+def admin_venue_join_qr():
+    """俱乐部后台：生成玩家加入二维码（长期有效）"""
+    from mp_admin_service import create_venue_join_qr
+
+    if is_super_admin():
+        return _err("总后台请在各俱乐部账号下生成玩家加入码", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    try:
+        return _ok(create_venue_join_qr(vid))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@app.route("/api/admin/venue/join-qr.png")
+@admin_required
+def admin_venue_join_qr_png():
+    from flask import Response
+
+    from mp_admin_service import create_venue_join_qr
+    from wx_miniprogram_qr import build_miniprogram_qr, normalize_scene
+
+    if is_super_admin():
+        return _err("总后台无此功能", 403, 403)
+    vid = current_venue_id()
+    if not vid:
+        return _err("请先登录俱乐部后台", 400)
+    try:
+        qr = create_venue_join_qr(vid)
+        png, _ = build_miniprogram_qr(
+            "pages/venue-join/venue-join",
+            normalize_scene(qr["scene"]),
+        )
+        return Response(png, mimetype="image/png")
+    except ValueError as e:
+        return _err(str(e))
+
+
 @app.route("/api/admin/staff/<admin_id>", methods=["DELETE"])
 @admin_required
 @require_active_venue_member
@@ -2477,7 +2550,7 @@ def admin_table_qrcode_png(table_id):
         try:
             from wx_miniprogram_qr import build_miniprogram_qr
 
-            png, _ = build_miniprogram_qr("pages/table/table", scene)
+            png, _ = build_miniprogram_qr("pages/index/index", scene)
             png = _normalize_qr_png_bytes(png)
             qr_kind = "wxacode"
         except Exception as e:
@@ -3196,6 +3269,22 @@ def mp_admin_staff_invite_qr():
     qr = create_qr_token("invite", venue_id=vid, role="admin", created_by=rec["id"])
     scene = qr["scene"]
     return _ok({**qr, "qr_base64": qr_png_base64(scene, "pages/admin-scan/admin-scan")})
+
+
+@app.route("/api/mp-admin/venue/join-qr", methods=["POST"])
+@mp_admin_required
+@require_active_venue_member
+def mp_admin_venue_join_qr():
+    from mp_admin_service import create_venue_join_qr
+
+    rec = g.admin_ctx["admin_rec"]
+    vid = rec.get("venue_id")
+    if not vid:
+        return _err("总后台请使用 Web 管理端", 403, 403)
+    try:
+        return _ok(create_venue_join_qr(vid))
+    except ValueError as e:
+        return _err(str(e))
 
 
 @app.route("/api/mp-admin/staff/<admin_id>", methods=["DELETE"])

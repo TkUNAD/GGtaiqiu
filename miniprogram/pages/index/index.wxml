@@ -32,6 +32,44 @@
     <text class="venue-warn-link" bindtap="onRetryLocate">重新定位</text>
   </view>
 
+  <view class="card qr-scan-hint" wx:if="{{qrScanHint}}">
+    <text class="qr-scan-hint-title">已识别桌台二维码</text>
+    <text class="qr-scan-hint-text">请点击下方「扫码开台对战」，再次扫描球台二维码即可进入对战</text>
+  </view>
+
+  <view class="card qr-login-card" wx:if="{{showQrLogin}}">
+    <view class="qr-login-title">欢迎使用台球天梯</view>
+    <view class="qr-login-sub">您扫描了球台二维码，请先完成微信授权登录</view>
+    <view class="agree-row" bindtap="onToggleAgree">
+      <view class="agree-check {{agreedToTerms ? 'agree-check-on' : ''}}">
+        <text class="agree-check-icon" wx:if="{{agreedToTerms}}">✓</text>
+      </view>
+      <view class="agree-text">
+        <text>我已阅读并同意</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="user">《用户服务协议》</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="privacy">《隐私政策》</text>
+      </view>
+    </view>
+    <button
+      class="btn-primary btn-wx-login {{agreedToTerms ? '' : 'btn-wx-login-disabled'}}"
+      bindtap="onLogin"
+      disabled="{{logging || !agreedToTerms}}"
+    >{{logging ? '登录中...' : '微信授权登录'}}</button>
+    <view class="auth-fallback" wx:if="{{showAuthFallback}}">
+      <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />
+        <view wx:else class="avatar-placeholder">+</view>
+        <text class="avatar-tip">点击选择头像</text>
+      </button>
+      <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{pendingNickname}}" bind:change="onNicknameInput" />
+      <button
+        class="btn-primary btn-wx-login {{agreedToTerms ? '' : 'btn-wx-login-disabled'}}"
+        bindtap="onConfirmProfileLogin"
+        disabled="{{logging || !agreedToTerms}}"
+      >确认授权并登录</button>
+    </view>
+  </view>
+
   <view class="card net-tip" wx:if="{{netError}}">
     <text class="net-title">网络未连接</text>
     <text class="net-msg">{{netError}}</text>

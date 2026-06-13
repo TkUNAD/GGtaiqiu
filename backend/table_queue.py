@@ -199,6 +199,12 @@ def join_table(
         return ts
 
     mutate("tables", _join)
+    try:
+        from venue_player_service import link_user_to_venue
+
+        link_user_to_venue(user_id, venue_id, source="table")
+    except Exception:
+        pass
     return view_holder["view"]
 
 

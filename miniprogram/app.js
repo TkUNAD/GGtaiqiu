@@ -1,5 +1,6 @@
 const { getApiBaseUrl, VENUE_ID } = require('./utils/config');
 const { getVenueId } = require('./utils/venueStore');
+const { parseTableScanResult } = require('./utils/tableQr');
 const api = require('./utils/api');
 
 App({
@@ -18,6 +19,8 @@ App({
     adminAccessToken: '',
     adminRefreshToken: '',
     adminSession: null,
+    /** 微信扫桌台码冷启动：先入首页登录，再由首页「扫码开台对战」进桌 */
+    pendingTableScan: null,
   },
   onLaunch(options) {
     this.globalData.baseUrl = getApiBaseUrl();
@@ -30,10 +33,19 @@ App({
       });
     } else if (scene === 'venue_apply' || String(scene).indexOf('venue_apply') >= 0) {
       wx.navigateTo({ url: '/pages/venue-apply/venue-apply' });
-    } else if (scene && /^T[\w-]+:/i.test(String(scene))) {
+    } else if (scene && String(scene).indexOf('vjo_') >= 0) {
       wx.navigateTo({
-        url: `/pages/table/table?scene=${encodeURIComponent(scene)}`,
+        url: `/pages/venue-join/venue-join?scene=${encodeURIComponent(scene)}`,
       });
+    } else if (scene && /^T[\w-]+:/i.test(String(scene))) {
+      const parsed = parseTableScanResult(scene);
+      if (parsed) {
+        this.globalData.pendingTableScan = {
+          tableId: parsed.tableId,
+          qrToken: parsed.qrToken,
+          scene: String(scene),
+        };
+      }
     } else if (scene && (String(scene).indexOf('sas_') >= 0 || /^[a-f0-9]{16}$/i.test(String(scene)))) {
       let setupScene = String(scene);
       if (setupScene.indexOf('sas_') >= 0) {

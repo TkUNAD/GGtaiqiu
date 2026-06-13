@@ -1,4 +1,39 @@
-<view class="table-page">
+<view wx:if="{{needLogin}}" class="table-login-wrap">
+  <view class="table-login-card">
+    <view class="table-login-title">扫码开台</view>
+    <view class="table-login-sub">请先完成微信授权登录，登录后将自动进入本桌等候区</view>
+    <view class="agree-row" bindtap="onToggleAgree">
+      <view class="agree-check {{agreedToTerms ? 'agree-check-on' : ''}}">
+        <text class="agree-check-icon" wx:if="{{agreedToTerms}}">✓</text>
+      </view>
+      <view class="agree-text">
+        <text>我已阅读并同意</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="user">《用户服务协议》</text>
+        <text class="agree-link" catchtap="openAgreement" data-type="privacy">《隐私政策》</text>
+      </view>
+    </view>
+    <button
+      class="table-login-btn {{agreedToTerms ? '' : 'table-login-btn-disabled'}}"
+      bindtap="onLogin"
+      disabled="{{logging || !agreedToTerms}}"
+    >{{logging ? '登录中...' : '微信授权登录'}}</button>
+    <view class="auth-fallback" wx:if="{{showAuthFallback}}">
+      <button class="avatar-picker" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <image wx:if="{{pendingAvatar}}" class="user-avatar" src="{{pendingAvatar}}" mode="aspectFill" />
+        <view wx:else class="avatar-placeholder">+</view>
+        <text class="avatar-tip">点击选择头像</text>
+      </button>
+      <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{pendingNickname}}" bind:change="onNicknameInput" />
+      <button
+        class="table-login-btn {{agreedToTerms ? '' : 'table-login-btn-disabled'}}"
+        bindtap="onConfirmProfileLogin"
+        disabled="{{logging || !agreedToTerms}}"
+      >确认授权并登录</button>
+    </view>
+  </view>
+</view>
+
+<view class="table-page" wx:else>
   <block wx:if="{{table}}">
 
   <!-- ========== 开台前：桌号 + 局数 + VS 对阵 + 开始 ========== -->

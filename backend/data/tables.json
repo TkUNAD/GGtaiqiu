@@ -7,14 +7,8 @@
     "opened": false,
     "current_match_id": null,
     "opened_at": null,
-    "waiting_players": [
-      {
-        "user_id": "Ud59aff410c63",
-        "nickname": ".",
-        "joined_at": "2026-06-08T21:02:31.188344",
-        "last_seen_at": "2026-06-08T21:06:35.220402"
-      }
-    ]
+    "waiting_players": [],
+    "qr_link": "pages/table/table?table_id=T01&qr_token=rYlx2H8Bii3Qrp9Aj2PaKw"
   },
   {
     "id": "T02",
@@ -23,7 +17,8 @@
     "qr_token": "42PWW7b1pUHtKzkoZ5vB6Q",
     "opened": false,
     "current_match_id": null,
-    "waiting_players": []
+    "waiting_players": [],
+    "qr_link": "pages/table/table?table_id=T02&qr_token=42PWW7b1pUHtKzkoZ5vB6Q"
   },
   {
     "id": "T03",
@@ -32,7 +27,8 @@
     "qr_token": "5_iuAAtorYAkXJCgG_Ei5g",
     "opened": false,
     "current_match_id": null,
-    "waiting_players": []
+    "waiting_players": [],
+    "qr_link": "pages/table/table?table_id=T03&qr_token=5_iuAAtorYAkXJCgG_Ei5g"
   },
   {
     "id": "T04",
@@ -41,7 +37,8 @@
     "qr_token": "lY0L1eZwppfq6ghuTa6a-g",
     "opened": false,
     "current_match_id": null,
-    "waiting_players": []
+    "waiting_players": [],
+    "qr_link": "pages/table/table?table_id=T04&qr_token=lY0L1eZwppfq6ghuTa6a-g"
   },
   {
     "id": "T05",
@@ -51,7 +48,8 @@
     "opened": false,
     "current_match_id": null,
     "opened_at": null,
-    "waiting_players": []
+    "waiting_players": [],
+    "qr_link": "pages/table/table?table_id=T05&qr_token=EHGfdYG2YI6SzPKKiExS1w"
   },
   {
     "id": "T5b70057e4d08",
@@ -61,14 +59,15 @@
     "opened": false,
     "current_match_id": null,
     "waiting_players": [],
-    "opened_at": null
+    "opened_at": null,
+    "qr_link": "pages/table/table?table_id=T5b70057e4d08&qr_token=qt"
   },
   {
     "id": "T06",
     "name": "乔氏金腿（7号）",
     "venue_id": "V001",
     "qr_token": "XIFavRsKHcNml29rjHFwtA",
-    "qr_link": "pages/table/table?table_id=T06&qr_token=table_T06",
+    "qr_link": "pages/table/table?table_id=T06&qr_token=XIFavRsKHcNml29rjHFwtA",
     "opened": false,
     "current_match_id": null,
     "opened_at": null,

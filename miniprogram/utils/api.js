@@ -408,6 +408,11 @@ function updateAvatar(avatar) {
   return send('');
 }
 
+function joinVenue(token) {
+  const t = (token || '').trim();
+  return request('/api/venue/join', 'POST', { token: t });
+}
+
 module.exports = {
   request,
   login,
@@ -417,6 +422,7 @@ module.exports = {
   logout,
   ping,
   updateAvatar,
+  joinVenue,
   hasWxProfileAuthorized,
   markWxProfileAuthorized,
   tryRefreshToken,

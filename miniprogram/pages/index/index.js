@@ -2,6 +2,7 @@ const api = require('../../utils/api');
 const { getApiBaseUrl } = require('../../utils/config');
 const { parseTableScanResult } = require('../../utils/tableQr');
 const { resolveTableQr, applyResolvedVenue, formatScanError } = require('../../utils/tableScanApi');
+const { attachLoginHandlers } = require('../../utils/loginHelper');
 const {
   decorateList,
   padLeaderboardTop,
@@ -49,6 +50,13 @@ Page({
     statusBarHeight: 20,
     navBarHeight: 64,
     navContentHeight: 44,
+    showQrLogin: false,
+    qrScanHint: false,
+    logging: false,
+    showAuthFallback: false,
+    pendingNickname: '',
+    pendingAvatar: '',
+    agreedToTerms: false,
   },
 
   onLoad() {
@@ -58,6 +66,7 @@ Page({
     const navContentHeight = (menu.top - statusBarHeight) * 2 + menu.height;
     const navBarHeight = statusBarHeight + navContentHeight;
     this.setData({ statusBarHeight, navBarHeight, navContentHeight });
+    attachLoginHandlers(this, () => this.onQrLoginSuccess());
   },
 
   onShow() {
@@ -66,8 +75,65 @@ Page({
       loggedIn,
       apiUrl: app.globalData.baseUrl || getApiBaseUrl(),
     });
-    this.initVenueBar().then(() => this.loadData());
+    this.initVenueBar()
+      .then(() => this.handleQrEntry())
+      .then(() => this.loadData());
     this.startHomeRefresh();
+  },
+
+  /** 微信扫桌台码冷启动：先入首页，老用户静默登录，新用户引导授权 */
+  async handleQrEntry() {
+    const pending = app.globalData.pendingTableScan;
+    if (!pending || !pending.tableId || !pending.qrToken) return;
+    app.globalData.pendingTableScan = null;
+
+    try {
+      const info = await resolveTableQr(pending.tableId, pending.qrToken);
+      applyResolvedVenue(info);
+      await this.initVenueBar();
+    } catch (e) {
+      console.warn('[QR entry] resolve venue failed', e);
+    }
+
+    if (app.globalData.token) {
+      this.setData({ loggedIn: true, qrScanHint: true });
+      return;
+    }
+
+    const refresh = wx.getStorageSync('refresh_token');
+    if (refresh) {
+      try {
+        await api.tryRefreshToken();
+        await api.login();
+        this.setData({ loggedIn: true, qrScanHint: true });
+        return;
+      } catch (e) {
+        console.warn('[QR entry] refresh login failed', e);
+      }
+    }
+
+    if (api.hasWxProfileAuthorized()) {
+      try {
+        await api.wechatLoginSilent();
+        this.setData({ loggedIn: true, qrScanHint: true });
+        return;
+      } catch (e) {
+        console.warn('[QR entry] silent login failed', e);
+      }
+    }
+
+    this.setData({ showQrLogin: true, qrScanHint: true });
+  },
+
+  onQrLoginSuccess() {
+    this.setData({
+      showQrLogin: false,
+      loggedIn: true,
+      logging: false,
+      showAuthFallback: false,
+      qrScanHint: true,
+    });
+    this.loadData();
   },
 
   onHide() {
@@ -274,44 +340,41 @@ Page({
   },
 
   doScanTable() {
-    this.ensureLogin().then((ok) => {
-      if (!ok) return;
-      wx.scanCode({
-        onlyFromCamera: true,
-        scanType: ['qrCode', 'wxCode'],
-        success: (res) => {
-          const parsed = parseTableScanResult(res.result || res.path || '');
-          if (!parsed) {
-            wx.showToast({ title: '请扫描球台完整二维码', icon: 'none', duration: 2500 });
-            return;
-          }
-          const { tableId, qrToken } = parsed;
-          if (!tableId || !qrToken) {
-            wx.showToast({ title: '二维码无效，请重新扫描', icon: 'none' });
-            return;
-          }
-          resolveTableQr(tableId, qrToken)
-            .then((info) => {
-              const venueId = applyResolvedVenue(info);
-              wx.navigateTo({
-                url: `/pages/table/table?table_id=${encodeURIComponent(tableId)}&qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`,
-              });
-            })
-            .catch((err) => {
-              wx.showModal({
-                title: '无法扫码',
-                content: formatScanError(err),
-                showCancel: false,
-              });
+    wx.scanCode({
+      onlyFromCamera: true,
+      scanType: ['qrCode', 'wxCode'],
+      success: (res) => {
+        const parsed = parseTableScanResult(res.result || res.path || '');
+        if (!parsed) {
+          wx.showToast({ title: '请扫描球台完整二维码', icon: 'none', duration: 2500 });
+          return;
+        }
+        const { tableId, qrToken } = parsed;
+        if (!tableId || !qrToken) {
+          wx.showToast({ title: '二维码无效，请重新扫描', icon: 'none' });
+          return;
+        }
+        resolveTableQr(tableId, qrToken)
+          .then((info) => {
+            const venueId = applyResolvedVenue(info);
+            wx.navigateTo({
+              url: `/pages/table/table?table_id=${encodeURIComponent(tableId)}&qr_token=${encodeURIComponent(qrToken)}&venue_id=${encodeURIComponent(venueId)}`,
             });
-        },
-        fail: (err) => {
-          const msg = (err && err.errMsg) || '';
-          if (msg.indexOf('cancel') < 0 && msg.indexOf('取消') < 0) {
-            wx.showToast({ title: '扫码失败', icon: 'none' });
-          }
-        },
-      });
+          })
+          .catch((err) => {
+            wx.showModal({
+              title: '无法扫码',
+              content: formatScanError(err),
+              showCancel: false,
+            });
+          });
+      },
+      fail: (err) => {
+        const msg = (err && err.errMsg) || '';
+        if (msg.indexOf('cancel') < 0 && msg.indexOf('取消') < 0) {
+          wx.showToast({ title: '扫码失败', icon: 'none' });
+        }
+      },
     });
   },
 

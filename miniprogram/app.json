@@ -21,6 +21,7 @@
     "pages/admin-console/admin-console",
     "pages/admin-module/admin-module",
     "pages/venue-apply/venue-apply",
+    "pages/venue-join/venue-join",
     "pages/super-setup/super-setup",
     "pages/venue-reset/venue-reset"
   ],

@@ -169,6 +169,12 @@
 
   <!-- 玩家管理 -->
   <block wx:elif="{{module === 'users'}}">
+    <view class="toolbar" wx:if="{{!isSuperConsole && canWrite}}">
+      <button size="mini" class="btn-mini-ok" bindtap="showVenueJoinQr">生成加入二维码</button>
+    </view>
+    <view class="admin-tip" wx:if="{{!isSuperConsole && canWrite}}" style="padding:0 24rpx 16rpx">
+      玩家扫描「加入二维码」后将自动打开小程序并加入本俱乐部，随后可在本列表中管理。
+    </view>
     <view class="admin-tip" wx:if="{{canPromotePlayers && !isSuperConsole}}" style="padding:16rpx 24rpx">
       可将已微信登录的玩家设为子管理员（最多3人）。也可在「管理员设置」查看列表。
     </view>

@@ -338,10 +338,14 @@
             可将已微信登录的玩家设为<strong>子管理员</strong>（最多3人），用于对局审核等。主管理员请在「管理员设置」生成绑定码扫码绑定，或在小程序用俱乐部账号密码绑定。
           </p>
           <div class="toolbar">
+            <button type="button" class="secondary venue-only-nav" onclick="showVenueJoinQr()">生成加入二维码</button>
             <button type="button" class="secondary" onclick="loadUsers()">刷新</button>
             <button type="button" class="danger" onclick="batchDeleteUsers()">批量删除</button>
             <span id="userSelectHint" style="font-size:13px;color:#666;align-self:center"></span>
           </div>
+          <p class="venue-only-nav" style="font-size:13px;color:#666;margin-bottom:12px">
+            玩家扫描「加入二维码」后将自动打开小程序并加入本俱乐部；也可扫桌台码签到后自动关联。
+          </p>
           <div class="table-scroll">
           <table><thead><tr>
             <th style="width:40px"><input type="checkbox" id="userSelectAll" title="全选" onchange="toggleAllUsers(this)"></th>
@@ -1661,6 +1665,36 @@
     function toggleAllUsers(el) {
       document.querySelectorAll('.user-cb').forEach(function(cb) { cb.checked = el.checked; });
       updateUserSelectHint();
+    }
+
+    async function showVenueJoinQr() {
+      if (!adminSession || adminSession.role === 'super') {
+        alert('请在俱乐部后台登录后生成玩家加入码');
+        return;
+      }
+      try {
+        var data = await api('/api/admin/venue/join-qr', { method: 'POST' });
+        var img = data.qr_base64;
+        if (!img) {
+          alert('生成失败，请确认已配置微信 AppSecret');
+          return;
+        }
+        var w = window.open('', '_blank', 'width=420,height=520');
+        if (w) {
+          w.document.write(
+            '<html><head><title>玩家加入二维码</title></head><body style="font-family:sans-serif;text-align:center;padding:20px">' +
+            '<h3>' + attrEsc(data.venue_name || '俱乐部') + '</h3>' +
+            '<p style="color:#666;font-size:14px">' + attrEsc(data.hint || '请玩家用微信扫一扫') + '</p>' +
+            '<img src="' + img + '" style="width:320px;height:320px" />' +
+            '<p><a href="' + API + '/api/admin/venue/join-qr.png" download="venue-join-qr.png">下载 PNG</a></p>' +
+            '</body></html>'
+          );
+        } else {
+          alert(data.hint || '二维码已生成，请允许弹窗后重试');
+        }
+      } catch (e) {
+        alert('生成失败: ' + (e.message || e));
+      }
     }
 
     async function loadUsers() {

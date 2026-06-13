@@ -69,6 +69,7 @@ Page({
     ladderHasCustom: false,
     ladderIsGlobal: false,
     inviteQr: '',
+    venueJoinQr: '',
     venueTab: 'list',
     venueAppList: [],
     deletedVenueList: [],
@@ -1080,6 +1081,27 @@ Page({
         }
       },
     });
+  },
+
+  async showVenueJoinQr() {
+    if (this.data.isSuperConsole) {
+      wx.showToast({ title: '请在俱乐部后台生成', icon: 'none' });
+      return;
+    }
+    wx.showLoading({ title: '生成中...', mask: true });
+    try {
+      const qr = await adminApi.adminRequest('/api/mp-admin/venue/join-qr', 'POST', {});
+      wx.hideLoading();
+      if (qr.qr_base64) {
+        this.setData({ venueJoinQr: qr.qr_base64 });
+        wx.previewImage({ urls: [qr.qr_base64], current: qr.qr_base64 });
+      } else {
+        wx.showToast({ title: '生成失败', icon: 'none' });
+      }
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: String(e), icon: 'none' });
+    }
   },
 
   async inviteStaff() {
