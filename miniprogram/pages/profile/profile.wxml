@@ -1,6 +1,15 @@
 <view class="container" wx:if="{{profile}}">
   <view class="card profile-card">
-    <image class="avatar" src="{{profile.user.avatar || '/assets/default-avatar.png'}}" mode="aspectFill" binderror="onProfileAvatarError"></image>
+    <image
+      wx:if="{{profile.hasAvatar}}"
+      class="avatar"
+      src="{{profile.user.avatar}}"
+      mode="aspectFill"
+      binderror="onProfileAvatarError"
+    />
+    <view wx:else class="avatar avatar-fallback">
+      <text class="avatar-fallback-text">{{profile.avatarInitial}}</text>
+    </view>
     <view class="name">{{profile.user.nickname}}</view>
     <view class="tier-line">
       <image class="tier-img tier-img-lg" src="{{profile.tierImage}}" mode="aspectFit" />

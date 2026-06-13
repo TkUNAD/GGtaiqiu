@@ -1150,11 +1150,16 @@
             Number(d.latitude).toFixed(6) + ', ' + Number(d.longitude).toFixed(6);
         } else {
           summary.className = 'venue-location-status warn';
-          summary.textContent = '尚未设置坐标，小程序顾客将无法显示距离与自动匹配球房';
+          summary.textContent = '尚未设置坐标，请点击下方按钮配置；顾客打开小程序后将无法显示距离。';
         }
       } catch (e) {
         summary.className = 'venue-location-status warn';
-        summary.textContent = '加载失败：' + e.message;
+        var msg = e.message || String(e);
+        if (msg.indexOf('404') >= 0 || msg.indexOf('Not Found') >= 0) {
+          summary.textContent = '后端尚未更新，请重新部署云托管后再设置球房位置。';
+        } else {
+          summary.textContent = '加载失败：' + msg;
+        }
       }
     }
 
@@ -1249,7 +1254,12 @@
       if (renewNav) renewNav.classList.toggle('hidden', isSuper);
       if (renewSideBtn) renewSideBtn.classList.toggle('hidden', isSuper);
       if (memCard) memCard.classList.toggle('hidden', isSuper);
-      if (!isSuper) loadVenueMembership();
+      var locCard = document.getElementById('venueLocationCard');
+      if (locCard) locCard.classList.toggle('hidden', isSuper);
+      if (!isSuper) {
+        loadVenueMembership();
+        loadVenueLocationCard();
+      }
       if (isSuper) {
         document.getElementById('ladderPanelTitle').textContent = '全局默认天梯规则';
         document.getElementById('dashboardTitle').textContent = '总后台仪表盘';

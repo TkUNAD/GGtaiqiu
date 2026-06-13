@@ -52,14 +52,21 @@ Page({
         status: EXCHANGE_STATUS[item.status] || item.status,
       }));
       const tierStyle = getTierStyle(profile.tier && profile.tier.tier_index);
+      const rawAvatar = (profile.user && profile.user.avatar) || (app.globalData.user && app.globalData.user.avatar) || '';
+      const avatar = resolveDisplayAvatar(rawAvatar);
+      const hasAvatar = !!(avatar && avatar !== DEFAULT_AVATAR && !avatar.startsWith('/assets/'));
+      const nickname = (profile.user && profile.user.nickname) || '球友';
       const user = {
         ...(profile.user || {}),
-        avatar: resolveDisplayAvatar(profile.user && profile.user.avatar),
+        avatar,
+        nickname,
       };
       this.setData({
         profile: {
           ...profile,
           user,
+          hasAvatar,
+          avatarInitial: nickname.slice(0, 1),
           ...tierStyle,
           recent_exchanges: recentExchanges,
         },
@@ -214,9 +221,12 @@ Page({
   onProfileAvatarError() {
     const profile = this.data.profile;
     if (!profile || !profile.user) return;
+    const nickname = profile.user.nickname || '球友';
     this.setData({
       profile: {
         ...profile,
+        hasAvatar: false,
+        avatarInitial: nickname.slice(0, 1),
         user: { ...profile.user, avatar: DEFAULT_AVATAR },
       },
     });

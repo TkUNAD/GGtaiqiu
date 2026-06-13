@@ -74,9 +74,23 @@
   width: 120rpx;
   height: 120rpx;
   border-radius: 50%;
-  margin-bottom: 16rpx;
+  margin: 0 auto 16rpx;
   border: 4rpx solid rgba(212, 175, 55, 0.45);
   box-shadow: 0 8rpx 28rpx rgba(212, 175, 55, 0.18);
+}
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.18) 0%, transparent 55%),
+    linear-gradient(168deg, #2a3550 0%, #1a2236 100%);
+}
+.avatar-fallback-text {
+  font-size: 52rpx;
+  font-weight: 800;
+  color: #D4AF37;
+  line-height: 1;
 }
 .name { font-size: 37rpx; font-weight: bold; color: #f5f0e1; }
 .tier { color: #D4AF37; }
