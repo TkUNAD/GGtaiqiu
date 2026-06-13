@@ -238,23 +238,32 @@
 
   <!-- 天梯规则 -->
   <block wx:elif="{{module === 'ladder'}}">
-    <scroll-view scroll-y class="ladder-scroll">
-      <view class="admin-tip" style="padding:16rpx 24rpx" wx:if="{{ladderTip}}">{{ladderTip}}</view>
-      <view class="ladder-section" wx:for="{{ladderSections}}" wx:key="id" wx:for-item="sec" wx:if="{{ladderIsGlobal}}">
-        <view class="section-title">{{sec.title}}</view>
-        <view class="form-row" wx:for="{{sec.fields}}" wx:key="key" wx:for-item="fld">
-          <text class="form-label">{{fld.label}}</text>
-          <input class="form-input" type="{{sec.id === 'tiers' ? 'text' : 'number'}}" value="{{fld.value}}" data-key="{{fld.key}}" bindinput="onLadderInput" disabled="{{!canLadder}}" />
+    <view class="ladder-page {{ladderIsGlobal ? '' : 'ladder-page-readonly'}}">
+      <view class="admin-tip ladder-tip" wx:if="{{ladderTip}}">{{ladderTip}}</view>
+      <scroll-view scroll-y class="ladder-scroll" wx:if="{{ladderIsGlobal}}">
+        <view class="ladder-section" wx:for="{{ladderSections}}" wx:key="id" wx:for-item="sec">
+          <view class="section-title">{{sec.title}}</view>
+          <view class="form-row" wx:for="{{sec.fields}}" wx:key="key" wx:for-item="fld">
+            <text class="form-label">{{fld.label}}</text>
+            <input class="form-input" type="{{sec.id === 'tiers' ? 'text' : 'number'}}" value="{{fld.value}}" data-key="{{fld.key}}" bindinput="onLadderInput" disabled="{{!canLadder}}" />
+          </view>
         </view>
+        <view class="rule-desc-box" wx:if="{{ladderDesc}}">
+          <text class="section-title">规则说明预览</text>
+          <text class="rule-desc-text">{{ladderDesc}}</text>
+        </view>
+        <view class="toolbar" wx:if="{{canLadder}}">
+          <button class="btn-primary" bindtap="saveLadder">保存规则</button>
+        </view>
+      </scroll-view>
+      <view class="ladder-desc-fill" wx:else>
+        <text class="section-title">规则说明</text>
+        <text class="ladder-desc-sub">根据总后台默认规则自动生成</text>
+        <scroll-view scroll-y class="ladder-desc-scroll">
+          <text class="rule-desc-text">{{ladderDesc}}</text>
+        </scroll-view>
       </view>
-      <view class="rule-desc-box" wx:if="{{ladderDesc}}">
-        <text class="section-title">规则说明预览</text>
-        <text class="rule-desc-text">{{ladderDesc}}</text>
-      </view>
-      <view class="toolbar" wx:if="{{canLadder && ladderIsGlobal}}">
-        <button class="btn-primary" bindtap="saveLadder">保存规则</button>
-      </view>
-    </scroll-view>
+    </view>
   </block>
 
   <!-- 球房会员（总后台） -->

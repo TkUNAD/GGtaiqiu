@@ -100,7 +100,33 @@
     .badge-green { background: #DDD6FE; color: #5B21B6; }
     .badge-red { background: #ffcdd2; }
     .badge-yellow { background: #fff9c4; }
-    .rule-desc { width: 100%; min-height: 200px; font-family: inherit; font-size: 13px; line-height: 1.5; background: #F5F3FF; }
+    .rule-desc { width: 100%; min-height: 200px; font-family: inherit; font-size: 13px; line-height: 1.5; background: #F5F3FF; resize: vertical; }
+    #tab-ladder.ladder-readonly-fill {
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 48px);
+    }
+    #tab-ladder.ladder-readonly-fill .card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0;
+      min-height: 0;
+    }
+    #tab-ladder.ladder-readonly-fill .ladder-desc-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    #tab-ladder.ladder-readonly-fill .rule-desc {
+      flex: 1;
+      min-height: 0;
+      height: auto;
+      resize: none;
+      overflow-y: auto;
+      margin-bottom: 8px;
+    }
     .venue-only-nav.hidden { display: none !important; }
     .sidebar a.nav-disabled {
       opacity: 0.5;
@@ -473,10 +499,12 @@
               </div>
             </div>
           </div>
-          <h4 style="margin:16px 0 8px">规则说明</h4>
-          <p style="font-size:12px;color:#666;margin-bottom:6px">根据当前配置自动生成（保存后更新）。</p>
-          <textarea id="lr_description_preview" class="rule-desc" readonly></textarea>
-          <p style="font-size:13px;color:#666;margin:12px 0">只能挑战比自己高 <strong id="lr_rule_hint">1~5</strong> 名；超出上限仅日常加分；超限只能休闲局。</p>
+          <div class="ladder-desc-block">
+            <h4 style="margin:16px 0 8px">规则说明</h4>
+            <p style="font-size:12px;color:#666;margin-bottom:6px">根据当前配置自动生成（保存后更新）。</p>
+            <textarea id="lr_description_preview" class="rule-desc" readonly></textarea>
+            <p style="font-size:13px;color:#666;margin:12px 0 0">只能挑战比自己高 <strong id="lr_rule_hint">1~5</strong> 名；超出上限仅日常加分；超限只能休闲局。</p>
+          </div>
           <div class="toolbar">
             <button id="btnSaveLadder" onclick="saveLadderSettings()">保存规则</button>
             <button type="button" class="secondary venue-only-nav" id="btnSyncLadder" onclick="syncLadderFromGlobal()">同步总后台默认规则</button>
@@ -2785,13 +2813,16 @@
       const toolbar = document.querySelector('#tab-ladder .toolbar');
       const btnSave = document.getElementById('btnSaveLadder');
       const btnSync = document.getElementById('btnSyncLadder');
+      const tabLadder = document.getElementById('tab-ladder');
       if (payload.scope === 'global') {
+        if (tabLadder) tabLadder.classList.remove('ladder-readonly-fill');
         tip.textContent = '此处为小程序与各球房的默认天梯规则。球房开通/续费会员时将同步本规则。';
         if (permTip) permTip.style.display = 'none';
         if (editable) editable.style.display = '';
         if (toolbar) toolbar.style.display = '';
         fillLadderForm(rules, payload.description);
       } else {
+        if (tabLadder) tabLadder.classList.add('ladder-readonly-fill');
         tip.textContent = payload.venue_readonly_tip || '俱乐部不可修改天梯规则，以下说明来自总后台默认规则';
         if (permTip) {
           permTip.style.display = 'block';
